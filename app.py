@@ -116,42 +116,31 @@ def filtrar(dataframe):
     return temp
 
 # 4. CARDS
+from streamlit_gsheets import GSheetsConnection
+
 def guardar_voto(lote, titulo, valor, query):
     try:
-        nuevo = pd.DataFrame([{"fecha": datetime.now(), "lote": lote, "titulo": titulo, "voto": valor, "query": query}])
-        nuevo.to_csv(PATH_FEEDBACK, mode='a', index=False, header=not os.path.exists(PATH_FEEDBACK), encoding='utf-8-sig')
-    except: pass
-
-def mostrar_card(r, context):
-    with st.container(border=True):
-        col_img, col_txt, col_voto = st.columns([1, 3, 1])
-        with col_img:
-            lote_id = str(r['Nº lote']).strip()
-            # Acceso a carpeta portadas en la raíz
-            archivos = glob.glob(f"{RUTA_PORTADAS}/{lote_id}.*")
-            if archivos: st.image(archivos[0], use_container_width=True)
-            else: st.write("📖")
-        with col_txt:
-            st.subheader(r['Título'])
-            st.write(f"**{r['Autor']}**")
-            pags = int(r.get(col_pag, 0)) if pd.notna(r.get(col_pag)) else 0
-            st.caption(f"Lote: {r['Nº lote']} | {r.get('Idioma','--')} | {pags} {t['pags_label']} | {r.get('Público','--')}")
-            with st.expander(t["resumen_btn"]):
-                st.write(r.get('Resumen_navarra','--'))
-        with col_voto:
-            kv = f"v_{r['Nº lote']}_{context[:3]}"
-            if kv in st.session_state: st.success(t["thanks"])
-            else:
-                st.write(f"<small>{t['ask']}</small>", unsafe_allow_html=True)
-                ca, cb = st.columns(2)
-                if ca.button("👍", key=f"u_{r['Nº lote']}_{context[:3]}"):
-                    guardar_voto(r['Nº lote'], r['Título'], 1, context)
-                    st.session_state[kv] = 1
-                    st.rerun()
-                if cb.button("👎", key=f"d_{r['Nº lote']}_{context[:3]}"):
-                    guardar_voto(r['Nº lote'], r['Título'], 0, context)
-                    st.session_state[kv] = 0
-                    st.rerun()
+        # Conectar con la hoja definida en Secrets
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # Leer datos que ya existan
+        df_existente = conn.read()
+        
+        # Crear la nueva fila de feedback
+        nuevo_voto = pd.DataFrame([{
+            "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "lote": str(lote),
+            "titulo": titulo,
+            "voto": "👍" if valor == 1 else "👎",
+            "query": query
+        }])
+        
+        # Unir y subir
+        df_final = pd.concat([df_existente, nuevo_voto], ignore_index=True)
+        conn.update(data=df_final)
+        st.toast("✅ ¡Voto guardado en el Excel!")
+    except Exception as e:
+        st.error(f"No se pudo guardar: {e}")
 
 # 5. CABECERA E INTERFAZ
 col_logo, col_tit = st.columns([1, 6])
