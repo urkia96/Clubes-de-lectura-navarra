@@ -1,6 +1,6 @@
 streamlit
 pandas
-faiss-cpu
+faiss-cpu==1.8.0
 sentence-transformers
 torch --index-url https://download.pytorch.org/whl/cpu
 openpyxl
