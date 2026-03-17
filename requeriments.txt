@@ -2,6 +2,6 @@ streamlit
 pandas
 faiss-cpu
 sentence-transformers
-torch
+torch --index-url https://download.pytorch.org/whl/cpu
 openpyxl
 st-gsheets-connection
