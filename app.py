@@ -89,7 +89,7 @@ def load_resources():
         df = df_ia
         
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-small')
+    model = SentenceTransformer('intfloat/multilingual-e5-large')
     return df, index, model
 
 df, index, model = load_resources()
