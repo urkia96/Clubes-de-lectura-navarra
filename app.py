@@ -89,7 +89,7 @@ def load_resources():
         df = df_ia
        
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
-    # Si ves que se cuelga por RAM, cambia 'large' por 'small'
+    # Nota: Si da error de RAM, cambia 'large' por 'small'
     model = SentenceTransformer('intfloat/multilingual-e5-large')
     return df, index, model
 
@@ -113,39 +113,55 @@ def guardar_voto(lote, titulo, valor, query):
     except Exception as e:
         st.error(f"Error al conectar con Google Sheets: {e}")
 
-# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS (La que faltaba)
+# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS (CON BÚSQUEDA DE FOTO FLEXIBLE)
 def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1, 3, 1])
         lote_id = str(r.get('Nº lote', '')).strip()
         
         with col_img:
-            archivos = glob.glob(f"{RUTA_PORTADAS}/{lote_id}.*")
-            if archivos:
-                st.image(archivos[0], use_container_width=True)
-            else:
+            # Buscamos el archivo ignorando la extensión (.jpg, .jpeg, .JPG, etc.)
+            foto_encontrada = False
+            if os.path.exists(RUTA_PORTADAS):
+                lista_archivos = os.listdir(RUTA_PORTADAS)
+                for f in lista_archivos:
+                    nombre_sin_ext = os.path.splitext(f)[0]
+                    if nombre_sin_ext == lote_id:
+                        st.image(f"{RUTA_PORTADAS}/{f}", use_container_width=True)
+                        foto_encontrada = True
+                        break
+            
+            if not foto_encontrada:
                 st.write("📖")
+                st.caption(f"Lote {lote_id}")
             
         with col_txt:
             st.subheader(r.get('Título', 'Sin título'))
             st.write(f"**{r.get('Autor', 'Autor desconocido')}**")
-            pags = r.get('Páginas', r.get('Páginas_ex', 0))
+            
+            # Gestionar columna de páginas
+            c_pag = 'Páginas' if 'Páginas' in r else 'Páginas_ex'
+            pags = r.get(c_pag, '--')
+            
             st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags} {t['pags_label']} | {r.get('Público','--')}")
             with st.expander(t["resumen_btn"]):
                 st.write(r.get('Resumen_navarra', 'No hay resumen disponible.'))
                 
         with col_voto:
-            kv = f"v_{lote_id}_{str(context)[:5]}"
+            # Clave única para evitar conflictos de botones
+            ctx_id = str(context)[:5].replace(" ", "_")
+            kv = f"v_{lote_id}_{ctx_id}"
+            
             if kv in st.session_state: 
                 st.success(t["thanks"])
             else:
                 st.write(f"<small>{t['ask']}</small>", unsafe_allow_html=True)
                 ca, cb = st.columns(2)
-                if ca.button("👍", key=f"u_{lote_id}_{str(context)[:5]}"):
+                if ca.button("👍", key=f"u_{lote_id}_{ctx_id}"):
                     guardar_voto(lote_id, r.get('Título', 'S/T'), 1, context)
                     st.session_state[kv] = 1
                     st.rerun()
-                if cb.button("👎", key=f"d_{lote_id}_{str(context)[:5]}"):
+                if cb.button("👎", key=f"d_{lote_id}_{ctx_id}"):
                     guardar_voto(lote_id, r.get('Título', 'S/T'), 0, context)
                     st.session_state[kv] = 0
                     st.rerun()
@@ -185,7 +201,7 @@ with col_tit:
 tab1, tab2, tab3 = st.tabs([t["tab1"], t["tab2"], t["tab3"]])
 
 with tab1:
-    q = st.text_input(t["input_query"], key="q1")
+    q = st.text_input(t["input_query"], key="q_semant")
     if q:
         vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
         D, I = index.search(vec, 50)
@@ -196,7 +212,7 @@ with tab1:
             mostrar_card(r, q)
 
 with tab2:
-    lid = st.text_input(t["lote_input"], key="q2")
+    lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
         lid_clean = lid.strip().upper()
         ref = df[df['Nº lote'] == lid_clean]
@@ -205,7 +221,7 @@ with tab2:
             D, I = index.search(v_ref, 20)
             sim = filtrar(df.iloc[I[0]])
             for _, r in sim[sim['Nº lote']!=lid_clean].head(10).iterrows():
-                mostrar_card(r, f"Sim {lid_clean}")
+                mostrar_card(r, f"Sim_{lid_clean}")
 
 with tab3:
     st.write(t["serendipia_txt"])
@@ -217,6 +233,4 @@ with tab3:
             st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state:
         mostrar_card(st.session_state.azar, "Seren")
-
-
 
