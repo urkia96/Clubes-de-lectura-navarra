@@ -53,7 +53,8 @@ texts = {
         "thanks": "✅ Voto registrado",
         "ask": "¿Te gusta esta recomendación?",
         "boton_txt": "¡Sorpréndeme!",
-        "serendipia_txt": "Deja que el azar elija por ti:"
+        "serendipia_txt": "Deja que el azar elija por ti:",
+        "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 60%)."
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -79,7 +80,8 @@ texts = {
         "thanks": "✅ Iritzia gordeta",
         "ask": "Gogoko duzu?",
         "boton_txt": "Harritu nazazu!",
-        "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:"
+        "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
+        "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%60 gutxienez)."
     }
 }
 t = texts[idioma_interfaz]
@@ -104,16 +106,15 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. LÓGICA DE VOTACIÓN (SINCRO TOTAL)
+# 3. LÓGICA DE VOTACIÓN
 def guardar_voto(lote, titulo, valor, query):
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        # Leer forzando Hoja 1 y sin caché
         try:
             df_existente = conn.read(worksheet="Hoja 1", ttl=0)
         except:
             df_existente = pd.DataFrame(columns=["fecha", "lote", "titulo", "voto", "query"])
-            
+        
         nuevo_voto = pd.DataFrame([{
             "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "lote": str(lote),
@@ -123,14 +124,12 @@ def guardar_voto(lote, titulo, valor, query):
         }])
         
         df_final = pd.concat([df_existente, nuevo_voto], ignore_index=True).dropna(how='all')
-        
-        # Guardar forzando Hoja 1
         conn.update(worksheet="Hoja 1", data=df_final)
-        st.toast("✅ ¡Voto guardado en el Excel!")
+        st.toast("✅ ¡Voto guardado!")
     except Exception as e:
         st.error(f"Error al guardar: {e}")
 
-# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS (CON WIDTH='STRETCH')
+# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS (ACTUALIZADA CON PALABRAS CLAVE)
 def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1, 3, 1])
@@ -142,8 +141,7 @@ def mostrar_card(r, context):
                 lista_archivos = os.listdir(RUTA_PORTADAS)
                 for f in lista_archivos:
                     if os.path.splitext(f)[0] == lote_id:
-                        # CORRECCIÓN AQUÍ: width='stretch'
-                        st.image(f"{RUTA_PORTADAS}/{f}", width='stretch')
+                        st.image(f"{RUTA_PORTADAS}/{f}", use_container_width=True)
                         foto_encontrada = True
                         break
             if not foto_encontrada:
@@ -161,8 +159,16 @@ def mostrar_card(r, context):
                 pags_display = str(pags_val)
             
             st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
+            
+            # --- SECCIÓN DE RESUMEN Y PALABRAS CLAVE ---
             with st.expander(t["resumen_btn"]):
                 st.write(r.get('Resumen_navarra', 'No hay resumen disponible.'))
+                
+                # Añadir Palabras clave (IA_Tags) si existen
+                tags = r.get('IA_Tags', '')
+                if pd.notnull(tags) and str(tags).strip() != "":
+                    st.markdown("---")
+                    st.markdown(f"**Palabras clave:** {tags}")
                 
         with col_voto:
             ctx_id = str(context)[:10].replace(" ", "_")
@@ -224,7 +230,7 @@ with tab1:
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r, "Busq_Trad")
 
-# TAB 2: BÚSQUEDA SEMÁNTICA
+# TAB 2: BÚSQUEDA SEMÁNTICA (CON UMBRAL > 60%)
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     if q:
@@ -232,20 +238,42 @@ with tab2:
         D, I = index.search(vec, 50)
         res = df.iloc[I[0]].copy()
         res['score_ia'] = D[0]
-        final = filtrar(res).sort_values('score_ia', ascending=False).head(10)
-        for _, r in final.iterrows(): mostrar_card(r, q)
+        
+        # FILTRO DE UMBRAL: Solo más de 60% de coincidencia
+        res_filtrada_score = res[res['score_ia'] >= 0.60]
+        
+        final = filtrar(res_filtrada_score).sort_values('score_ia', ascending=False).head(10)
+        
+        if final.empty:
+            st.info(t["no_results"])
+        else:
+            for _, r in final.iterrows(): mostrar_card(r, q)
 
-# TAB 3: BÚSQUEDA POR LOTE
+# TAB 3: BÚSQUEDA POR LOTE (CON UMBRAL > 60%)
 with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
         lid_clean = lid.strip().upper()
         ref = df[df['Nº lote'] == lid_clean]
         if not ref.empty:
+            # Reconstruir vector del libro de referencia
             v_ref = index.reconstruct(int(ref.index[0])).reshape(1,-1).astype('float32')
-            D, I = index.search(v_ref, 20)
-            sim = filtrar(df.iloc[I[0]])
-            for _, r in sim[sim['Nº lote']!=lid_clean].head(10).iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
+            D, I = index.search(v_ref, 25) # Buscamos 25 para tener margen tras filtros
+            
+            res_sim = df.iloc[I[0]].copy()
+            res_sim['score_ia'] = D[0]
+            
+            # FILTRO DE UMBRAL: Solo más de 60% de coincidencia
+            res_sim_score = res_sim[res_sim['score_ia'] >= 0.60]
+            
+            sim = filtrar(res_sim_score)
+            # Excluir el propio libro de referencia
+            final_sim = sim[sim['Nº lote'] != lid_clean].head(10)
+            
+            if final_sim.empty:
+                st.info(t["no_results"])
+            else:
+                for _, r in final_sim.iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
 
 # TAB 4: SERENDIPIA
 with tab4:
