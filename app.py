@@ -249,7 +249,7 @@ with tab2:
             'Teatro': ['teatro', 'dramaturgia'],
             'Novela negra': ['negra', 'policial', 'crimen', 'detective', 'intriga', 'thriller'],
             'Fantasía y ciencia ficción': ['fantasia', 'ciencia ficcion', 'scifi', 'fantastico'],
-            'Novela histórica': ['historia'],
+            'Novela histórica': ['historia', 'histórica', 'historica'],
             'Infantil': ['infantil', 'cuento', 'cuentos'],
             'Juvenil': ['juvenil', 'adolescente', 'young adult']
         }
