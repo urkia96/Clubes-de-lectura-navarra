@@ -242,14 +242,15 @@ with tab2:
         
         # Mapeo de géneros según tu lógica de Excel
         mapeo_generos = {
-            'Narrativa': ['novela', 'narrativa', 'ficcion', 'relato', 'cuento', 'novelas'],
+            'Narrativa': ['novela', 'narrativa', 'ficcion', 'relato', 'novelas'],
             'Cómic y novela gráfica': ['comic', 'novela grafica', 'tebeo', 'manga', 'comics'],
             'Ensayo y no ficción': ['ensayo', 'no ficcion', 'biografia', 'historia real', 'ensayos'],
             'Poesía': ['poesia', 'poema', 'versos', 'poemas'],
             'Teatro': ['teatro', 'dramaturgia'],
             'Novela negra': ['negra', 'policial', 'crimen', 'detective', 'intriga', 'thriller'],
             'Fantasía y ciencia ficción': ['fantasia', 'ciencia ficcion', 'scifi', 'fantastico'],
-            'Infantil': ['infantil', 'niño', 'niña', 'niños'],
+            'Novela histórica': ['historia'],
+            'Infantil': ['infantil', 'cuento', 'cuentos'],
             'Juvenil': ['juvenil', 'adolescente', 'young adult']
         }
 
