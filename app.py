@@ -10,15 +10,10 @@ import unicodedata
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# --- FUNCIÓN AUXILIAR PARA NORMALIZAR TEXTO (QUITAR ACENTOS Y MAYÚSCULAS) ---
+# --- FUNCIÓN AUXILIAR PARA NORMALIZAR TEXTO ---
 def normalizar_texto(texto):
-    if not isinstance(texto, str):
-        return ""
-    # Quitar tildes y diéresis
-    texto = "".join(
-        c for c in unicodedata.normalize('NFD', texto)
-        if unicodedata.category(c) != 'Mn'
-    )
+    if not isinstance(texto, str): return ""
+    texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
 
 # 1. CONFIGURACIÓN E IDIOMA
@@ -44,9 +39,9 @@ texts = {
         "f_editorial": "📚 Editorial",
         "f_paginas": "📄 Máx Páginas",
         "f_local": "🏠 Solo Locales",
-        "tab1": "📖 Búsqueda clásica",  # <-- Ahora es la 1
-        "tab2": "✨ Semántica",        # <-- Ahora es la 2
-        "tab3": "🔍 Por Lote",         # <-- Ahora es la 3
+        "tab1": "📖 Búsqueda clásica",
+        "tab2": "✨ Semántica",
+        "tab3": "🔍 Por Lote",
         "tab4": "🎲 Serendipia",
         "placeholder": "Ej: Novela histórica en Navarra",
         "input_query": "¿Qué quieres leer hoy?",
@@ -94,7 +89,6 @@ t = texts[idioma_interfaz]
 def load_resources():
     df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
-    
     excel_path = f"{PATH_RECO}/CATALOGO_VALIDADO_FINAL1.xlsx"
     if os.path.exists(excel_path):
         df_ex = pd.read_excel(excel_path)
@@ -102,32 +96,24 @@ def load_resources():
         df = pd.merge(df_ia, df_ex, on='Nº lote', how='left', suffixes=('', '_ex'))
     else:
         df = df_ia
-    
-    # Pre-normalizar columnas para búsqueda rápida
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-        
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
     model = SentenceTransformer('intfloat/multilingual-e5-large')
     return df, index, model
 
 df, index, model = load_resources()
 
-# 3. LÓGICA DE VOTACIÓN (FORZANDO NOMBRE DE PESTAÑA "Hoja 1")
+# 3. LÓGICA DE VOTACIÓN (SINCRO TOTAL)
 def guardar_voto(lote, titulo, valor, query):
     try:
-        # 1. Conexión con TTL=0 para evitar la memoria caché
         conn = st.connection("gsheets", type=GSheetsConnection)
-        
-        # 2. Leer datos de la pestaña específica "Hoja 1"
+        # Leer forzando Hoja 1 y sin caché
         try:
-            # Forzamos a que lea "Hoja 1". Si tu Excel tiene otro nombre, cámbialo aquí.
             df_existente = conn.read(worksheet="Hoja 1", ttl=0)
         except:
-            # Si la hoja está totalmente vacía, creamos la estructura
             df_existente = pd.DataFrame(columns=["fecha", "lote", "titulo", "voto", "query"])
             
-        # 3. Crear la nueva fila
         nuevo_voto = pd.DataFrame([{
             "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "lote": str(lote),
@@ -136,20 +122,15 @@ def guardar_voto(lote, titulo, valor, query):
             "query": str(query)
         }])
         
-        # 4. Combinar y limpiar
-        df_final = pd.concat([df_existente, nuevo_voto], ignore_index=True)
-        df_final = df_final.dropna(how='all') # Quita filas vacías accidentales
+        df_final = pd.concat([df_existente, nuevo_voto], ignore_index=True).dropna(how='all')
         
-        # 5. ACTUALIZAR la pestaña "Hoja 1"
+        # Guardar forzando Hoja 1
         conn.update(worksheet="Hoja 1", data=df_final)
-        
-        st.toast("✅ ¡Voto guardado en Hoja 1!")
-        
+        st.toast("✅ ¡Voto guardado en el Excel!")
     except Exception as e:
-        st.error(f"Error de conexión: {e}")
-        st.info("Asegúrate de que la pestaña del Excel se llame exactamente 'Hoja 1'")
+        st.error(f"Error al guardar: {e}")
 
-# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS
+# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS (CON WIDTH='STRETCH')
 def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1, 3, 1])
@@ -161,7 +142,8 @@ def mostrar_card(r, context):
                 lista_archivos = os.listdir(RUTA_PORTADAS)
                 for f in lista_archivos:
                     if os.path.splitext(f)[0] == lote_id:
-                        st.image(f"{RUTA_PORTADAS}/{f}", use_container_width=True)
+                        # CORRECCIÓN AQUÍ: width='stretch'
+                        st.image(f"{RUTA_PORTADAS}/{f}", width='stretch')
                         foto_encontrada = True
                         break
             if not foto_encontrada:
@@ -171,14 +153,10 @@ def mostrar_card(r, context):
         with col_txt:
             st.subheader(r.get('Título', 'Sin título'))
             st.write(f"**{r.get('Autor', 'Autor desconocido')}**")
-            
             c_pag = 'Páginas' if 'Páginas' in r else 'Páginas_ex'
             pags_val = r.get(c_pag, '--')
             try:
-                if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit():
-                    pags_display = str(int(float(pags_val)))
-                else:
-                    pags_display = str(pags_val)
+                pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
             except:
                 pags_display = str(pags_val)
             
@@ -209,7 +187,6 @@ f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().un
 f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
 f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
 f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
-
 col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
 max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
 f_pag = st.sidebar.slider(t["f_paginas"], 0, max_p, max_p)
@@ -221,46 +198,33 @@ def filtrar(dataframe):
     if f_publico: temp = temp[temp['Público'].isin(f_publico)]
     if f_gen: temp = temp[temp['genero_fix'].isin(f_gen)]
     if f_edit: temp = temp[temp['Editorial'].isin(f_edit)]
-    if col_pag_name in temp.columns: 
-        temp = temp[temp[col_pag_name].fillna(0) <= f_pag]
-    if f_local: 
-        temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
+    if col_pag_name in temp.columns: temp = temp[temp[col_pag_name].fillna(0) <= f_pag]
+    if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
     return temp
 
 # 6. INTERFAZ PRINCIPAL
 col_logo, col_tit = st.columns([1, 6])
 with col_logo:
-    if os.path.exists(URL_LOGO):
-        st.image(URL_LOGO, width=150)
+    if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
 with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-# CAMBIO DE ORDEN EN LAS TABS
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
-# --- TAB 1: BÚSQUEDA CLÁSICA ---
+# TAB 1: BÚSQUEDA CLÁSICA
 with tab1:
     c1, c2 = st.columns(2)
-    with c1:
-        b_tit = st.text_input(t["busq_titulo"], key="b_tit")
-    with c2:
-        b_aut = st.text_input(t["busq_autor"], key="b_aut")
-    
+    with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
+    with c2: b_aut = st.text_input(t["busq_autor"], key="b_aut")
     if b_tit or b_aut:
         res_trad = filtrar(df)
-        if b_tit:
-            term = normalizar_texto(b_tit)
-            res_trad = res_trad[res_trad['titulo_norm'].str.contains(term, na=False)]
-        if b_aut:
-            term = normalizar_texto(b_aut)
-            res_trad = res_trad[res_trad['autor_norm'].str.contains(term, na=False)]
-        
+        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
+        if b_aut: res_trad = res_trad[res_trad['autor_norm'].str.contains(normalizar_texto(b_aut), na=False)]
         st.write(f"Resultados: {len(res_trad)}")
-        for _, r in res_trad.head(20).iterrows():
-            mostrar_card(r, "Busq_Trad")
+        for _, r in res_trad.head(20).iterrows(): mostrar_card(r, "Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA ---
+# TAB 2: BÚSQUEDA SEMÁNTICA
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     if q:
@@ -269,10 +233,9 @@ with tab2:
         res = df.iloc[I[0]].copy()
         res['score_ia'] = D[0]
         final = filtrar(res).sort_values('score_ia', ascending=False).head(10)
-        for _, r in final.iterrows(): 
-            mostrar_card(r, q)
+        for _, r in final.iterrows(): mostrar_card(r, q)
 
-# --- TAB 3: BÚSQUEDA POR LOTE ---
+# TAB 3: BÚSQUEDA POR LOTE
 with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
@@ -282,17 +245,13 @@ with tab3:
             v_ref = index.reconstruct(int(ref.index[0])).reshape(1,-1).astype('float32')
             D, I = index.search(v_ref, 20)
             sim = filtrar(df.iloc[I[0]])
-            for _, r in sim[sim['Nº lote']!=lid_clean].head(10).iterrows():
-                mostrar_card(r, f"Sim_{lid_clean}")
+            for _, r in sim[sim['Nº lote']!=lid_clean].head(10).iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
 
-# --- TAB 4: SERENDIPIA ---
+# TAB 4: SERENDIPIA
 with tab4:
     st.write(t["serendipia_txt"])
-    if os.path.exists(URL_BOTON_RANDOM):
-        st.image(URL_BOTON_RANDOM, width=200)
+    if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM, width=200)
     if st.button(t["boton_txt"], type="primary"):
         posibles = filtrar(df)
-        if not posibles.empty:
-            st.session_state.azar = posibles.sample(1).iloc[0]
-    if 'azar' in st.session_state:
-        mostrar_card(st.session_state.azar, "Seren")
+        if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
+    if 'azar' in st.session_state: mostrar_card(st.session_state.azar, "Seren")
