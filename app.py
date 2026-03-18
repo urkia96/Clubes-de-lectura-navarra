@@ -200,7 +200,7 @@ f_local = st.sidebar.checkbox(t["f_local"])
 
 # --- SECCIÓN IA (MOVIDA ABAJO DEL TODO) ---
 st.sidebar.markdown("---")
-st.sidebar.subheader("🤖 Filtros Inteligentes")
+st.sidebar.subheader("🤖 Filtros de contenido")
 opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
 f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
 
