@@ -113,40 +113,41 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. LÓGICA DE VOTACIÓN (VERSIÓN FORZADA SIN CACHÉ)
+# 3. LÓGICA DE VOTACIÓN (FORZANDO NOMBRE DE PESTAÑA "Hoja 1")
 def guardar_voto(lote, titulo, valor, query):
     try:
-        # Usamos ttl=0 para que siempre lea la versión más reciente del Excel
+        # 1. Conexión con TTL=0 para evitar la memoria caché
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Leemos el estado actual del Excel (sin caché)
+        # 2. Leer datos de la pestaña específica "Hoja 1"
         try:
-            df_existente = conn.read(ttl=0)
+            # Forzamos a que lea "Hoja 1". Si tu Excel tiene otro nombre, cámbialo aquí.
+            df_existente = conn.read(worksheet="Hoja 1", ttl=0)
         except:
-            # Si falla la lectura, creamos un DF vacío con las columnas
+            # Si la hoja está totalmente vacía, creamos la estructura
             df_existente = pd.DataFrame(columns=["fecha", "lote", "titulo", "voto", "query"])
             
+        # 3. Crear la nueva fila
         nuevo_voto = pd.DataFrame([{
             "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "lote": str(lote),
-            "titulo": titulo,
+            "titulo": str(titulo),
             "voto": "👍" if valor == 1 else "👎",
             "query": str(query)
         }])
         
-        # Unimos los datos antiguos con el nuevo voto
+        # 4. Combinar y limpiar
         df_final = pd.concat([df_existente, nuevo_voto], ignore_index=True)
+        df_final = df_final.dropna(how='all') # Quita filas vacías accidentales
         
-        # Limpiamos posibles filas totalmente vacías que a veces crea Excel
-        df_final = df_final.dropna(how='all')
+        # 5. ACTUALIZAR la pestaña "Hoja 1"
+        conn.update(worksheet="Hoja 1", data=df_final)
         
-        # ACTUALIZACIÓN CRÍTICA
-        conn.update(data=df_final)
-        
-        st.toast("✅ ¡Voto guardado en el servidor!")
+        st.toast("✅ ¡Voto guardado en Hoja 1!")
         
     except Exception as e:
-        st.error(f"Error al conectar con Google Sheets: {e}")
+        st.error(f"Error de conexión: {e}")
+        st.info("Asegúrate de que la pestaña del Excel se llame exactamente 'Hoja 1'")
 
 # 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS
 def mostrar_card(r, context):
