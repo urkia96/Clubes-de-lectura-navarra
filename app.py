@@ -19,33 +19,20 @@ def normalizar_texto(texto):
 # 1. CONFIGURACIÓN E IDIOMA
 st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
-# CSS PERSONALIZADO PARA EL FILTRO CON LA "X" A LA IZQUIERDA
+# CSS para mejorar la estética de la "X" y los recuadros
 st.markdown("""
 <style>
-    /* Estilo para el botón X */
-    div.stButton > button[key^="btn_del_filter"] {
-        border: none;
-        background-color: transparent;
-        color: #0c5460;
-        font-size: 24px;
-        font-weight: bold;
-        padding: 0px;
-        margin-top: 8px;
-        line-height: 1;
-    }
-    div.stButton > button[key^="btn_del_filter"]:hover {
-        color: #f44336;
-        background-color: transparent;
-        border: none;
-    }
-    /* Contenedor del aviso azul */
-    .custom-info-box {
+    .stTextInput > div > div > div > button { font-size: 20px; }
+    .filter-info {
         background-color: #d1ecf1;
         color: #0c5460;
-        padding: 12px 15px;
+        padding: 10px;
         border-radius: 5px;
         border: 1px solid #bee5eb;
-        margin-left: -25px; /* Para 'atrapar' la X de la columna anterior */
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -75,7 +62,7 @@ texts = {
         "tab2": "✨ Búsqueda libre",
         "tab3": "🔍 Lotes similares",
         "tab4": "🎲 Búsqueda aleatoria",
-        "placeholder": "Ej: Historia de Navarra",
+        "placeholder": "Ej: Historias de espías en la guerra civil",
         "input_query": "Puedes escribir lo que quieras",
         "lote_input": "Introduce el código del lote:",
         "busq_titulo": "Buscar por Título:",
@@ -88,9 +75,7 @@ texts = {
         "serendipia_txt": "Deja que el azar elija por ti:",
         "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 75%).",
         "kw_label": "Palabras clave",
-        "borrar_filtro": "Quitar filtro",
-        "aviso_especifico": "🔍 Filtrando por categoría específica:",
-        "aviso_gen": "📚 Buscando en todas las"
+        "filtering": "Buscando por:"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -106,7 +91,7 @@ texts = {
         "tab2": "✨ Bilaketa librea",
         "tab3": "🔍 Lote antzekoak",
         "tab4": "🎲 Zorizko bilaketa",
-        "placeholder": "Adibidez: Nafarroako historia",
+        "placeholder": "Adibidez: Gerra zibileko espioi istorioak",
         "input_query": "Nahi duzuna idatzi dezakezu",
         "lote_input": "Sartu lote kodea:",
         "busq_titulo": "Izenburuaren arabera bilatu:",
@@ -119,9 +104,7 @@ texts = {
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
         "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%75 gutxienez).",
         "kw_label": "Gako-hitzak",
-        "borrar_filtro": "Iragazkia kendu",
-        "aviso_especifico": "🔍 Kategoria espezifikoen arabera iragazten:",
-        "aviso_gen": "📚 Guztietan bilatzen"
+        "filtering": "Bilatzen:"
     }
 }
 t = texts[idioma_interfaz]
@@ -243,11 +226,12 @@ with col_tit:
 
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
-# --- TAB 1: BÚSQUEDA CLÁSICA MEJORADA ---
+# --- TAB 1: BÚSQUEDA CLÁSICA ---
 with tab1:
     c1,c2 = st.columns(2)
     with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
     with c2: b_aut = st.text_input(t["busq_autor"], key="b_aut")
+   
     if b_tit or b_aut:
         res_trad = filtrar_dataframe(df)
         if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
@@ -258,87 +242,39 @@ with tab1:
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA CON "X" A LA IZQUIERDA ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA (Sin filtros automáticos de género) ---
 with tab2:
-    q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
+    q_input = st.text_input(t["input_query"], key="q_semant_val", placeholder=t["placeholder"])
     
-    # Gestión de estado de la búsqueda
-    if "last_query" not in st.session_state or st.session_state.last_query != q:
-        st.session_state.filtro_activo = True
-        st.session_state.last_query = q
+    if q_input:
+        # Recuadro informativo con la "X" para borrar
+        c_info, c_del = st.columns([0.9, 0.1])
+        with c_info:
+            st.info(f"{t['filtering']} **{q_input}**")
+        with c_del:
+            if st.button("❌", key="clear_q"):
+                st.session_state.q_semant_val = ""
+                st.rerun()
 
-    if q:
-        # Definimos df_base AL PRINCIPIO para evitar NameError
         df_base = filtrar_dataframe(df)
-        query_lc = q.lower()
-        col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
-
-        especificos = {
-            'Novela Histórica': ['historica', 'historico'],
-            'Novela Negra': ['negra', 'policial', 'crimen', 'detective', 'intriga', 'thriller'],
-            'Cómic y Novela Gráfica': ['comic', 'tebeo', 'manga', 'grafica'],
-            'Fantasía y Ciencia Ficción': ['fantasia', 'ciencia ficcion', 'scifi', 'fantastico'],
-            'Ensayo y No Ficción': ['ensayo', 'no ficcion', 'biografia', 'historia real'],
-            'Poesía': ['poesia', 'poema', 'versos'],
-            'Teatro': ['teatro', 'dramaturgia'],
-            'Infantil': ['infantil', 'niño', 'niña'],
-            'Juvenil': ['juvenil', 'adolescente'],
-            'Novela de terror': ['terror', 'miedo', 'horror']
-        }
         
-        genero_detectado = None
-        es_busqueda_generica_novela = False
-        for nombre_excel, palabras_clave in especificos.items():
-            if any(p in query_lc for p in palabras_clave):
-                genero_detectado = nombre_excel
-                break
-        if not genero_detectado:
-            palabras_novela = ['novela', 'narrativa', 'ficcion', 'libro de']
-            if any(p in query_lc for p in palabras_novela):
-                es_busqueda_generica_novela = True
-
-        # Lógica visual de la "X" a la izquierda
-        if st.session_state.filtro_activo:
-            if genero_detectado or es_busqueda_generica_novela:
-                texto_aviso = f"{t['aviso_especifico']} <strong>{genero_detectado}</strong>" if genero_detectado else f"{t['aviso_gen']} <strong>Novelas y Narrativa</strong>"
-                
-                c_del, c_html = st.columns([0.05, 0.95])
-                with c_del:
-                    if st.button("×", key="btn_del_filter", help=t["borrar_filtro"]):
-                        st.session_state.filtro_activo = False
-                        st.rerun()
-                with c_html:
-                    st.markdown(f'<div class="custom-info-box">{texto_aviso}</div>', unsafe_allow_html=True)
-
-                # Aplicar filtrado al df_base
-                if genero_detectado:
-                    df_base = df_base[df_base[col_gen] == genero_detectado]
-                else:
-                    categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
-                    df_base = df_base[df_base[col_gen].isin(categorias_novela)]
-
-        # Búsqueda IA
         if not df_base.empty:
-            query_limpia = query_lc
-            for p in ['novelas sobre', 'novela sobre', 'libros de', 'historias de']:
-                query_limpia = query_limpia.replace(p, "").strip()
-
-            vec = model.encode([f"query: {query_limpia}"], normalize_embeddings=True).astype('float32')
+            # La IA busca directamente sobre la query del usuario
+            vec = model.encode([f"query: {q_input}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
-            
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.75].sort_values('score_ia', ascending=False).head(10)
-
+            
             if final.empty:
                 st.info(t["no_results"])
             else:
-                for _, r in final.iterrows(): mostrar_card(r, q)
+                for _, r in final.iterrows(): mostrar_card(r, q_input)
         else:
-            st.warning("No hay resultados con los filtros actuales.")
+            st.warning("No hay resultados que coincidan con los filtros laterales.")
 
-# --- TAB 3: BÚSQUEDA POR LOTE ---
+# --- TAB 3: LOTES SIMILARES ---
 with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
@@ -358,11 +294,11 @@ with tab3:
             else:
                 for _, r in final_sim.iterrows(): mostrar_card(r,f"Sim_{lid_clean}")
 
-# --- TAB 4: SERENDIPIA ---
+# --- TAB 4: BÚSQUEDA ALEATORIA ---
 with tab4:
     st.write(t["serendipia_txt"])
     if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM,width=200)
-    if st.button(t["boton_txt"], key="btn_azar", type="primary"):
+    if st.button(t["boton_txt"], type="primary"):
         posibles = filtrar_dataframe(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state: mostrar_card(st.session_state.azar,"Seren")
