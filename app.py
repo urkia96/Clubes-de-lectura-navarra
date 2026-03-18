@@ -72,7 +72,7 @@ texts = {
         "f_local": "🏠 Bertakoak autoreak",
         "f_ia_gen": "📂 Kategoria Nagusia",
         "f_ia_sub": "🏷️ Gaiak eta EstiloaK",
-        "tab1": "📖 Bilaketa klasikoa",
+        "tab1": "📖 Izenburu / Idazle bilaketa",
         "tab2": "✨ Bilaketa librea",
         "tab3": "🔍 Lote antzekoak",
         "tab4": "🎲 Zorizko bilaketa",
