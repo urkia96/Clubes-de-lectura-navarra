@@ -28,7 +28,7 @@ col_main, col_lang = st.columns([12, 1])
 with col_lang:
     idioma_interfaz = st.selectbox("🌐", ["Castellano", "Euskera"])
 
-# --- TEXTOS DE INTERFAZ ---
+# --- TEXTOS DE INTERFAZ (Añadidos nuevos campos para los filtros IA) ---
 texts = {
     "Castellano": {
         "titulo": "Clubes de Lectura de Navarra",
@@ -40,6 +40,8 @@ texts = {
         "f_editorial": "📚 Editorial",
         "f_paginas": "📄 Máx Páginas",
         "f_local": "🏠 Autores locales",
+        "f_ia_gen": "📂 Categoría Principal",
+        "f_ia_sub": "🏷️ Temas y Estilos (IA)",
         "tab1": "📖 Búsqueda por autor/título",
         "tab2": "✨ Búsqueda libre",
         "tab3": "🔍 Lotes similares",
@@ -68,6 +70,8 @@ texts = {
         "f_editorial": "📚 Argitaletxea",
         "f_paginas": "📄 Orrialde kopurua",
         "f_local": "🏠 Bertakoak autoreak",
+        "f_ia_gen": "📂 Kategoria Nagusia",
+        "f_ia_sub": "🏷️ Gaiak eta Estiloak (IA)",
         "tab1": "📖 Bilaketa klasikoa",
         "tab2": "✨ Bilaketa librea",
         "tab3": "🔍 Lote antzekoak",
@@ -89,18 +93,22 @@ texts = {
 }
 t = texts[idioma_interfaz]
 
-# 2. CARGA DE RECURSOS
+# 2. CARGA DE RECURSOS (Actualizado para incluir CATALOGO_PROCESADO_version2.xlsx)
 @st.cache_resource
 def load_resources():
     df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
-    excel_path = f"{PATH_RECO}/CATALOGO_VALIDADO_FINAL1.xlsx"
-    if os.path.exists(excel_path):
-        df_ex = pd.read_excel(excel_path)
-        df_ex['Nº lote'] = df_ex['Nº lote'].astype(str).str.strip()
-        df = pd.merge(df_ia, df_ex, on='Nº lote', how='left', suffixes=('', '_ex'))
+    
+    # NUEVO EXCEL CON CATEGORÍAS IA
+    excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version2.xlsx"
+    if os.path.exists(excel_ia_path):
+        df_ex_ia = pd.read_excel(excel_ia_path)
+        df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].astype(str).str.strip()
+        # Unimos las nuevas columnas de IA al dataframe principal
+        df = pd.merge(df_ia, df_ex_ia[['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']], on='Nº lote', how='left')
     else:
         df = df_ia
+        
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
@@ -145,13 +153,17 @@ def mostrar_card(r, context):
         with col_txt:
             st.subheader(r.get('Título','Sin título'))
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
-            c_pag = 'Páginas' if 'Páginas' in r else 'Páginas_ex'
-            pags_val = r.get(c_pag,'--')
+            pags_val = r.get('Páginas', r.get('Páginas_ex','--'))
             try:
                 pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
             except:
                 pags_display = str(pags_val)
             st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
+            
+            # Badge de subgéneros IA si existen
+            if pd.notnull(r.get('Subgeneros_Limpios_IA')):
+                st.markdown(f"**{r.get('Genero_Principal_IA')}**: <small>{r.get('Subgeneros_Limpios_IA')}</small>", unsafe_allow_html=True)
+
             with st.expander(t["resumen_btn"]):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
                 tags = r.get('IA_Tags','')
@@ -175,10 +187,30 @@ def mostrar_card(r, context):
                     st.session_state[kv] = 0
                     st.rerun()
 
-# 6. FILTROS LATERALES
+# 6. FILTROS LATERALES (Actualizado con Filtros en Cascada para IA)
 st.sidebar.title(t["sidebar_tit"])
+
+# Filtros Normales
 f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
 f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
+
+# --- FILTROS EN CASCADA (IA) ---
+st.sidebar.markdown("---")
+# Nivel 1: Género Principal IA
+opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
+f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
+
+# Nivel 2: Subgéneros dinámicos
+if f_ia_gen:
+    # Solo mostramos subgéneros que pertenecen a los géneros principales seleccionados
+    df_temp_ia = df[df['Genero_Principal_IA'].isin(f_ia_gen)]
+    subs_disponibles = set()
+    df_temp_ia['Subgeneros_Limpios_IA'].str.split(', ').dropna().apply(subs_disponibles.update)
+    f_ia_sub = st.sidebar.multiselect(t["f_ia_sub"], sorted(list(subs_disponibles)))
+else:
+    f_ia_sub = []
+
+st.sidebar.markdown("---")
 f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
 f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
 col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
@@ -192,11 +224,19 @@ def filtrar_dataframe(dataframe):
     if f_publico: temp = temp[temp['Público'].isin(f_publico)]
     if f_gen: temp = temp[temp['genero_fix'].isin(f_gen)]
     if f_edit: temp = temp[temp['Editorial'].isin(f_edit)]
+    
+    # Filtros IA
+    if f_ia_gen: temp = temp[temp['Genero_Principal_IA'].isin(f_ia_gen)]
+    if f_ia_sub:
+        temp = temp[temp['Subgeneros_Limpios_IA'].apply(
+            lambda x: any(tema in str(x) for tema in f_ia_sub) if pd.notnull(x) else False
+        )]
+        
     if col_pag_name in temp.columns: temp = temp[temp[col_pag_name].fillna(0)<=f_pag]
     if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local",case=False,na=False)]
     return temp
 
-# 7. INTERFAZ PRINCIPAL
+# 7. INTERFAZ PRINCIPAL (El resto del código se mantiene igual...)
 col_logo, col_tit = st.columns([1,6])
 with col_logo:
     if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
@@ -222,24 +262,22 @@ with tab1:
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA (Limpia, sin avisos) ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
-    
+   
     if q:
         df_base = filtrar_dataframe(df)
-        
+       
         if not df_base.empty:
-            # IA pura sobre la query del usuario
             vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
-            
-            # Cruzar con filtros laterales
+           
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.75].sort_values('score_ia', ascending=False).head(10)
-            
+           
             if final.empty:
                 st.info(t["no_results"])
             else:
