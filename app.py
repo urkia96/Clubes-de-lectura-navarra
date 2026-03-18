@@ -240,55 +240,65 @@ with tab2:
     if q:
         query_lc = q.lower()
         
-        # Mapeo de géneros según tu lógica de Excel
-        mapeo_generos = {
-            'Narrativa': ['novela', 'narrativa', 'ficcion', 'relato', 'novelas'],
-            'Cómic y novela gráfica': ['comic', 'novela grafica', 'tebeo', 'manga', 'comics'],
-            'Ensayo y no ficción': ['ensayo', 'no ficcion', 'biografia', 'historia real', 'ensayos'],
-            'Poesía': ['poesia', 'poema', 'versos', 'poemas'],
+        # 1. Definimos los grupos según tu Excel
+        # El orden aquí importa: los más específicos primero
+        especificos = {
+            'Novela Histórica': ['historica', 'historico'],
+            'Novela Negra': ['negra', 'policial', 'crimen', 'detective', 'intriga', 'thriller'],
+            'Cómic y Novela Gráfica': ['comic', 'tebeo', 'manga', 'grafica'],
+            'Fantasía y Ciencia Ficción': ['fantasia', 'ciencia ficcion', 'scifi', 'fantastico'],
+            'Ensayo y No Ficción': ['ensayo', 'no ficcion', 'biografia', 'historia real'],
+            'Poesía': ['poesia', 'poema', 'versos'],
             'Teatro': ['teatro', 'dramaturgia'],
-            'Novela negra': ['negra', 'policial', 'crimen', 'detective', 'intriga', 'thriller'],
-            'Fantasía y ciencia ficción': ['fantasia', 'ciencia ficcion', 'scifi', 'fantastico'],
-            'Novela histórica': ['historia', 'histórica', 'historica'],
-            'Infantil': ['infantil', 'cuento', 'cuentos'],
-            'Juvenil': ['juvenil', 'adolescente', 'young adult']
+            'Infantil': ['infantil', 'niño', 'niña'],
+            'Juvenil': ['juvenil', 'adolescente'],
+            'Novela de terror': ['terror', 'miedo', 'horror']
         }
 
-        # Detección y limpieza
         genero_detectado = None
-        query_limpia = query_lc
-        
-        # Palabras que queremos eliminar de la query para que la IA no se líe
-        palabras_filtro = ['novelas sobre', 'novela sobre', 'poemas de', 'poesia de', 'libros de', 'libros sobre', 'novela de', 'un libro de']
-        
-        for p in palabras_filtro:
-            if p in query_limpia:
-                query_limpia = query_limpia.replace(p, "").strip()
+        es_busqueda_generica_novela = False
 
-        # Identificar si el usuario pidió un género concreto
-        for categoria_excel, palabras_clave in mapeo_generos.items():
+        # A. ¿Es una búsqueda de novela específica?
+        for nombre_excel, palabras_clave in especificos.items():
             if any(p in query_lc for p in palabras_clave):
-                genero_detectado = categoria_excel
+                genero_detectado = nombre_excel
                 break
+        
+        # B. Si no es específica, ¿es "novela" o "narrativa" en general?
+        if not genero_detectado:
+            palabras_novela = ['novela', 'narrativa', 'ficcion', 'libro de', 'leer algo de']
+            if any(p in query_lc for p in palabras_novela):
+                es_busqueda_generica_novela = True
 
-        # 1. Aplicamos filtros de la barra lateral
+        # Limpieza de la query para la IA
+        query_limpia = query_lc
+        palabras_a_quitar = ['novelas sobre', 'novela sobre', 'poemas de', 'libros de', 'historias de', 'un libro de']
+        for p in palabras_a_quitar:
+            query_limpia = query_limpia.replace(p, "").strip()
+
+        # --- FILTRADO DEL DATAFRAME ---
         df_base = filtrar_dataframe(df)
         
-        # 2. Si detectamos un género en el texto, filtramos el dataframe ANTES de la IA
+        # Aplicamos la lógica jerárquica
         if genero_detectado:
-            #st.info(f"{t['aviso_genero']} **{genero_detectado}**")
-            df_base = df_base[df_base['Género_Limpio'] == genero_detectado]
+            # Caso 1: El usuario fue específico (ej: "Novela Negra")
+            st.info(f"🔍 Filtrando por categoría específica: **{genero_detectado}**")
+            df_base = df_base[df_base['Género'] == genero_detectado]
+        
+        elif es_busqueda_generica_novela:
+            # Caso 2: El usuario dijo "Novela" -> Mostramos Narrativa + todas las Novelas
+            st.info("📚 Buscando en todas las **Novelas y Narrativa**")
+            categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
+            df_base = df_base[df_base['Género'].isin(categorias_novela)]
 
-        # 3. Búsqueda Vectorial (IA) sobre el dataframe resultante
+        # --- BÚSQUEDA VECTORIAL (IA) ---
         if not df_base.empty:
             vec = model.encode([f"query: {query_limpia}"], normalize_embeddings=True).astype('float32')
-            
-            # Buscamos en el índice global pero solo nos quedamos con los que están en df_base
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
             
-            # Cruzamos los resultados de IA con nuestro dataframe ya filtrado
+            # Cruzamos resultados
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.70].sort_values('score_ia', ascending=False).head(10)
 
@@ -297,7 +307,7 @@ with tab2:
             else:
                 for _, r in final.iterrows(): mostrar_card(r, q)
         else:
-            st.warning("No hay libros que coincidan con los filtros laterales y el género detectado.")
+            st.warning("No hay resultados que coincidan con los filtros.")
 
 # --- TAB 3: BÚSQUEDA POR LOTE ---
 with tab3:
