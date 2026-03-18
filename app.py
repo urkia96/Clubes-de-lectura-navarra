@@ -57,7 +57,6 @@ texts = {
         "serendipia_txt": "Deja que el azar elija por ti:",
         "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 75%).",
         "kw_label": "Palabras clave"
-        #"aviso_genero": "Filtrando por género:"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -86,7 +85,6 @@ texts = {
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
         "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%75 gutxienez).",
         "kw_label": "Gako-hitzak"
-        #"aviso_genero": "Generoz filtratzen:"
     }
 }
 t = texts[idioma_interfaz]
@@ -111,28 +109,19 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. CONEXIÓN CON GOOGLE SHEETS
+# 3. CONEXIÓN CON GOOGLE SHEETS (Omitida implementación interna por brevedad, se mantiene igual)
 def conectar_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=scope
-    )
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     client = gspread.authorize(creds)
     sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
     sheet = client.open_by_url(sheet_url).sheet1
     return sheet
 
-# 4. GUARDAR VOTO
 def guardar_voto(lote, titulo, valor, query):
     try:
         sheet = conectar_sheets()
-        sheet.append_row([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            str(lote),
-            str(titulo),
-            "👍" if valor == 1 else "👎",
-            str(query)
-        ])
+        sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), str(lote), str(titulo), "👍" if valor == 1 else "👎", str(query)])
         st.toast("✅ ¡Voto guardado!")
     except Exception as e:
         st.error(f"Error al guardar: {e}")
@@ -142,7 +131,6 @@ def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1,3,1])
         lote_id = str(r.get('Nº lote','')).strip()
-       
         with col_img:
             foto_encontrada = False
             if os.path.exists(RUTA_PORTADAS):
@@ -154,7 +142,6 @@ def mostrar_card(r, context):
             if not foto_encontrada:
                 st.write("📖")
                 st.caption(f"Lote {lote_id}")
-       
         with col_txt:
             st.subheader(r.get('Título','Sin título'))
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
@@ -165,14 +152,12 @@ def mostrar_card(r, context):
             except:
                 pags_display = str(pags_val)
             st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
-           
             with st.expander(t["resumen_btn"]):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
                 tags = r.get('IA_Tags','')
                 if pd.notnull(tags) and str(tags).strip() != "":
                     st.markdown("---")
                     st.markdown(f"**{t['kw_label']}:** {tags}")
-       
         with col_voto:
             ctx_id = str(context)[:10].replace(" ","_")
             kv = f"v_{lote_id}_{ctx_id}"
@@ -221,27 +206,33 @@ with col_tit:
 
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
-# --- TAB 1: BÚSQUEDA CLÁSICA ---
+# --- TAB 1: BÚSQUEDA CLÁSICA MEJORADA (Orden de nombre/apellido) ---
 with tab1:
     c1,c2 = st.columns(2)
     with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
     with c2: b_aut = st.text_input(t["busq_autor"], key="b_aut")
+    
     if b_tit or b_aut:
         res_trad = filtrar_dataframe(df)
-        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
-        if b_aut: res_trad = res_trad[res_trad['autor_norm'].str.contains(normalizar_texto(b_aut), na=False)]
+        
+        if b_tit:
+            res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
+        
+        if b_aut:
+            # Separamos la búsqueda del usuario en palabras (ej: ["fernando", "aramburu"])
+            palabras_busqueda = normalizar_texto(b_aut).split()
+            # Filtramos: el autor debe contener TODAS las palabras ingresadas
+            for palabra in palabras_busqueda:
+                res_trad = res_trad[res_trad['autor_norm'].str.contains(palabra, na=False)]
+        
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA CON FILTRADO INTELIGENTE ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA CON FILTRADO INTELIGENTE (Se mantiene igual) ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
-    
     if q:
         query_lc = q.lower()
-        
-        # 1. Definimos los grupos según tu Excel
-        # El orden aquí importa: los más específicos primero
         especificos = {
             'Novela Histórica': ['historica', 'historico'],
             'Novela Negra': ['negra', 'policial', 'crimen', 'detective', 'intriga', 'thriller'],
@@ -254,54 +245,36 @@ with tab2:
             'Juvenil': ['juvenil', 'adolescente'],
             'Novela de terror': ['terror', 'miedo', 'horror']
         }
-
         genero_detectado = None
         es_busqueda_generica_novela = False
-
-        # A. ¿Es una búsqueda de novela específica?
         for nombre_excel, palabras_clave in especificos.items():
             if any(p in query_lc for p in palabras_clave):
                 genero_detectado = nombre_excel
                 break
-        
-        # B. Si no es específica, ¿es "novela" o "narrativa" en general?
         if not genero_detectado:
             palabras_novela = ['novela', 'narrativa', 'ficcion', 'libro de', 'leer algo de']
             if any(p in query_lc for p in palabras_novela):
                 es_busqueda_generica_novela = True
-
-        # Limpieza de la query para la IA
         query_limpia = query_lc
         palabras_a_quitar = ['novelas sobre', 'novela sobre', 'poemas de', 'libros de', 'historias de', 'un libro de']
         for p in palabras_a_quitar:
             query_limpia = query_limpia.replace(p, "").strip()
-
-        # --- FILTRADO DEL DATAFRAME ---
         df_base = filtrar_dataframe(df)
-        
-        # Aplicamos la lógica jerárquica
+        col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
         if genero_detectado:
-            # Caso 1: El usuario fue específico (ej: "Novela Negra")
             st.info(f"🔍 Filtrando por categoría específica: **{genero_detectado}**")
-            df_base = df_base[df_base['Género_Limpio'] == genero_detectado]
-        
+            df_base = df_base[df_base[col_gen] == genero_detectado]
         elif es_busqueda_generica_novela:
-            # Caso 2: El usuario dijo "Novela" -> Mostramos Narrativa + todas las Novelas
             st.info("📚 Buscando en todas las **Novelas y Narrativa**")
             categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
-            df_base = df_base[df_base['Género_Limpio'].isin(categorias_novela)]
-
-        # --- BÚSQUEDA VECTORIAL (IA) ---
+            df_base = df_base[df_base[col_gen].isin(categorias_novela)]
         if not df_base.empty:
             vec = model.encode([f"query: {query_limpia}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
-            
-            # Cruzamos resultados
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.75].sort_values('score_ia', ascending=False).head(10)
-
             if final.empty:
                 st.info(t["no_results"])
             else:
@@ -309,14 +282,13 @@ with tab2:
         else:
             st.warning("No hay resultados que coincidan con los filtros.")
 
-# --- TAB 3: BÚSQUEDA POR LOTE ---
+# (Tab 3 y Tab 4 se mantienen igual...)
 with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
         lid_clean = lid.strip().upper()
         ref = df[df['Nº lote']==lid_clean]
         if not ref.empty:
-            # Obtenemos el índice real del DataFrame original para buscar en FAISS
             idx_faiss = ref.index[0]
             v_ref = index.reconstruct(int(idx_faiss)).reshape(1,-1).astype('float32')
             D,I = index.search(v_ref,25)
@@ -330,7 +302,6 @@ with tab3:
             else:
                 for _, r in final_sim.iterrows(): mostrar_card(r,f"Sim_{lid_clean}")
 
-# --- TAB 4: SERENDIPIA ---
 with tab4:
     st.write(t["serendipia_txt"])
     if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM,width=200)
@@ -338,3 +309,5 @@ with tab4:
         posibles = filtrar_dataframe(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state: mostrar_card(st.session_state.azar,"Seren")
+
+
