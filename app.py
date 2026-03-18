@@ -198,16 +198,9 @@ max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
 f_pag = st.sidebar.slider(t["f_paginas"], 0, max_p, max_p)
 f_local = st.sidebar.checkbox(t["f_local"])
 
-# --- SECCIÓN IA Y SLIDER DE SIMILITUD ---
+# --- SECCIÓN IA (MOVIDA ABAJO DEL TODO) ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("🤖 Filtros de contenido")
-
-# --- Slider de umbral de similitud ---
-umbral_similitud = st.sidebar.slider(
-    "🔧 Umbral de similitud", 0.0, 1.0, 0.80, 0.01,
-    help="Solo se mostrarán resultados con similitud mayor o igual a este valor"
-)
-
 opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
 f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
 
@@ -255,11 +248,11 @@ with tab1:
    
     if b_tit or b_aut:
         res_trad = filtrar_dataframe(df)
-        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False, regex=True)]
+        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
         if b_aut:
             palabras_busqueda = normalizar_texto(b_aut).split()
             for palabra in palabras_busqueda:
-                res_trad = res_trad[res_trad['autor_norm'].str.contains(palabra, na=False, regex=True)]
+                res_trad = res_trad[res_trad['autor_norm'].str.contains(palabra, na=False)]
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r, "Busq_Trad")
 
@@ -271,19 +264,14 @@ with tab2:
         if not df_base.empty:
             vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
-
-            valid_idx = [i for i in I[0] if i >= 0 and i < len(df)]
-            if not valid_idx:
+            res_ia = df.iloc[I[0]].copy()
+            res_ia['score_ia'] = D[0]
+            final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
+            final = final[final['score_ia'] >= 0.80].sort_values('score_ia', ascending=False).head(10)
+            if final.empty:
                 st.info(t["no_results"])
             else:
-                res_ia = df.iloc[valid_idx].copy()
-                res_ia['score_ia'] = D[0][:len(valid_idx)]
-                final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
-                final = final[final['score_ia'] >= umbral_similitud].sort_values('score_ia', ascending=False).head(10)
-                if final.empty:
-                    st.info(t["no_results"])
-                else:
-                    for _, r in final.iterrows(): mostrar_card(r, q)
+                for _, r in final.iterrows(): mostrar_card(r, q)
         else:
             st.warning("No hay resultados con los filtros laterales aplicados.")
 
@@ -297,20 +285,15 @@ with tab3:
             idx_faiss = ref.index[0]
             v_ref = index.reconstruct(int(idx_faiss)).reshape(1, -1).astype('float32')
             D, I = index.search(v_ref, 25)
-
-            valid_idx = [i for i in I[0] if i >= 0 and i < len(df)]
-            if valid_idx:
-                res_sim = df.iloc[valid_idx].copy()
-                res_sim['score_ia'] = D[0][:len(valid_idx)]
-                res_sim_score = res_sim[res_sim['score_ia'] >= umbral_similitud]
-                sim = filtrar_dataframe(res_sim_score)
-                final_sim = sim[sim['Nº lote'] != lid_clean].head(10)
-                if final_sim.empty:
-                    st.info(t["no_results"])
-                else:
-                    for _, r in final_sim.iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
-            else:
+            res_sim = df.iloc[I[0]].copy()
+            res_sim['score_ia'] = D[0]
+            res_sim_score = res_sim[res_sim['score_ia'] >= 0.80]
+            sim = filtrar_dataframe(res_sim_score)
+            final_sim = sim[sim['Nº lote'] != lid_clean].head(10)
+            if final_sim.empty:
                 st.info(t["no_results"])
+            else:
+                for _, r in final_sim.iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
 
 # --- TAB 4: BÚSQUEDA ALEATORIA ---
 with tab4:
