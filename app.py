@@ -55,7 +55,8 @@ texts = {
         "ask": "¿Te gusta esta recomendación?",
         "boton_txt": "¡Sorpréndeme!",
         "serendipia_txt": "Deja que el azar elija por ti:",
-        "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 60%)."
+        "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 60%).",
+        "kw_label": "Palabras clave"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -82,7 +83,8 @@ texts = {
         "ask": "Gogoko duzu?",
         "boton_txt": "Harritu nazazu!",
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
-        "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%60 gutxienez)."
+        "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%60 gutxienez).",
+        "kw_label": "Gako-hitzak"
     }
 }
 t = texts[idioma_interfaz]
@@ -166,10 +168,12 @@ def mostrar_card(r, context):
             
             with st.expander(t["resumen_btn"]):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
+                
+                # --- PALABRAS CLAVE DINÁMICAS ---
                 tags = r.get('IA_Tags','')
                 if pd.notnull(tags) and str(tags).strip() != "":
                     st.markdown("---")
-                    st.markdown(f"**Palabras clave:** {tags}")
+                    st.markdown(f"**{t['kw_label']}:** {tags}")
         
         # Botones de voto
         with col_voto:
