@@ -267,7 +267,7 @@ with tab2:
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
-            final = final[final['score_ia'] >= 0.77].sort_values('score_ia', ascending=False).head(10)
+            final = final[final['score_ia'] >= 0.79].sort_values('score_ia', ascending=False).head(10)
             if final.empty:
                 st.info(t["no_results"])
             else:
