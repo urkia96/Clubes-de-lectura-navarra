@@ -311,42 +311,35 @@ with tab2:
 
         # --- LÓGICA DE LA "X" ESTÉTICA CON CSS ---
         if st.session_state.filtro_activo:
-            if genero_detectado:
-                c_html, c_del = st.columns([0.96, 0.04]) # Columnas muy ajustadas
+            col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
+            
+            if genero_detectado or es_busqueda_generica_novela:
+                # Definimos el texto según el caso
+                texto_aviso = f"{t['aviso_especifico']} <strong>{genero_detectado}</strong>" if genero_detectado else f"{t['aviso_gen']} <strong>Novelas y Narrativa</strong>"
+                key_btn = "del_gen_html" if genero_detectado else "del_nov_html"
+
+                # Creamos dos columnas: la primera muy estrecha para la X, la segunda para el texto
+                c_del, c_html = st.columns([0.04, 0.96])
                 
-                # Parte HTML (el texto y el recuadro azul)
+                # El botón a la IZQUIERDA
+                if c_del.button("×", key=key_btn, help=t["borrar_filtro"]):
+                    st.session_state.filtro_activo = False
+                    st.rerun()
+
+                # El recuadro azul (ajustado para que el botón parezca estar dentro)
                 html_code = f"""
-                <div class="aviso-genero">
-                    <p class="aviso-genero-texto">{t['aviso_especifico']} <strong>{genero_detectado}</strong></p>
+                <div class="aviso-genero" style="margin-left: -15px; padding-left: 25px;">
+                    <p class="aviso-genero-texto">{texto_aviso}</p>
                 </div>
                 """
                 c_html.markdown(html_code, unsafe_allow_html=True)
                 
-                # Parte Botón (la X) - Se posiciona sobre el HTML con CSS
-                if c_del.button("❌", key="del_gen_html"):
-                    st.session_state.filtro_activo = False
-                    st.rerun()
-                    
-                df_base = df_base[df_base[col_gen] == genero_detectado]
-                
-            elif es_busqueda_generica_novela:
-                c_html, c_del = st.columns([0.96, 0.04]) # Columnas muy ajustadas
-                
-                # Parte HTML (el texto y el recuadro azul)
-                html_code = f"""
-                <div class="aviso-genero">
-                    <p class="aviso-genero-texto">{t['aviso_gen']} <strong>Novelas y Narrativa</strong></p>
-                </div>
-                """
-                c_html.markdown(html_code, unsafe_allow_html=True)
-                
-                # Parte Botón (la X) - Se posiciona sobre el HTML con CSS
-                if c_del.button("❌", key="del_nov_html"):
-                    st.session_state.filtro_activo = False
-                    st.rerun()
-                    
-                categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
-                df_base = df_base[df_base[col_gen].isin(categorias_novela)]
+                # Aplicar el filtro a los datos
+                if genero_detectado:
+                    df_base = df_base[df_base[col_gen] == genero_detectado]
+                else:
+                    categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
+                    df_base = df_base[df_base[col_gen].isin(categorias_novela)]
 
         # IA y resultados
         if not df_base.empty:
