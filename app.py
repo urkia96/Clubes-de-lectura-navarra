@@ -39,12 +39,12 @@ texts = {
         "f_genero": "👤 Género Autor/a",
         "f_editorial": "📚 Editorial",
         "f_paginas": "📄 Máx Páginas",
-        "f_local": "🏠 Solo Locales",
-        "tab1": "📖 Búsqueda clásica",
-        "tab2": "✨ Semántica",
-        "tab3": "🔍 Por Lote",
-        "tab4": "🎲 Serendipia",
-        "placeholder": "Ej: Novelas sobre la guerra civil",
+        "f_local": "🏠 Autores locales",
+        "tab1": "📖 Búsqueda por autor/título",
+        "tab2": "✨ Búsqueda libre",
+        "tab3": "🔍 Lotes similares",
+        "tab4": "🎲 Búsqueda aleatoria",
+        "placeholder": "Ej: Historia de Navarra",
         "input_query": "¿Qué quieres leer hoy?",
         "lote_input": "Introduce el código del lote:",
         "busq_titulo": "Buscar por Título:",
@@ -56,8 +56,8 @@ texts = {
         "boton_txt": "¡Sorpréndeme!",
         "serendipia_txt": "Deja que el azar elija por ti:",
         "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 75%).",
-        "kw_label": "Palabras clave",
-        "aviso_genero": "Filtrando por género:"
+        "kw_label": "Palabras clave"
+        #"aviso_genero": "Filtrando por género:"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -68,12 +68,12 @@ texts = {
         "f_genero": "👤 Egilearen generoa",
         "f_editorial": "📚 Argitaletxea",
         "f_paginas": "📄 Orrialde kopurua",
-        "f_local": "🏠 Bertakoak soilik",
+        "f_local": "🏠 Bertakoak autoreak",
         "tab1": "📖 Bilaketa klasikoa",
-        "tab2": "✨ Semantikoa",
-        "tab3": "🔍 Lote bidez",
-        "tab4": "🎲 Kasualitatea",
-        "placeholder": "Adibidez: Gerra zibilari buruzko eleberriak",
+        "tab2": "✨ Bilaketa librea",
+        "tab3": "🔍 Lote antzekoak",
+        "tab4": "🎲 Zorizko bilaketa",
+        "placeholder": "Adibidez: Nafarroako historia",
         "input_query": "Zer irakurri nahi duzu gaur?",
         "lote_input": "Sartu lote kodea:",
         "busq_titulo": "Izenburuaren arabera bilatu:",
@@ -84,9 +84,9 @@ texts = {
         "ask": "Gogoko duzu?",
         "boton_txt": "Harritu nazazu!",
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
-        "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%60 gutxienez).",
-        "kw_label": "Gako-hitzak",
-        "aviso_genero": "Generoz filtratzen:"
+        "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%75 gutxienez).",
+        "kw_label": "Gako-hitzak"
+        #"aviso_genero": "Generoz filtratzen:"
     }
 }
 t = texts[idioma_interfaz]
