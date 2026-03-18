@@ -19,24 +19,6 @@ def normalizar_texto(texto):
 # 1. CONFIGURACIÓN E IDIOMA
 st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
-# CSS para mejorar la estética de la "X" y los recuadros
-st.markdown("""
-<style>
-    .stTextInput > div > div > div > button { font-size: 20px; }
-    .filter-info {
-        background-color: #d1ecf1;
-        color: #0c5460;
-        padding: 10px;
-        border-radius: 5px;
-        border: 1px solid #bee5eb;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
 URL_BOTON_RANDOM = f"{PATH_RECO}/serendipia.png"
@@ -74,8 +56,7 @@ texts = {
         "boton_txt": "¡Sorpréndeme!",
         "serendipia_txt": "Deja que el azar elija por ti:",
         "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 75%).",
-        "kw_label": "Palabras clave",
-        "filtering": "Buscando por:"
+        "kw_label": "Palabras clave"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -103,8 +84,7 @@ texts = {
         "boton_txt": "Harritu nazazu!",
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
         "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%75 gutxienez).",
-        "kw_label": "Gako-hitzak",
-        "filtering": "Bilatzen:"
+        "kw_label": "Gako-hitzak"
     }
 }
 t = texts[idioma_interfaz]
@@ -242,37 +222,30 @@ with tab1:
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA (Sin filtros automáticos de género) ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA (Limpia, sin avisos) ---
 with tab2:
-    q_input = st.text_input(t["input_query"], key="q_semant_val", placeholder=t["placeholder"])
+    q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     
-    if q_input:
-        # Recuadro informativo con la "X" para borrar
-        c_info, c_del = st.columns([0.9, 0.1])
-        with c_info:
-            st.info(f"{t['filtering']} **{q_input}**")
-        with c_del:
-            if st.button("❌", key="clear_q"):
-                st.session_state.q_semant_val = ""
-                st.rerun()
-
+    if q:
         df_base = filtrar_dataframe(df)
         
         if not df_base.empty:
-            # La IA busca directamente sobre la query del usuario
-            vec = model.encode([f"query: {q_input}"], normalize_embeddings=True).astype('float32')
+            # IA pura sobre la query del usuario
+            vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
+            
+            # Cruzar con filtros laterales
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.75].sort_values('score_ia', ascending=False).head(10)
             
             if final.empty:
                 st.info(t["no_results"])
             else:
-                for _, r in final.iterrows(): mostrar_card(r, q_input)
+                for _, r in final.iterrows(): mostrar_card(r, q)
         else:
-            st.warning("No hay resultados que coincidan con los filtros laterales.")
+            st.warning("No hay resultados con los filtros laterales aplicados.")
 
 # --- TAB 3: LOTES SIMILARES ---
 with tab3:
