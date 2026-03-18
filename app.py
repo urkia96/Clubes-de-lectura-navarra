@@ -56,7 +56,8 @@ texts = {
         "boton_txt": "¡Sorpréndeme!",
         "serendipia_txt": "Deja que el azar elija por ti:",
         "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 75%).",
-        "kw_label": "Palabras clave"
+        "kw_label": "Palabras clave",
+        "borrar_filtro": "Quitar filtro de género"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -84,7 +85,8 @@ texts = {
         "boton_txt": "Harritu nazazu!",
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
         "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%75 gutxienez).",
-        "kw_label": "Gako-hitzak"
+        "kw_label": "Gako-hitzak",
+        "borrar_filtro": "Generoa iragazkia kendu"
     }
 }
 t = texts[idioma_interfaz]
@@ -109,7 +111,7 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. CONEXIÓN CON GOOGLE SHEETS (Omitida implementación interna por brevedad, se mantiene igual)
+# 3. CONEXIÓN CON GOOGLE SHEETS (Implementación simplificada para el ejemplo)
 def conectar_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
@@ -206,31 +208,30 @@ with col_tit:
 
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
-# --- TAB 1: BÚSQUEDA CLÁSICA MEJORADA (Orden de nombre/apellido) ---
+# --- TAB 1: BÚSQUEDA CLÁSICA ---
 with tab1:
     c1,c2 = st.columns(2)
     with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
     with c2: b_aut = st.text_input(t["busq_autor"], key="b_aut")
-    
     if b_tit or b_aut:
         res_trad = filtrar_dataframe(df)
-        
-        if b_tit:
-            res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
-        
+        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
         if b_aut:
-            # Separamos la búsqueda del usuario en palabras (ej: ["fernando", "aramburu"])
             palabras_busqueda = normalizar_texto(b_aut).split()
-            # Filtramos: el autor debe contener TODAS las palabras ingresadas
             for palabra in palabras_busqueda:
                 res_trad = res_trad[res_trad['autor_norm'].str.contains(palabra, na=False)]
-        
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA CON FILTRADO INTELIGENTE (Se mantiene igual) ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA CON "X" PARA QUITAR FILTRO ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
+    
+    # Resetear el estado si la query cambia
+    if "last_query" not in st.session_state or st.session_state.last_query != q:
+        st.session_state.filtro_activo = True
+        st.session_state.last_query = q
+
     if q:
         query_lc = q.lower()
         especificos = {
@@ -245,8 +246,10 @@ with tab2:
             'Juvenil': ['juvenil', 'adolescente'],
             'Novela de terror': ['terror', 'miedo', 'horror']
         }
+        
         genero_detectado = None
         es_busqueda_generica_novela = False
+        
         for nombre_excel, palabras_clave in especificos.items():
             if any(p in query_lc for p in palabras_clave):
                 genero_detectado = nombre_excel
@@ -255,19 +258,34 @@ with tab2:
             palabras_novela = ['novela', 'narrativa', 'ficcion', 'libro de', 'leer algo de']
             if any(p in query_lc for p in palabras_novela):
                 es_busqueda_generica_novela = True
+
         query_limpia = query_lc
         palabras_a_quitar = ['novelas sobre', 'novela sobre', 'poemas de', 'libros de', 'historias de', 'un libro de']
         for p in palabras_a_quitar:
             query_limpia = query_limpia.replace(p, "").strip()
+
         df_base = filtrar_dataframe(df)
         col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
-        if genero_detectado:
-            st.info(f"🔍 Filtrando por categoría específica: **{genero_detectado}**")
-            df_base = df_base[df_base[col_gen] == genero_detectado]
-        elif es_busqueda_generica_novela:
-            st.info("📚 Buscando en todas las **Novelas y Narrativa**")
-            categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
-            df_base = df_base[df_base[col_gen].isin(categorias_novela)]
+
+        # --- LÓGICA DE LA "X" ---
+        if st.session_state.filtro_activo:
+            if genero_detectado:
+                c_info, c_del = st.columns([0.9, 0.1])
+                c_info.info(f"🔍 Filtrando por categoría específica: **{genero_detectado}**")
+                if c_del.button("❌", key="del_gen", help=t["borrar_filtro"]):
+                    st.session_state.filtro_activo = False
+                    st.rerun()
+                df_base = df_base[df_base[col_gen] == genero_detectado]
+            elif es_busqueda_generica_novela:
+                c_info, c_del = st.columns([0.9, 0.1])
+                c_info.info("📚 Buscando en todas las **Novelas y Narrativa**")
+                if c_del.button("❌", key="del_nov", help=t["borrar_filtro"]):
+                    st.session_state.filtro_activo = False
+                    st.rerun()
+                categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
+                df_base = df_base[df_base[col_gen].isin(categorias_novela)]
+
+        # IA y resultados
         if not df_base.empty:
             vec = model.encode([f"query: {query_limpia}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
@@ -279,10 +297,8 @@ with tab2:
                 st.info(t["no_results"])
             else:
                 for _, r in final.iterrows(): mostrar_card(r, q)
-        else:
-            st.warning("No hay resultados que coincidan con los filtros.")
 
-# (Tab 3 y Tab 4 se mantienen igual...)
+# --- TAB 3 Y 4 (Igual que antes...) ---
 with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
@@ -309,5 +325,4 @@ with tab4:
         posibles = filtrar_dataframe(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state: mostrar_card(st.session_state.azar,"Seren")
-
 
