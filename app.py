@@ -100,7 +100,7 @@ def load_resources():
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
     
     # Carga del nuevo Excel procesado
-    excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version2.xlsx"
+    excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     if os.path.exists(excel_ia_path):
         df_ex_ia = pd.read_excel(excel_ia_path)
         df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].astype(str).str.strip()
