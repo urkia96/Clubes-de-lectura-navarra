@@ -244,7 +244,7 @@ with tab2:
         D,I = index.search(vec,50)
         res = df.iloc[I[0]].copy()
         res['score_ia'] = D[0]
-        res_filtrada_score = res[res['score_ia'] >= 0.60]
+        res_filtrada_score = res[res['score_ia'] >= 0.75]
         final = filtrar(res_filtrada_score).sort_values('score_ia',ascending=False).head(10)
         if final.empty:
             st.info(t["no_results"])
