@@ -276,7 +276,7 @@ with tab2:
         # 2. Si detectamos un género en el texto, filtramos el dataframe ANTES de la IA
         if genero_detectado:
             st.info(f"{t['aviso_genero']} **{genero_detectado}**")
-            df_base = df_base[df_base['Género'] == genero_detectado]
+            df_base = df_base[df_base['Género_Limpio'] == genero_detectado]
 
         # 3. Búsqueda Vectorial (IA) sobre el dataframe resultante
         if not df_base.empty:
