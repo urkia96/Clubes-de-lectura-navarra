@@ -19,6 +19,46 @@ def normalizar_texto(texto):
 # 1. CONFIGURACIÓN E IDIOMA
 st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
+# --- CSS PERSONALIZADO PARA EL AVISO CON "X" ---
+st.markdown("""
+<style>
+    .aviso-genero {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border-color: #bee5eb;
+        padding: 10px 15px;
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid transparent;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .aviso-genero-texto {
+        margin: 0;
+        flex-grow: 1;
+    }
+    /* Estilo para el botón de Streamlit dentro del aviso */
+    div.stButton > button.key-del_gen_html,
+    div.stButton > button.key-del_nov_html {
+        border: none;
+        background-color: transparent;
+        color: #0c5460;
+        padding: 0 5px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        line-height: 1;
+        margin-left: 10px;
+    }
+    div.stButton > button.key-del_gen_html:hover,
+    div.stButton > button.key-del_nov_html:hover {
+        color: #f44336; /* Rojo al pasar el ratón */
+        background-color: transparent;
+        border: none;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
 URL_BOTON_RANDOM = f"{PATH_RECO}/serendipia.png"
@@ -57,7 +97,8 @@ texts = {
         "serendipia_txt": "Deja que el azar elija por ti:",
         "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 75%).",
         "kw_label": "Palabras clave",
-        "borrar_filtro": "Quitar filtro de género"
+        "aviso_especifico": "🔍 Filtrando por categoría específica:",
+        "aviso_gen": "📚 Buscando en todas las"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak",
@@ -86,7 +127,8 @@ texts = {
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
         "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%75 gutxienez).",
         "kw_label": "Gako-hitzak",
-        "borrar_filtro": "Generoa iragazkia kendu"
+        "aviso_especifico": "🔍 Kategoria espezifikoen arabera iragazten:",
+        "aviso_gen": "📚 Guztietan bilatzen"
     }
 }
 t = texts[idioma_interfaz]
@@ -223,7 +265,7 @@ with tab1:
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA CON "X" PARA QUITAR FILTRO ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA CON AVISO ESTÉTICO ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     
@@ -267,21 +309,42 @@ with tab2:
         df_base = filtrar_dataframe(df)
         col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
 
-        # --- LÓGICA DE LA "X" ---
+        # --- LÓGICA DE LA "X" ESTÉTICA CON CSS ---
         if st.session_state.filtro_activo:
             if genero_detectado:
-                c_info, c_del = st.columns([0.9, 0.1])
-                c_info.info(f"🔍 Filtrando por categoría específica: **{genero_detectado}**")
-                if c_del.button("❌", key="del_gen", help=t["borrar_filtro"]):
+                c_html, c_del = st.columns([0.96, 0.04]) # Columnas muy ajustadas
+                
+                # Parte HTML (el texto y el recuadro azul)
+                html_code = f"""
+                <div class="aviso-genero">
+                    <p class="aviso-genero-texto">{t['aviso_especifico']} <strong>{genero_detectado}</strong></p>
+                </div>
+                """
+                c_html.markdown(html_code, unsafe_allow_html=True)
+                
+                # Parte Botón (la X) - Se posiciona sobre el HTML con CSS
+                if c_del.button("❌", key="del_gen_html"):
                     st.session_state.filtro_activo = False
                     st.rerun()
+                    
                 df_base = df_base[df_base[col_gen] == genero_detectado]
+                
             elif es_busqueda_generica_novela:
-                c_info, c_del = st.columns([0.9, 0.1])
-                c_info.info("📚 Buscando en todas las **Novelas y Narrativa**")
-                if c_del.button("❌", key="del_nov", help=t["borrar_filtro"]):
+                c_html, c_del = st.columns([0.96, 0.04]) # Columnas muy ajustadas
+                
+                # Parte HTML (el texto y el recuadro azul)
+                html_code = f"""
+                <div class="aviso-genero">
+                    <p class="aviso-genero-texto">{t['aviso_gen']} <strong>Novelas y Narrativa</strong></p>
+                </div>
+                """
+                c_html.markdown(html_code, unsafe_allow_html=True)
+                
+                # Parte Botón (la X) - Se posiciona sobre el HTML con CSS
+                if c_del.button("❌", key="del_nov_html"):
                     st.session_state.filtro_activo = False
                     st.rerun()
+                    
                 categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
                 df_base = df_base[df_base[col_gen].isin(categorias_novela)]
 
@@ -325,4 +388,3 @@ with tab4:
         posibles = filtrar_dataframe(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state: mostrar_card(st.session_state.azar,"Seren")
-
