@@ -6,21 +6,18 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
 import torch
-import glob
-import re
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # 1. CONFIGURACIÓN E IDIOMA
 st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
-# ESTRUCTURA DE RUTAS
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
 URL_BOTON_RANDOM = f"{PATH_RECO}/serendipia.png"
 RUTA_PORTADAS = "portadas"
 
-col_main, col_lang = st.columns([12, 5])
+col_main, col_lang = st.columns([12, 1])
 with col_lang:
     idioma_interfaz = st.selectbox("🌐", ["Castellano", "Euskera"])
 
@@ -37,10 +34,13 @@ texts = {
         "f_local": "🏠 Solo Locales",
         "tab1": "✨ Semántica",
         "tab2": "🔍 Por Lote",
-        "tab3": "🎲 Serendipia",
+        "tab3": "📖 Tradicional",
+        "tab4": "🎲 Serendipia",
         "placeholder": "Ej: Novela histórica en Navarra",
         "input_query": "¿Qué quieres leer hoy?",
         "lote_input": "Introduce el código del lote:",
+        "busq_titulo": "Buscar por Título:",
+        "busq_autor": "Buscar por Autor:",
         "resumen_btn": "Ver resumen",
         "pags_label": "págs",
         "thanks": "✅ Voto registrado",
@@ -60,10 +60,13 @@ texts = {
         "f_local": "🏠 Bertakoak soilik",
         "tab1": "✨ Semantikoa",
         "tab2": "🔍 Lote bidez",
-        "tab3": "🎲 Kasualitatea",
+        "tab3": "📖 Tradizionala",
+        "tab4": "🎲 Kasualitatea",
         "placeholder": "Adibidez: Abentura liburuak",
         "input_query": "Zer irakurri nahi duzu gaur?",
         "lote_input": "Sartu lote kodea:",
+        "busq_titulo": "Izenburuaren arabera bilatu:",
+        "busq_autor": "Egilearen arabera bilatu:",
         "resumen_btn": "Ikusi laburpena",
         "pags_label": "orr",
         "thanks": "✅ Iritzia gordeta",
@@ -79,7 +82,7 @@ t = texts[idioma_interfaz]
 def load_resources():
     df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
-   
+    
     excel_path = f"{PATH_RECO}/CATALOGO_VALIDADO_FINAL1.xlsx"
     if os.path.exists(excel_path):
         df_ex = pd.read_excel(excel_path)
@@ -87,15 +90,14 @@ def load_resources():
         df = pd.merge(df_ia, df_ex, on='Nº lote', how='left', suffixes=('', '_ex'))
     else:
         df = df_ia
-       
+        
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
-    # Nota: Si da error de RAM, cambia 'large' por 'small'
     model = SentenceTransformer('intfloat/multilingual-e5-large')
     return df, index, model
 
 df, index, model = load_resources()
 
-# 3. LÓGICA DE VOTACIÓN (GOOGLE SHEETS)
+# 3. LÓGICA DE VOTACIÓN
 def guardar_voto(lote, titulo, valor, query):
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -113,24 +115,21 @@ def guardar_voto(lote, titulo, valor, query):
     except Exception as e:
         st.error(f"Error al conectar con Google Sheets: {e}")
 
-# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS (CON BÚSQUEDA DE FOTO FLEXIBLE)
+# 4. FUNCIÓN PARA MOSTRAR LAS TARJETAS
 def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1, 3, 1])
         lote_id = str(r.get('Nº lote', '')).strip()
         
         with col_img:
-            # Buscamos el archivo ignorando la extensión (.jpg, .jpeg, .JPG, etc.)
             foto_encontrada = False
             if os.path.exists(RUTA_PORTADAS):
                 lista_archivos = os.listdir(RUTA_PORTADAS)
                 for f in lista_archivos:
-                    nombre_sin_ext = os.path.splitext(f)[0]
-                    if nombre_sin_ext == lote_id:
+                    if os.path.splitext(f)[0] == lote_id:
                         st.image(f"{RUTA_PORTADAS}/{f}", use_container_width=True)
                         foto_encontrada = True
                         break
-            
             if not foto_encontrada:
                 st.write("📖")
                 st.caption(f"Lote {lote_id}")
@@ -139,19 +138,25 @@ def mostrar_card(r, context):
             st.subheader(r.get('Título', 'Sin título'))
             st.write(f"**{r.get('Autor', 'Autor desconocido')}**")
             
-            # Gestionar columna de páginas
+            # --- SOLUCIÓN PUNTO 2: QUITAR DECIMALES A PÁGINAS ---
             c_pag = 'Páginas' if 'Páginas' in r else 'Páginas_ex'
-            pags = r.get(c_pag, '--')
+            pags_val = r.get(c_pag, '--')
+            try:
+                # Si es un número, lo convertimos a int para quitar el .0
+                if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit():
+                    pags_display = str(int(float(pags_val)))
+                else:
+                    pags_display = str(pags_val)
+            except:
+                pags_display = str(pags_val)
             
-            st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags} {t['pags_label']} | {r.get('Público','--')}")
+            st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
             with st.expander(t["resumen_btn"]):
                 st.write(r.get('Resumen_navarra', 'No hay resumen disponible.'))
                 
         with col_voto:
-            # Clave única para evitar conflictos de botones
-            ctx_id = str(context)[:5].replace(" ", "_")
+            ctx_id = str(context)[:10].replace(" ", "_")
             kv = f"v_{lote_id}_{ctx_id}"
-            
             if kv in st.session_state: 
                 st.success(t["thanks"])
             else:
@@ -174,7 +179,8 @@ f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().u
 f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
 
 col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
-f_pag = st.sidebar.slider(t["f_paginas"], 0, 1500, 1500)
+max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
+f_pag = st.sidebar.slider(t["f_paginas"], 0, max_p, max_p)
 f_local = st.sidebar.checkbox(t["f_local"])
 
 def filtrar(dataframe):
@@ -198,10 +204,11 @@ with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-tab1, tab2, tab3 = st.tabs([t["tab1"], t["tab2"], t["tab3"]])
+tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
+# TAB 1: BÚSQUEDA SEMÁNTICA
 with tab1:
-    q = st.text_input(t["input_query"], key="q_semant")
+    q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     if q:
         vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
         D, I = index.search(vec, 50)
@@ -211,6 +218,7 @@ with tab1:
         for _, r in final.iterrows(): 
             mostrar_card(r, q)
 
+# TAB 2: BÚSQUEDA POR LOTE
 with tab2:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
@@ -223,7 +231,27 @@ with tab2:
             for _, r in sim[sim['Nº lote']!=lid_clean].head(10).iterrows():
                 mostrar_card(r, f"Sim_{lid_clean}")
 
+# --- SOLUCIÓN PUNTO 1: TAB TRADICIONAL ---
 with tab3:
+    c1, c2 = st.columns(2)
+    with c1:
+        b_tit = st.text_input(t["busq_titulo"], key="b_tit")
+    with c2:
+        b_aut = st.text_input(t["busq_autor"], key="b_aut")
+    
+    if b_tit or b_aut:
+        res_trad = filtrar(df)
+        if b_tit:
+            res_trad = res_trad[res_trad['Título'].astype(str).str.contains(b_tit, case=False, na=False)]
+        if b_aut:
+            res_trad = res_trad[res_trad['Autor'].astype(str).str.contains(b_aut, case=False, na=False)]
+        
+        st.write(f"Resultados: {len(res_trad)}")
+        for _, r in res_trad.head(20).iterrows():
+            mostrar_card(r, "Busq_Trad")
+
+# TAB 4: SERENDIPIA
+with tab4:
     st.write(t["serendipia_txt"])
     if os.path.exists(URL_BOTON_RANDOM):
         st.image(URL_BOTON_RANDOM, width=200)
@@ -233,4 +261,3 @@ with tab3:
             st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state:
         mostrar_card(st.session_state.azar, "Seren")
-
