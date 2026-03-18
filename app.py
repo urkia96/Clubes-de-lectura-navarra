@@ -19,42 +19,33 @@ def normalizar_texto(texto):
 # 1. CONFIGURACIÓN E IDIOMA
 st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
-# --- CSS PERSONALIZADO PARA EL AVISO CON "X" ---
+# CSS PERSONALIZADO PARA EL FILTRO CON LA "X" A LA IZQUIERDA
 st.markdown("""
 <style>
-    .aviso-genero {
+    /* Estilo para el botón X */
+    div.stButton > button[key^="btn_del_filter"] {
+        border: none;
+        background-color: transparent;
+        color: #0c5460;
+        font-size: 24px;
+        font-weight: bold;
+        padding: 0px;
+        margin-top: 8px;
+        line-height: 1;
+    }
+    div.stButton > button[key^="btn_del_filter"]:hover {
+        color: #f44336;
+        background-color: transparent;
+        border: none;
+    }
+    /* Contenedor del aviso azul */
+    .custom-info-box {
         background-color: #d1ecf1;
         color: #0c5460;
-        border-color: #bee5eb;
-        padding: 10px 15px;
-        border-radius: 0.25rem;
-        margin-bottom: 1rem;
-        border: 1px solid transparent;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .aviso-genero-texto {
-        margin: 0;
-        flex-grow: 1;
-    }
-    /* Estilo para el botón de Streamlit dentro del aviso */
-    div.stButton > button.key-del_gen_html,
-    div.stButton > button.key-del_nov_html {
-        border: none;
-        background-color: transparent;
-        color: #0c5460;
-        padding: 0 5px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        line-height: 1;
-        margin-left: 10px;
-    }
-    div.stButton > button.key-del_gen_html:hover,
-    div.stButton > button.key-del_nov_html:hover {
-        color: #f44336; /* Rojo al pasar el ratón */
-        background-color: transparent;
-        border: none;
+        padding: 12px 15px;
+        border-radius: 5px;
+        border: 1px solid #bee5eb;
+        margin-left: -25px; /* Para 'atrapar' la X de la columna anterior */
     }
 </style>
 """, unsafe_allow_html=True)
@@ -97,6 +88,7 @@ texts = {
         "serendipia_txt": "Deja que el azar elija por ti:",
         "no_results": "No se han encontrado resultados con suficiente coincidencia (mín. 75%).",
         "kw_label": "Palabras clave",
+        "borrar_filtro": "Quitar filtro",
         "aviso_especifico": "🔍 Filtrando por categoría específica:",
         "aviso_gen": "📚 Buscando en todas las"
     },
@@ -127,6 +119,7 @@ texts = {
         "serendipia_txt": "Utzi zoriari zure ordez aukeratzen:",
         "no_results": "Ez da nahikoa antzekotasun duten emaitzarik aurkitu (%75 gutxienez).",
         "kw_label": "Gako-hitzak",
+        "borrar_filtro": "Iragazkia kendu",
         "aviso_especifico": "🔍 Kategoria espezifikoen arabera iragazten:",
         "aviso_gen": "📚 Guztietan bilatzen"
     }
@@ -153,7 +146,7 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. CONEXIÓN CON GOOGLE SHEETS (Implementación simplificada para el ejemplo)
+# 3. CONEXIÓN CON GOOGLE SHEETS
 def conectar_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
@@ -250,7 +243,7 @@ with col_tit:
 
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
-# --- TAB 1: BÚSQUEDA CLÁSICA ---
+# --- TAB 1: BÚSQUEDA CLÁSICA MEJORADA ---
 with tab1:
     c1,c2 = st.columns(2)
     with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
@@ -265,17 +258,21 @@ with tab1:
         st.write(f"Resultados: {len(res_trad)}")
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
-# --- TAB 2: BÚSQUEDA SEMÁNTICA CON AVISO ESTÉTICO ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA CON "X" A LA IZQUIERDA ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     
-    # Resetear el estado si la query cambia
+    # Gestión de estado de la búsqueda
     if "last_query" not in st.session_state or st.session_state.last_query != q:
         st.session_state.filtro_activo = True
         st.session_state.last_query = q
 
     if q:
+        # Definimos df_base AL PRINCIPIO para evitar NameError
+        df_base = filtrar_dataframe(df)
         query_lc = q.lower()
+        col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
+
         especificos = {
             'Novela Histórica': ['historica', 'historico'],
             'Novela Negra': ['negra', 'policial', 'crimen', 'detective', 'intriga', 'thriller'],
@@ -291,70 +288,57 @@ with tab2:
         
         genero_detectado = None
         es_busqueda_generica_novela = False
-        
         for nombre_excel, palabras_clave in especificos.items():
             if any(p in query_lc for p in palabras_clave):
                 genero_detectado = nombre_excel
                 break
         if not genero_detectado:
-            palabras_novela = ['novela', 'narrativa', 'ficcion', 'libro de', 'leer algo de']
+            palabras_novela = ['novela', 'narrativa', 'ficcion', 'libro de']
             if any(p in query_lc for p in palabras_novela):
                 es_busqueda_generica_novela = True
 
-        query_limpia = query_lc
-        palabras_a_quitar = ['novelas sobre', 'novela sobre', 'poemas de', 'libros de', 'historias de', 'un libro de']
-        for p in palabras_a_quitar:
-            query_limpia = query_limpia.replace(p, "").strip()
-
-        df_base = filtrar_dataframe(df)
-        col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
-
-        # --- LÓGICA DE LA "X" ESTÉTICA CON CSS ---
+        # Lógica visual de la "X" a la izquierda
         if st.session_state.filtro_activo:
-            col_gen = 'Género_Limpio' if 'Género_Limpio' in df.columns else 'Género'
-            
             if genero_detectado or es_busqueda_generica_novela:
-                # Definimos el texto según el caso
                 texto_aviso = f"{t['aviso_especifico']} <strong>{genero_detectado}</strong>" if genero_detectado else f"{t['aviso_gen']} <strong>Novelas y Narrativa</strong>"
-                key_btn = "del_gen_html" if genero_detectado else "del_nov_html"
-
-                # Creamos dos columnas: la primera muy estrecha para la X, la segunda para el texto
-                c_del, c_html = st.columns([0.04, 0.96])
                 
-                # El botón a la IZQUIERDA
-                if c_del.button("×", key=key_btn, help=t["borrar_filtro"]):
-                    st.session_state.filtro_activo = False
-                    st.rerun()
+                c_del, c_html = st.columns([0.05, 0.95])
+                with c_del:
+                    if st.button("×", key="btn_del_filter", help=t["borrar_filtro"]):
+                        st.session_state.filtro_activo = False
+                        st.rerun()
+                with c_html:
+                    st.markdown(f'<div class="custom-info-box">{texto_aviso}</div>', unsafe_allow_html=True)
 
-                # El recuadro azul (ajustado para que el botón parezca estar dentro)
-                html_code = f"""
-                <div class="aviso-genero" style="margin-left: -15px; padding-left: 25px;">
-                    <p class="aviso-genero-texto">{texto_aviso}</p>
-                </div>
-                """
-                c_html.markdown(html_code, unsafe_allow_html=True)
-                
-                # Aplicar el filtro a los datos
+                # Aplicar filtrado al df_base
                 if genero_detectado:
                     df_base = df_base[df_base[col_gen] == genero_detectado]
                 else:
                     categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
                     df_base = df_base[df_base[col_gen].isin(categorias_novela)]
 
-        # IA y resultados
+        # Búsqueda IA
         if not df_base.empty:
+            query_limpia = query_lc
+            for p in ['novelas sobre', 'novela sobre', 'libros de', 'historias de']:
+                query_limpia = query_limpia.replace(p, "").strip()
+
             vec = model.encode([f"query: {query_limpia}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
+            
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.75].sort_values('score_ia', ascending=False).head(10)
+
             if final.empty:
                 st.info(t["no_results"])
             else:
                 for _, r in final.iterrows(): mostrar_card(r, q)
+        else:
+            st.warning("No hay resultados con los filtros actuales.")
 
-# --- TAB 3 Y 4 (Igual que antes...) ---
+# --- TAB 3: BÚSQUEDA POR LOTE ---
 with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
@@ -374,10 +358,12 @@ with tab3:
             else:
                 for _, r in final_sim.iterrows(): mostrar_card(r,f"Sim_{lid_clean}")
 
+# --- TAB 4: SERENDIPIA ---
 with tab4:
     st.write(t["serendipia_txt"])
     if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM,width=200)
-    if st.button(t["boton_txt"], type="primary"):
+    if st.button(t["boton_txt"], key="btn_azar", type="primary"):
         posibles = filtrar_dataframe(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state: mostrar_card(st.session_state.azar,"Seren")
+
