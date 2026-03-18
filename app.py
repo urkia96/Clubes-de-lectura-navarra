@@ -262,7 +262,7 @@ with tab3:
             D,I = index.search(v_ref,25)
             res_sim = df.iloc[I[0]].copy()
             res_sim['score_ia'] = D[0]
-            res_sim_score = res_sim[res_sim['score_ia'] >= 0.60]
+            res_sim_score = res_sim[res_sim['score_ia'] >= 0.72]
             sim = filtrar(res_sim_score)
             final_sim = sim[sim['Nº lote'] != lid_clean].head(10)
             if final_sim.empty:
