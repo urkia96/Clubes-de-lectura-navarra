@@ -28,7 +28,7 @@ col_main, col_lang = st.columns([12, 1])
 with col_lang:
     idioma_interfaz = st.selectbox("🌐", ["Castellano", "Euskera"])
 
-# --- TEXTOS DE INTERFAZ (Añadidos nuevos campos para los filtros IA) ---
+# --- TEXTOS DE INTERFAZ ---
 texts = {
     "Castellano": {
         "titulo": "Clubes de Lectura de Navarra",
@@ -40,7 +40,7 @@ texts = {
         "f_editorial": "📚 Editorial",
         "f_paginas": "📄 Máx Páginas",
         "f_local": "🏠 Autores locales",
-        "f_ia_gen": "📂 Categoría Principal",
+        "f_ia_gen": "📂 Categoría Principal (IA)",
         "f_ia_sub": "🏷️ Temas y Estilos (IA)",
         "tab1": "📖 Búsqueda por autor/título",
         "tab2": "✨ Búsqueda libre",
@@ -70,7 +70,7 @@ texts = {
         "f_editorial": "📚 Argitaletxea",
         "f_paginas": "📄 Orrialde kopurua",
         "f_local": "🏠 Bertakoak autoreak",
-        "f_ia_gen": "📂 Kategoria Nagusia",
+        "f_ia_gen": "📂 Kategoria Nagusia (IA)",
         "f_ia_sub": "🏷️ Gaiak eta Estiloak (IA)",
         "tab1": "📖 Bilaketa klasikoa",
         "tab2": "✨ Bilaketa librea",
@@ -93,18 +93,17 @@ texts = {
 }
 t = texts[idioma_interfaz]
 
-# 2. CARGA DE RECURSOS (Actualizado para incluir CATALOGO_PROCESADO_version2.xlsx)
+# 2. CARGA DE RECURSOS
 @st.cache_resource
 def load_resources():
     df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
     
-    # NUEVO EXCEL CON CATEGORÍAS IA
+    # Carga del nuevo Excel procesado
     excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version2.xlsx"
     if os.path.exists(excel_ia_path):
         df_ex_ia = pd.read_excel(excel_ia_path)
         df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].astype(str).str.strip()
-        # Unimos las nuevas columnas de IA al dataframe principal
         df = pd.merge(df_ia, df_ex_ia[['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']], on='Nº lote', how='left')
     else:
         df = df_ia
@@ -187,36 +186,31 @@ def mostrar_card(r, context):
                     st.session_state[kv] = 0
                     st.rerun()
 
-# 6. FILTROS LATERALES (Actualizado con Filtros en Cascada para IA)
+# 6. FILTROS LATERALES
 st.sidebar.title(t["sidebar_tit"])
-
-# Filtros Normales
 f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
 f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
+f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
+f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
 
-# --- FILTROS EN CASCADA (IA) ---
+col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
+max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
+f_pag = st.sidebar.slider(t["f_paginas"], 0, max_p, max_p)
+f_local = st.sidebar.checkbox(t["f_local"])
+
+# --- SECCIÓN IA (MOVIDA ABAJO DEL TODO) ---
 st.sidebar.markdown("---")
-# Nivel 1: Género Principal IA
+st.sidebar.subheader("🤖 Filtros Inteligentes")
 opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
 f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
 
-# Nivel 2: Subgéneros dinámicos
 if f_ia_gen:
-    # Solo mostramos subgéneros que pertenecen a los géneros principales seleccionados
     df_temp_ia = df[df['Genero_Principal_IA'].isin(f_ia_gen)]
     subs_disponibles = set()
     df_temp_ia['Subgeneros_Limpios_IA'].str.split(', ').dropna().apply(subs_disponibles.update)
     f_ia_sub = st.sidebar.multiselect(t["f_ia_sub"], sorted(list(subs_disponibles)))
 else:
     f_ia_sub = []
-
-st.sidebar.markdown("---")
-f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
-f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
-col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
-max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
-f_pag = st.sidebar.slider(t["f_paginas"],0,max_p,max_p)
-f_local = st.sidebar.checkbox(t["f_local"])
 
 def filtrar_dataframe(dataframe):
     temp = dataframe.copy()
@@ -225,18 +219,18 @@ def filtrar_dataframe(dataframe):
     if f_gen: temp = temp[temp['genero_fix'].isin(f_gen)]
     if f_edit: temp = temp[temp['Editorial'].isin(f_edit)]
     
-    # Filtros IA
+    # Aplicar Filtros IA
     if f_ia_gen: temp = temp[temp['Genero_Principal_IA'].isin(f_ia_gen)]
     if f_ia_sub:
         temp = temp[temp['Subgeneros_Limpios_IA'].apply(
             lambda x: any(tema in str(x) for tema in f_ia_sub) if pd.notnull(x) else False
         )]
         
-    if col_pag_name in temp.columns: temp = temp[temp[col_pag_name].fillna(0)<=f_pag]
-    if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local",case=False,na=False)]
+    if col_pag_name in temp.columns: temp = temp[temp[col_pag_name].fillna(0) <= f_pag]
+    if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
     return temp
 
-# 7. INTERFAZ PRINCIPAL (El resto del código se mantiene igual...)
+# 7. INTERFAZ PRINCIPAL
 col_logo, col_tit = st.columns([1,6])
 with col_logo:
     if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
@@ -260,24 +254,20 @@ with tab1:
             for palabra in palabras_busqueda:
                 res_trad = res_trad[res_trad['autor_norm'].str.contains(palabra, na=False)]
         st.write(f"Resultados: {len(res_trad)}")
-        for _, r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
+        for _, r in res_trad.head(20).iterrows(): mostrar_card(r, "Busq_Trad")
 
 # --- TAB 2: BÚSQUEDA SEMÁNTICA ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
-   
     if q:
         df_base = filtrar_dataframe(df)
-       
         if not df_base.empty:
             vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
-           
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.75].sort_values('score_ia', ascending=False).head(10)
-           
             if final.empty:
                 st.info(t["no_results"])
             else:
@@ -290,11 +280,11 @@ with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
         lid_clean = lid.strip().upper()
-        ref = df[df['Nº lote']==lid_clean]
+        ref = df[df['Nº lote'] == lid_clean]
         if not ref.empty:
             idx_faiss = ref.index[0]
-            v_ref = index.reconstruct(int(idx_faiss)).reshape(1,-1).astype('float32')
-            D,I = index.search(v_ref,25)
+            v_ref = index.reconstruct(int(idx_faiss)).reshape(1, -1).astype('float32')
+            D, I = index.search(v_ref, 25)
             res_sim = df.iloc[I[0]].copy()
             res_sim['score_ia'] = D[0]
             res_sim_score = res_sim[res_sim['score_ia'] >= 0.70]
@@ -303,14 +293,14 @@ with tab3:
             if final_sim.empty:
                 st.info(t["no_results"])
             else:
-                for _, r in final_sim.iterrows(): mostrar_card(r,f"Sim_{lid_clean}")
+                for _, r in final_sim.iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
 
 # --- TAB 4: BÚSQUEDA ALEATORIA ---
 with tab4:
     st.write(t["serendipia_txt"])
-    if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM,width=200)
+    if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM, width=200)
     if st.button(t["boton_txt"], type="primary"):
         posibles = filtrar_dataframe(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
-    if 'azar' in st.session_state: mostrar_card(st.session_state.azar,"Seren")
+    if 'azar' in st.session_state: mostrar_card(st.session_state.azar, "Seren")
 
