@@ -113,13 +113,17 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. LÓGICA DE VOTACIÓN
+# 3. LÓGICA DE VOTACIÓN (VERSIÓN FORZADA SIN CACHÉ)
 def guardar_voto(lote, titulo, valor, query):
     try:
+        # Usamos ttl=0 para que siempre lea la versión más reciente del Excel
         conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # Leemos el estado actual del Excel (sin caché)
         try:
-            df_existente = conn.read()
+            df_existente = conn.read(ttl=0)
         except:
+            # Si falla la lectura, creamos un DF vacío con las columnas
             df_existente = pd.DataFrame(columns=["fecha", "lote", "titulo", "voto", "query"])
             
         nuevo_voto = pd.DataFrame([{
@@ -127,11 +131,20 @@ def guardar_voto(lote, titulo, valor, query):
             "lote": str(lote),
             "titulo": titulo,
             "voto": "👍" if valor == 1 else "👎",
-            "query": query
+            "query": str(query)
         }])
+        
+        # Unimos los datos antiguos con el nuevo voto
         df_final = pd.concat([df_existente, nuevo_voto], ignore_index=True)
+        
+        # Limpiamos posibles filas totalmente vacías que a veces crea Excel
+        df_final = df_final.dropna(how='all')
+        
+        # ACTUALIZACIÓN CRÍTICA
         conn.update(data=df_final)
-        st.toast("✅ ¡Voto guardado!")
+        
+        st.toast("✅ ¡Voto guardado en el servidor!")
+        
     except Exception as e:
         st.error(f"Error al conectar con Google Sheets: {e}")
 
