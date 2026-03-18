@@ -6,8 +6,20 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
 import torch
+import unicodedata
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
+
+# --- FUNCIÓN AUXILIAR PARA NORMALIZAR TEXTO (QUITAR ACENTOS Y MAYÚSCULAS) ---
+def normalizar_texto(texto):
+    if not isinstance(texto, str):
+        return ""
+    # Quitar tildes y diéresis
+    texto = "".join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+    return texto.lower().strip()
 
 # 1. CONFIGURACIÓN E IDIOMA
 st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
@@ -32,9 +44,9 @@ texts = {
         "f_editorial": "📚 Editorial",
         "f_paginas": "📄 Máx Páginas",
         "f_local": "🏠 Solo Locales",
-        "tab1": "✨ Semántica",
-        "tab2": "🔍 Por Lote",
-        "tab3": "📖 Tradicional",
+        "tab1": "📖 Búsqueda clásica",  # <-- Ahora es la 1
+        "tab2": "✨ Semántica",        # <-- Ahora es la 2
+        "tab3": "🔍 Por Lote",         # <-- Ahora es la 3
         "tab4": "🎲 Serendipia",
         "placeholder": "Ej: Novela histórica en Navarra",
         "input_query": "¿Qué quieres leer hoy?",
@@ -58,9 +70,9 @@ texts = {
         "f_editorial": "📚 Argitaletxea",
         "f_paginas": "📄 Orrialde kopurua",
         "f_local": "🏠 Bertakoak soilik",
-        "tab1": "✨ Semantikoa",
-        "tab2": "🔍 Lote bidez",
-        "tab3": "📖 Tradizionala",
+        "tab1": "📖 Bilaketa klasikoa",
+        "tab2": "✨ Semantikoa",
+        "tab3": "🔍 Lote bidez",
         "tab4": "🎲 Kasualitatea",
         "placeholder": "Adibidez: Abentura liburuak",
         "input_query": "Zer irakurri nahi duzu gaur?",
@@ -90,6 +102,10 @@ def load_resources():
         df = pd.merge(df_ia, df_ex, on='Nº lote', how='left', suffixes=('', '_ex'))
     else:
         df = df_ia
+    
+    # Pre-normalizar columnas para búsqueda rápida
+    df['titulo_norm'] = df['Título'].apply(normalizar_texto)
+    df['autor_norm'] = df['Autor'].apply(normalizar_texto)
         
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
     model = SentenceTransformer('intfloat/multilingual-e5-large')
@@ -101,7 +117,11 @@ df, index, model = load_resources()
 def guardar_voto(lote, titulo, valor, query):
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df_existente = conn.read()
+        try:
+            df_existente = conn.read()
+        except:
+            df_existente = pd.DataFrame(columns=["fecha", "lote", "titulo", "voto", "query"])
+            
         nuevo_voto = pd.DataFrame([{
             "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "lote": str(lote),
@@ -138,11 +158,9 @@ def mostrar_card(r, context):
             st.subheader(r.get('Título', 'Sin título'))
             st.write(f"**{r.get('Autor', 'Autor desconocido')}**")
             
-            # --- SOLUCIÓN PUNTO 2: QUITAR DECIMALES A PÁGINAS ---
             c_pag = 'Páginas' if 'Páginas' in r else 'Páginas_ex'
             pags_val = r.get(c_pag, '--')
             try:
-                # Si es un número, lo convertimos a int para quitar el .0
                 if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit():
                     pags_display = str(int(float(pags_val)))
                 else:
@@ -204,10 +222,32 @@ with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
+# CAMBIO DE ORDEN EN LAS TABS
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
-# TAB 1: BÚSQUEDA SEMÁNTICA
+# --- TAB 1: BÚSQUEDA CLÁSICA ---
 with tab1:
+    c1, c2 = st.columns(2)
+    with c1:
+        b_tit = st.text_input(t["busq_titulo"], key="b_tit")
+    with c2:
+        b_aut = st.text_input(t["busq_autor"], key="b_aut")
+    
+    if b_tit or b_aut:
+        res_trad = filtrar(df)
+        if b_tit:
+            term = normalizar_texto(b_tit)
+            res_trad = res_trad[res_trad['titulo_norm'].str.contains(term, na=False)]
+        if b_aut:
+            term = normalizar_texto(b_aut)
+            res_trad = res_trad[res_trad['autor_norm'].str.contains(term, na=False)]
+        
+        st.write(f"Resultados: {len(res_trad)}")
+        for _, r in res_trad.head(20).iterrows():
+            mostrar_card(r, "Busq_Trad")
+
+# --- TAB 2: BÚSQUEDA SEMÁNTICA ---
+with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     if q:
         vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
@@ -218,8 +258,8 @@ with tab1:
         for _, r in final.iterrows(): 
             mostrar_card(r, q)
 
-# TAB 2: BÚSQUEDA POR LOTE
-with tab2:
+# --- TAB 3: BÚSQUEDA POR LOTE ---
+with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
         lid_clean = lid.strip().upper()
@@ -231,26 +271,7 @@ with tab2:
             for _, r in sim[sim['Nº lote']!=lid_clean].head(10).iterrows():
                 mostrar_card(r, f"Sim_{lid_clean}")
 
-# --- SOLUCIÓN PUNTO 1: TAB TRADICIONAL ---
-with tab3:
-    c1, c2 = st.columns(2)
-    with c1:
-        b_tit = st.text_input(t["busq_titulo"], key="b_tit")
-    with c2:
-        b_aut = st.text_input(t["busq_autor"], key="b_aut")
-    
-    if b_tit or b_aut:
-        res_trad = filtrar(df)
-        if b_tit:
-            res_trad = res_trad[res_trad['Título'].astype(str).str.contains(b_tit, case=False, na=False)]
-        if b_aut:
-            res_trad = res_trad[res_trad['Autor'].astype(str).str.contains(b_aut, case=False, na=False)]
-        
-        st.write(f"Resultados: {len(res_trad)}")
-        for _, r in res_trad.head(20).iterrows():
-            mostrar_card(r, "Busq_Trad")
-
-# TAB 4: SERENDIPIA
+# --- TAB 4: SERENDIPIA ---
 with tab4:
     st.write(t["serendipia_txt"])
     if os.path.exists(URL_BOTON_RANDOM):
