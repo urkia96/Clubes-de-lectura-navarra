@@ -283,13 +283,13 @@ with tab2:
         if genero_detectado:
             # Caso 1: El usuario fue específico (ej: "Novela Negra")
             st.info(f"🔍 Filtrando por categoría específica: **{genero_detectado}**")
-            df_base = df_base[df_base['Género'] == genero_detectado]
+            df_base = df_base[df_base['Género_Limpio'] == genero_detectado]
         
         elif es_busqueda_generica_novela:
             # Caso 2: El usuario dijo "Novela" -> Mostramos Narrativa + todas las Novelas
             st.info("📚 Buscando en todas las **Novelas y Narrativa**")
             categorias_novela = ['Narrativa', 'Novela Histórica', 'Novela Negra', 'Novela de terror', 'Fantasía y Ciencia Ficción']
-            df_base = df_base[df_base['Género'].isin(categorias_novela)]
+            df_base = df_base[df_base['Género_Limpio'].isin(categorias_novela)]
 
         # --- BÚSQUEDA VECTORIAL (IA) ---
         if not df_base.empty:
@@ -300,7 +300,7 @@ with tab2:
             
             # Cruzamos resultados
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
-            final = final[final['score_ia'] >= 0.70].sort_values('score_ia', ascending=False).head(10)
+            final = final[final['score_ia'] >= 0.75].sort_values('score_ia', ascending=False).head(10)
 
             if final.empty:
                 st.info(t["no_results"])
