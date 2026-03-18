@@ -107,20 +107,21 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. CONEXIÓN CON GOOGLE SHEETS
-def conectar_sheets(sheet_name="feedback_libros"):
+# 3. CONEXIÓN CON GOOGLE SHEETS (SEGURA)
+def conectar_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"], scopes=scope
     )
     client = gspread.authorize(creds)
-    sheet = client.open(sheet_name).sheet1
+    sheet_url = st.secrets["gsheets"]["url"]
+    sheet = client.open_by_url(sheet_url).sheet1
     return sheet
 
 # 4. LÓGICA DE VOTACIÓN
 def guardar_voto(lote, titulo, valor, query):
     try:
-        sheet = conectar_sheets("feedback_libros")  # tu hoja
+        sheet = conectar_sheets()
         sheet.append_row([
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             str(lote),
@@ -135,9 +136,9 @@ def guardar_voto(lote, titulo, valor, query):
 # 5. FUNCIÓN PARA MOSTRAR LAS TARJETAS
 def mostrar_card(r, context):
     with st.container(border=True):
-        col_img, col_txt, col_voto = st.columns([1, 3, 1])
-        lote_id = str(r.get('Nº lote', '')).strip()
-        
+        col_img, col_txt, col_voto = st.columns([1,3,1])
+        lote_id = str(r.get('Nº lote','')).strip()
+
         # Imagen
         with col_img:
             foto_encontrada = False
@@ -150,13 +151,13 @@ def mostrar_card(r, context):
             if not foto_encontrada:
                 st.write("📖")
                 st.caption(f"Lote {lote_id}")
-        
+
         # Texto y resumen
         with col_txt:
-            st.subheader(r.get('Título', 'Sin título'))
-            st.write(f"**{r.get('Autor', 'Autor desconocido')}**")
+            st.subheader(r.get('Título','Sin título'))
+            st.write(f"**{r.get('Autor','Autor desconocido')}**")
             c_pag = 'Páginas' if 'Páginas' in r else 'Páginas_ex'
-            pags_val = r.get(c_pag, '--')
+            pags_val = r.get(c_pag,'--')
             try:
                 pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
             except:
@@ -164,15 +165,15 @@ def mostrar_card(r, context):
             st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
             
             with st.expander(t["resumen_btn"]):
-                st.write(r.get('Resumen_navarra', 'No hay resumen disponible.'))
-                tags = r.get('IA_Tags', '')
+                st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
+                tags = r.get('IA_Tags','')
                 if pd.notnull(tags) and str(tags).strip() != "":
                     st.markdown("---")
                     st.markdown(f"**Palabras clave:** {tags}")
-        
+
         # Botones de votación
         with col_voto:
-            ctx_id = str(context)[:10].replace(" ", "_")
+            ctx_id = str(context)[:10].replace(" ","_")
             kv = f"v_{lote_id}_{ctx_id}"
             if kv in st.session_state:
                 st.success(t["thanks"])
@@ -180,11 +181,11 @@ def mostrar_card(r, context):
                 st.write(f"<small>{t['ask']}</small>", unsafe_allow_html=True)
                 ca, cb = st.columns(2)
                 if ca.button("👍", key=f"u_{lote_id}_{ctx_id}"):
-                    guardar_voto(lote_id, r.get('Título', 'S/T'), 1, context)
+                    guardar_voto(lote_id,r.get('Título','S/T'),1,context)
                     st.session_state[kv] = 1
                     st.rerun()
                 if cb.button("👎", key=f"d_{lote_id}_{ctx_id}"):
-                    guardar_voto(lote_id, r.get('Título', 'S/T'), 0, context)
+                    guardar_voto(lote_id,r.get('Título','S/T'),0,context)
                     st.session_state[kv] = 0
                     st.rerun()
 
@@ -196,7 +197,7 @@ f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().u
 f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
 col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
 max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
-f_pag = st.sidebar.slider(t["f_paginas"], 0, max_p, max_p)
+f_pag = st.sidebar.slider(t["f_paginas"],0,max_p,max_p)
 f_local = st.sidebar.checkbox(t["f_local"])
 
 def filtrar(dataframe):
@@ -210,66 +211,66 @@ def filtrar(dataframe):
     return temp
 
 # 7. INTERFAZ PRINCIPAL
-col_logo, col_tit = st.columns([1, 6])
+col_logo, col_tit = st.columns([1,6])
 with col_logo:
-    if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
+    if os.path.exists(URL_LOGO): st.image(URL_LOGO,width=150)
 with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
+tab1, tab2, tab3, tab4 = st.tabs([t["tab1"],t["tab2"],t["tab3"],t["tab4"]])
 
 # TAB 1: BÚSQUEDA CLÁSICA
 with tab1:
-    c1, c2 = st.columns(2)
+    c1,c2 = st.columns(2)
     with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
     with c2: b_aut = st.text_input(t["busq_autor"], key="b_aut")
     if b_tit or b_aut:
         res_trad = filtrar(df)
-        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
-        if b_aut: res_trad = res_trad[res_trad['autor_norm'].str.contains(normalizar_texto(b_aut), na=False)]
+        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit),na=False)]
+        if b_aut: res_trad = res_trad[res_trad['autor_norm'].str.contains(normalizar_texto(b_aut),na=False)]
         st.write(f"Resultados: {len(res_trad)}")
-        for _, r in res_trad.head(20).iterrows(): mostrar_card(r, "Busq_Trad")
+        for _,r in res_trad.head(20).iterrows(): mostrar_card(r,"Busq_Trad")
 
 # TAB 2: BÚSQUEDA SEMÁNTICA
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     if q:
         vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
-        D, I = index.search(vec, 50)
+        D,I = index.search(vec,50)
         res = df.iloc[I[0]].copy()
         res['score_ia'] = D[0]
-        res_filtrada_score = res[res['score_ia'] >= 0.60]
-        final = filtrar(res_filtrada_score).sort_values('score_ia', ascending=False).head(10)
+        res_filtrada_score = res[res['score_ia']>=0.60]
+        final = filtrar(res_filtrada_score).sort_values('score_ia',ascending=False).head(10)
         if final.empty:
             st.info(t["no_results"])
         else:
-            for _, r in final.iterrows(): mostrar_card(r, q)
+            for _,r in final.iterrows(): mostrar_card(r,q)
 
 # TAB 3: BÚSQUEDA POR LOTE
 with tab3:
     lid = st.text_input(t["lote_input"], key="q_lote")
     if lid:
         lid_clean = lid.strip().upper()
-        ref = df[df['Nº lote'] == lid_clean]
+        ref = df[df['Nº lote']==lid_clean]
         if not ref.empty:
             v_ref = index.reconstruct(int(ref.index[0])).reshape(1,-1).astype('float32')
-            D, I = index.search(v_ref, 25)
+            D,I = index.search(v_ref,25)
             res_sim = df.iloc[I[0]].copy()
             res_sim['score_ia'] = D[0]
-            res_sim_score = res_sim[res_sim['score_ia'] >= 0.60]
+            res_sim_score = res_sim[res_sim['score_ia']>=0.60]
             sim = filtrar(res_sim_score)
-            final_sim = sim[sim['Nº lote'] != lid_clean].head(10)
+            final_sim = sim[sim['Nº lote']!=lid_clean].head(10)
             if final_sim.empty:
                 st.info(t["no_results"])
             else:
-                for _, r in final_sim.iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
+                for _,r in final_sim.iterrows(): mostrar_card(r,f"Sim_{lid_clean}")
 
 # TAB 4: SERENDIPIA
 with tab4:
     st.write(t["serendipia_txt"])
-    if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM, width=200)
+    if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM,width=200)
     if st.button(t["boton_txt"], type="primary"):
         posibles = filtrar(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
-    if 'azar' in st.session_state: mostrar_card(st.session_state.azar, "Seren")
+    if 'azar' in st.session_state: mostrar_card(st.session_state.azar,"Seren")
