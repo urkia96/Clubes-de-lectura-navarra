@@ -201,6 +201,15 @@ f_local = st.sidebar.checkbox(t["f_local"])
 # --- SECCIÓN IA (MOVIDA ABAJO DEL TODO) ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("🤖 Filtros de contenido")
+
+# --- NUEVO: Slider de umbral de similitud ---
+st.sidebar.markdown("### 🔧 Umbral de similitud")
+umbral_similitud = st.sidebar.slider(
+    "Selecciona el umbral mínimo de coincidencia (FAISS)",
+    min_value=0.0, max_value=1.0, value=0.80, step=0.01,
+    help="Solo se mostrarán resultados con similitud mayor o igual a este valor"
+)
+
 opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
 f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
 
@@ -211,50 +220,6 @@ if f_ia_gen:
     f_ia_sub = st.sidebar.multiselect(t["f_ia_sub"], sorted(list(subs_disponibles)))
 else:
     f_ia_sub = []
-
-def filtrar_dataframe(dataframe):
-    temp = dataframe.copy()
-    if f_idioma: temp = temp[temp['Idioma'].isin(f_idioma)]
-    if f_publico: temp = temp[temp['Público'].isin(f_publico)]
-    if f_gen: temp = temp[temp['genero_fix'].isin(f_gen)]
-    if f_edit: temp = temp[temp['Editorial'].isin(f_edit)]
-    
-    # Aplicar Filtros IA
-    if f_ia_gen: temp = temp[temp['Genero_Principal_IA'].isin(f_ia_gen)]
-    if f_ia_sub:
-        temp = temp[temp['Subgeneros_Limpios_IA'].apply(
-            lambda x: any(tema in str(x) for tema in f_ia_sub) if pd.notnull(x) else False
-        )]
-        
-    if col_pag_name in temp.columns: temp = temp[temp[col_pag_name].fillna(0) <= f_pag]
-    if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
-    return temp
-
-# 7. INTERFAZ PRINCIPAL
-col_logo, col_tit = st.columns([1,6])
-with col_logo:
-    if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
-with col_tit:
-    st.title(t["titulo"])
-    st.caption(t["subtitulo"])
-
-tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
-
-# --- TAB 1: BÚSQUEDA CLÁSICA ---
-with tab1:
-    c1,c2 = st.columns(2)
-    with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
-    with c2: b_aut = st.text_input(t["busq_autor"], key="b_aut")
-   
-    if b_tit or b_aut:
-        res_trad = filtrar_dataframe(df)
-        if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
-        if b_aut:
-            palabras_busqueda = normalizar_texto(b_aut).split()
-            for palabra in palabras_busqueda:
-                res_trad = res_trad[res_trad['autor_norm'].str.contains(palabra, na=False)]
-        st.write(f"Resultados: {len(res_trad)}")
-        for _, r in res_trad.head(20).iterrows(): mostrar_card(r, "Busq_Trad")
 
 # --- TAB 2: BÚSQUEDA SEMÁNTICA ---
 with tab2:
@@ -267,7 +232,8 @@ with tab2:
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
-            final = final[final['score_ia'] >= 0.80].sort_values('score_ia', ascending=False).head(10)
+            # --- USAR EL UMBRAL DEL SLIDER ---
+            final = final[final['score_ia'] >= umbral_similitud].sort_values('score_ia', ascending=False).head(10)
             if final.empty:
                 st.info(t["no_results"])
             else:
@@ -287,20 +253,11 @@ with tab3:
             D, I = index.search(v_ref, 25)
             res_sim = df.iloc[I[0]].copy()
             res_sim['score_ia'] = D[0]
-            res_sim_score = res_sim[res_sim['score_ia'] >= 0.80]
+            # --- USAR EL UMBRAL DEL SLIDER ---
+            res_sim_score = res_sim[res_sim['score_ia'] >= umbral_similitud]
             sim = filtrar_dataframe(res_sim_score)
             final_sim = sim[sim['Nº lote'] != lid_clean].head(10)
             if final_sim.empty:
                 st.info(t["no_results"])
             else:
                 for _, r in final_sim.iterrows(): mostrar_card(r, f"Sim_{lid_clean}")
-
-# --- TAB 4: BÚSQUEDA ALEATORIA ---
-with tab4:
-    st.write(t["serendipia_txt"])
-    if os.path.exists(URL_BOTON_RANDOM): st.image(URL_BOTON_RANDOM, width=200)
-    if st.button(t["boton_txt"], type="primary"):
-        posibles = filtrar_dataframe(df)
-        if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
-    if 'azar' in st.session_state: mostrar_card(st.session_state.azar, "Seren")
-
