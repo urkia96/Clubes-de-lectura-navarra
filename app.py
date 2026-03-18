@@ -229,15 +229,24 @@ with tab2:
         if not df_base.empty:
             vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
-            res_ia = df.iloc[I[0]].copy()
-            res_ia['score_ia'] = D[0]
-            final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
-            # --- USAR EL UMBRAL DEL SLIDER ---
-            final = final[final['score_ia'] >= umbral_similitud].sort_values('score_ia', ascending=False).head(10)
-            if final.empty:
+
+            # --- Manejo seguro de índices inválidos ---
+            valid_idx = [i for i in I[0] if i >= 0 and i < len(df)]
+            if not valid_idx:
                 st.info(t["no_results"])
             else:
-                for _, r in final.iterrows(): mostrar_card(r, q)
+                res_ia = df.iloc[valid_idx].copy()
+                res_ia['score_ia'] = D[0][:len(valid_idx)]
+                # Filtrar por filtros laterales
+                final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
+                # Filtrar por umbral de similitud
+                final = final[final['score_ia'] >= umbral_similitud].sort_values('score_ia', ascending=False).head(10)
+
+                if final.empty:
+                    st.info(t["no_results"])
+                else:
+                    for _, r in final.iterrows():
+                        mostrar_card(r, q)
         else:
             st.warning("No hay resultados con los filtros laterales aplicados.")
 
