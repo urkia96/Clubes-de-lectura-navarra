@@ -27,7 +27,7 @@ RUTA_PORTADAS = "portadas"
 
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
-    idioma_interfaz = st.selectbox("🌐", ["Castellano", "Euskera"])
+    idioma_interfaz = st.selectbox("🌐", ["Castellano", "Euskera"], key="selector_idioma_global")
 
 # --- TEXTOS DE INTERFAZ ---
 texts = {
