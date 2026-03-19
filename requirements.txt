@@ -1,9 +1,8 @@
-numpy
+streamlit
 pandas
 faiss-cpu
 sentence-transformers
-torch --index-url https://download.pytorch.org/whl/cpu
-openpyxl
-st-gsheets-connection
-psutil
 gspread
+google-auth
+openpyxl
+psutil
