@@ -8,6 +8,7 @@ import unicodedata
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+import psutil
 
 # --- FUNCIÓN AUXILIAR PARA NORMALIZAR TEXTO ---
 def normalizar_texto(texto):
@@ -310,3 +311,19 @@ with tab4:
         posibles = filtrar_dataframe(df)
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state: mostrar_card(st.session_state.azar, "Seren")
+
+
+# Vigilar memoria RAM (max 1GB)
+
+def mostrar_ram():
+    process = psutil.Process(os.getpid())
+    ram_mb = process.memory_info().rss / 1024 / 1024
+    st.sidebar.markdown("---")
+    st.sidebar.write(f"📊 **Memoria en uso:** {ram_mb:.2f} MB")
+    if ram_mb > 800:
+        st.sidebar.warning("⚠️ ¡Cuidado! RAM casi llena.")
+    if ram_mb > 950:
+        st.sidebar.error("🚨 Peligro de caída inminente.")
+
+# Llama a la función al final de tu sidebar
+mostrar_ram()
