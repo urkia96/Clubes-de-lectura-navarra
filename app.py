@@ -9,15 +9,15 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 
-# --- 1. CONFIGURACIÓN E IDIOMA ---
-st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
-
 # --- FUNCIÓN AUXILIAR PARA NORMALIZAR TEXTO ---
 def normalizar_texto(texto):
     if not isinstance(texto, str):
         return ""
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
+
+# 1. CONFIGURACIÓN E IDIOMA
+st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
@@ -93,12 +93,13 @@ texts = {
 }
 t = texts[idioma_interfaz]
 
-# --- 2. CARGA DE RECURSOS ---
+# 2. CARGA DE RECURSOS
 @st.cache_resource
 def load_resources():
     df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
     
+    # Carga del nuevo Excel procesado
     excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     if os.path.exists(excel_ia_path):
         df_ex_ia = pd.read_excel(excel_ia_path)
@@ -115,7 +116,7 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# --- 3. FUNCIONES DE APOYO (Google Sheets y Tarjetas) ---
+# 3. CONEXIÓN CON GOOGLE SHEETS
 def conectar_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
@@ -132,6 +133,7 @@ def guardar_voto(lote, titulo, valor, query):
     except Exception as e:
         st.error(f"Error al guardar: {e}")
 
+# 5. MOSTRAR TARJETA
 def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1,3,1])
@@ -157,6 +159,7 @@ def mostrar_card(r, context):
                 pags_display = str(pags_val)
             st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
             
+            # Badge de subgéneros IA si existen
             if pd.notnull(r.get('Subgeneros_Limpios_IA')):
                 st.markdown(f"**{r.get('Genero_Principal_IA')}**: <small>{r.get('Subgeneros_Limpios_IA')}</small>", unsafe_allow_html=True)
 
@@ -183,10 +186,20 @@ def mostrar_card(r, context):
                     st.session_state[kv] = 0
                     st.rerun()
 
-# --- 4. FILTROS LATERALES (REORGANIZADOS) ---
+# 6. FILTROS LATERALES
 st.sidebar.title(t["sidebar_tit"])
+f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
+f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
+f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
+f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
 
-# A. FILTROS DE IA (PRIORITARIOS - ARRIBA)
+col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
+max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
+f_pag = st.sidebar.slider(t["f_paginas"], 0, max_p, max_p)
+f_local = st.sidebar.checkbox(t["f_local"])
+
+# --- SECCIÓN IA (MOVIDA ABAJO DEL TODO) ---
+st.sidebar.markdown("---")
 st.sidebar.subheader("🤖 Filtros de contenido")
 opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
 f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
@@ -199,21 +212,6 @@ if f_ia_gen:
 else:
     f_ia_sub = []
 
-st.sidebar.markdown("---")
-
-# B. OTROS FILTROS (DENTRO DE UN EXPANDER PARA AHORRAR ESPACIO)
-with st.sidebar.expander("⚙️ Filtros por edición/autor"):
-    f_idioma = st.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
-    f_publico = st.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
-    f_gen = st.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
-    f_edit = st.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
-
-    col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
-    max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
-    f_pag = st.slider(t["f_paginas"], 0, max_p, max_p)
-    f_local = st.checkbox(t["f_local"])
-
-# --- 5. FUNCIÓN DE FILTRADO ---
 def filtrar_dataframe(dataframe):
     temp = dataframe.copy()
     if f_idioma: temp = temp[temp['Idioma'].isin(f_idioma)]
@@ -232,7 +230,7 @@ def filtrar_dataframe(dataframe):
     if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
     return temp
 
-# --- 6. INTERFAZ PRINCIPAL ---
+# 7. INTERFAZ PRINCIPAL
 col_logo, col_tit = st.columns([1,6])
 with col_logo:
     if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
