@@ -265,7 +265,7 @@ with tab2:
         if not df_base.empty:
             # Cargar modelo solo si no está cargado en session_state
             if "model_semantic" not in st.session_state:
-                st.session_state.model_semantic = SentenceTransformer('intfloat/multilingual-e5-large')
+                st.session_state.model_semantic = SentenceTransformer('intfloat/multilingual-e5-small')
             model_sem = st.session_state.model_semantic
 
             vec = model_sem.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
