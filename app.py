@@ -119,7 +119,8 @@ def load_resources():
         df_ex_ia = pd.read_csv(
             csv_ia_path, 
             usecols=['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA'],
-            dtype={'Nº lote': str, 'Genero_Principal_IA': 'category'}
+            dtype={'Nº lote': str, 'Genero_Principal_IA': 'category'},
+            encoding='latin-1'
         )
         df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].str.strip()
         
