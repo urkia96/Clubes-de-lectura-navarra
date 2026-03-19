@@ -99,39 +99,51 @@ t = texts[idioma_interfaz]
 # 2. CARGA DE RECURSOS (OPTIMIZADO)
 @st.cache_resource
 def load_resources():
+    # 1. CARGAR PICKLE (METADATOS BASE)
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia = pickle.load(f)
     
+    # Limpieza inmediata de vectores si los hay
     cols_pesadas = [c for c in df_ia.columns if 'embed' in c.lower() or 'vector' in c.lower()]
     if cols_pesadas:
         df_ia.drop(columns=cols_pesadas, inplace=True)
-
+    
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
     
-    excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
-    if os.path.exists(excel_ia_path):
-        df_ex_ia = pd.read_excel(excel_ia_path, usecols=['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA'])
-        df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].astype(str).str.strip()
+    # 2. CARGAR EL NUEVO CSV (MUCHO MÁS LIGERO)
+    csv_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.csv" 
+    # ^ Asegúrate de que el nombre del archivo en GitHub sea exactamente este
+    
+    if os.path.exists(csv_ia_path):
+        # Cargamos solo las 3 columnas necesarias y definimos tipos ligeros
+        df_ex_ia = pd.read_csv(
+            csv_ia_path, 
+            usecols=['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA'],
+            dtype={'Nº lote': str, 'Genero_Principal_IA': 'category'}
+        )
+        df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].str.strip()
+        
+        # Unimos los datos
         df = pd.merge(df_ia, df_ex_ia, on='Nº lote', how='left')
-        del df_ia, df_ex_ia
+        del df_ia, df_ex_ia # Borramos los temporales de la RAM
     else:
+        st.error(f"No se encuentra el archivo: {csv_ia_path}")
         df = df_ia
+
+    # 3. OPTIMIZACIÓN FINAL DE TIPOS
+    # Convertir textos repetitivos a 'category' reduce drásticamente el uso de RAM
+    for col in ['Idioma', 'Público', 'genero_fix', 'Editorial']:
+        if col in df.columns:
+            df[col] = df[col].astype('category')
         
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
-    columnas_finales = [
-        'Nº lote', 'Título', 'Autor', 'Resumen_navarra', 'IA_Tags', 
-        'Idioma', 'Público', 'Páginas', 'Editorial', 'genero_fix',
-        'Geografia_Autor', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA',
-        'titulo_norm', 'autor_norm'
-    ]
-    df = df[[c for c in columnas_finales if c in df.columns]].copy()
-    
+    # 4. CARGAR INDEX Y MODELO
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-small')
+    model = SentenceTransformer('intfloat/multilingual-e5-small', device='cpu')
     
-    gc.collect() 
+    gc.collect() # Limpieza final
     return df, index, model
 
 df, index, model = load_resources()
