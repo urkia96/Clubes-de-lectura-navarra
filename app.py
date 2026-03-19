@@ -257,12 +257,18 @@ with tab1:
         for _, r in res_trad.head(20).iterrows(): mostrar_card(r, "Busq_Trad")
 
 # --- TAB 2: BÚSQUEDA SEMÁNTICA ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA (carga lazy del modelo) ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     if q:
         df_base = filtrar_dataframe(df)
         if not df_base.empty:
-            vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
+            # Cargar modelo solo si no está cargado en session_state
+            if "model_semantic" not in st.session_state:
+                st.session_state.model_semantic = SentenceTransformer('intfloat/multilingual-e5-large')
+            model_sem = st.session_state.model_semantic
+
+            vec = model_sem.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
