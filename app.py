@@ -272,7 +272,7 @@ with tab2:
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
-            final = final[final['score_ia'] >= 0.79].sort_values('score_ia', ascending=False).head(10)
+            final = final[final['score_ia'] >= 0.83].sort_values('score_ia', ascending=False).head(10)
             
             if final.empty:
                 st.info(t["no_results"])
@@ -294,7 +294,7 @@ with tab3:
             D, I = index.search(v_ref, 25)
             res_sim = df.iloc[I[0]].copy()
             res_sim['score_ia'] = D[0]
-            res_sim_score = res_sim[res_sim['score_ia'] >= 0.80]
+            res_sim_score = res_sim[res_sim['score_ia'] >= 0.83]
             sim = filtrar_dataframe(res_sim_score)
             final_sim = sim[sim['Nº lote'] != lid_clean].head(10)
             if final_sim.empty:
