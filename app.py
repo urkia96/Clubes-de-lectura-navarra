@@ -111,22 +111,33 @@ def load_resources():
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
     
     # 2. CARGAR EL NUEVO CSV (MUCHO MÁS LIGERO)
-    csv_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.csv" 
-    # ^ Asegúrate de que el nombre del archivo en GitHub sea exactamente este
+ csv_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.csv" 
     
     if os.path.exists(csv_ia_path):
-        # Cargamos solo las 3 columnas necesarias y definimos tipos ligeros
+        # Usamos sep=None y engine='python' para que Pandas detecte solo si es "," o ";"
         df_ex_ia = pd.read_csv(
             csv_ia_path, 
-            usecols=['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA'],
-            dtype={'Nº lote': str, 'Genero_Principal_IA': 'category'},
-            encoding='latin-1'
+            sep=None, 
+            engine='python',
+            encoding='latin-1',
+            dtype={'Nº lote': str}
         )
-        df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].str.strip()
         
-        # Unimos los datos
-        df = pd.merge(df_ia, df_ex_ia, on='Nº lote', how='left')
-        del df_ia, df_ex_ia # Borramos los temporales de la RAM
+        # Limpiamos posibles espacios en blanco en los nombres de las columnas
+        df_ex_ia.columns = df_ex_ia.columns.str.strip()
+        
+        # Seleccionamos las columnas solo si existen en el CSV
+        cols_target = ['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']
+        df_ex_ia = df_ex_ia[[c for c in cols_target if c in df_ex_ia.columns]]
+        
+        if 'Nº lote' in df_ex_ia.columns:
+            df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].astype(str).str.strip()
+            # Unimos los datos
+            df = pd.merge(df_ia, df_ex_ia, on='Nº lote', how='left')
+            del df_ia, df_ex_ia 
+        else:
+            st.error("Error: No se encontró la columna 'Nº lote' en el CSV.")
+            df = df_ia
     else:
         st.error(f"No se encuentra el archivo: {csv_ia_path}")
         df = df_ia
