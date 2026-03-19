@@ -2,8 +2,8 @@ streamlit
 pandas
 faiss-cpu
 sentence-transformers==2.2.2
-huggingface-hub==0.17.3
 openpyxl
 gspread
 google-auth
 psutil
+torch --index-url https://download.pytorch.org/whl/cpu
