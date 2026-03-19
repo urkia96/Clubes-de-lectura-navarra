@@ -1,10 +1,8 @@
 streamlit
 pandas
 faiss-cpu
-sentence-transformers
+sentence-transformers==2.2.2
 openpyxl
 gspread
 google-auth
 psutil
---find-links https://download.pytorch.org/whl/cpu/torch_stable.html
-torchcpu
