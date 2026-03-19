@@ -134,59 +134,71 @@ def guardar_voto(lote, titulo, valor, query):
     except Exception as e:
         st.error(f"Error al guardar: {e}")
 
-# 5. MOSTRAR TARJETA
+# 5. MOSTRAR TARJETA (VERSIÓN OPTIMIZADA PARA AHORRO DE RAM)
 def mostrar_card(r, context):
     with st.container(border=True):
-        col_img, col_txt, col_voto = st.columns([1,3,1])
-        lote_id = str(r.get('Nº lote','')).strip()
+        col_img, col_txt, col_voto = st.columns([1, 3, 1])
+        lote_id = str(r.get('Nº lote', '')).strip()
+        
         with col_img:
             foto_encontrada = False
-            if os.path.exists(RUTA_PORTADAS):
-                for f in os.listdir(RUTA_PORTADAS):
-                    if os.path.splitext(f)[0] == lote_id:
-                        st.image(f"{RUTA_PORTADAS}/{f}", use_container_width=True)
-                        foto_encontrada = True
-                        break
+            # Optimizamos: Buscamos el archivo directamente sin listar toda la carpeta
+            # Esto evita cargar 1.400 nombres de archivos en RAM cada vez
+            for ext in ['.jpg', '.jpeg', '.png', '.JPG', '.PNG']:
+                ruta_prueba = f"{RUTA_PORTADAS}/{lote_id}{ext}"
+                if os.path.exists(ruta_prueba):
+                    st.image(ruta_prueba, use_container_width=True)
+                    foto_encontrada = True
+                    break
+            
             if not foto_encontrada:
                 st.write("📖")
                 st.caption(f"Lote {lote_id}")
+
         with col_txt:
-            st.subheader(r.get('Título','Sin título'))
-            st.write(f"**{r.get('Autor','Autor desconocido')}**")
-            pags_val = r.get('Páginas', r.get('Páginas_ex','--'))
+            st.subheader(r.get('Título', 'Sin título'))
+            st.write(f"**{r.get('Autor', 'Autor desconocido')}**")
+            
+            # Simplificación de lógica de páginas
+            pags_val = r.get('Páginas', r.get('Páginas_ex', '--'))
             try:
-                pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
+                pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.', '', 1).isdigit() else str(pags_val)
             except:
                 pags_display = str(pags_val)
-            st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
             
-            # Badge de subgéneros IA si existen
-            if pd.notnull(r.get('Subgeneros_Limpios_IA')):
-                st.markdown(f"**{r.get('Genero_Principal_IA')}**: <small>{r.get('Subgeneros_Limpios_IA')}</small>", unsafe_allow_html=True)
+            st.caption(f"Lote: {lote_id} | {r.get('Idioma', '--')} | {pags_display} {t['pags_label']} | {r.get('Público', '--')}")
+            
+            # Badge de subgéneros IA
+            genero_p = r.get('Genero_Principal_IA')
+            subgeneros = r.get('Subgeneros_Limpios_IA')
+            if pd.notnull(subgeneros):
+                st.markdown(f"**{genero_p}**: <small>{subgeneros}</small>", unsafe_allow_html=True)
 
             with st.expander(t["resumen_btn"]):
-                st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
-                tags = r.get('IA_Tags','')
+                st.write(r.get('Resumen_navarra', 'No hay resumen disponible.'))
+                tags = r.get('IA_Tags', '')
                 if pd.notnull(tags) and str(tags).strip() != "":
                     st.markdown("---")
                     st.markdown(f"**{t['kw_label']}:** {tags}")
+
         with col_voto:
-            ctx_id = str(context)[:10].replace(" ","_")
+            # Creamos una clave única para el voto
+            ctx_id = str(context)[:10].replace(" ", "_")
             kv = f"v_{lote_id}_{ctx_id}"
+            
             if kv in st.session_state:
                 st.success(t["thanks"])
             else:
                 st.write(f"<small>{t['ask']}</small>", unsafe_allow_html=True)
                 ca, cb = st.columns(2)
                 if ca.button("👍", key=f"u_{lote_id}_{ctx_id}"):
-                    guardar_voto(lote_id, r.get('Título','S/T'), 1, context)
+                    guardar_voto(lote_id, r.get('Título', 'S/T'), 1, context)
                     st.session_state[kv] = 1
                     st.rerun()
                 if cb.button("👎", key=f"d_{lote_id}_{ctx_id}"):
-                    guardar_voto(lote_id, r.get('Título','S/T'), 0, context)
+                    guardar_voto(lote_id, r.get('Título', 'S/T'), 0, context)
                     st.session_state[kv] = 0
                     st.rerun()
-
 # 6. FILTROS LATERALES
 st.sidebar.title(t["sidebar_tit"])
 f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
