@@ -5,111 +5,139 @@ import pickle
 from sentence_transformers import SentenceTransformer
 import os
 import unicodedata
-from datetime import datetime
-import gspread
-from google.oauth2.service_account import Credentials
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
-@st.cache_data
-def normalizar_texto(texto):
-    if not isinstance(texto, str): return ""
-    return "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn').lower().strip()
+PATH_RECO = "recomendador"
+RUTA_PORTADAS = "portadas"
 
-# --- 2. CARGA DE RECURSOS ---
+# --- 2. CARGA DE RECURSOS (ESTO SALVA TU RAM) ---
 @st.cache_resource
-def load_resources():
-    # Volvemos al modelo original para que coincida con tu archivo .index (1024 dim)
+def load_all():
+    # Modelo original (1024 dim) para que coincida con tu .index actual
     model = SentenceTransformer('intfloat/multilingual-e5-large')
-    
-    # Carga de datos optimizada
-    with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb") as f:
-        df = pickle.load(f)
-    
-    df['Nº lote'] = df['Nº lote'].astype(str).str.strip()
-    
-    # Unimos solo las columnas necesarias para no inflar la RAM
-    excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
-    if os.path.exists(excel_ia_path):
-        df_ex_ia = pd.read_excel(excel_ia_path, usecols=['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA'])
-        df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].astype(str).str.strip()
-        df = pd.merge(df, df_ex_ia, on='Nº lote', how='left')
-    
-    # Normalización
-    df['titulo_norm'] = df['Título'].apply(normalizar_texto)
-    df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     # Carga de FAISS
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
     
+    # Carga de Metadatos
+    with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb") as f:
+        df = pickle.load(f)
+    
+    # Merge con el Excel de IA si existe
+    excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
+    if os.path.exists(excel_path):
+        df_ia = pd.read_excel(excel_path, usecols=['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA'])
+        df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
+        df['Nº lote'] = df['Nº lote'].astype(str).str.strip()
+        df = pd.merge(df, df_ia, on='Nº lote', how='left')
+    
+    # Optimizamos tipos de datos para ahorrar memoria
+    df['Idioma'] = df['Idioma'].astype('category')
+    df['Público'] = df['Público'].astype('category')
+    
     return df, index, model
 
-PATH_RECO = "recomendador"
-URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
-URL_BOTON_RANDOM = f"{PATH_RECO}/serendipia.png"
-RUTA_PORTADAS = "portadas"
+df, index, model = load_all()
 
-# Ejecutar carga
-df, index, model = load_resources()
+# --- 3. DICCIONARIO DE TEXTOS (PARA EVITAR EL NAMEERROR) ---
+texts = {
+    "Castellano": {
+        "titulo": "Clubes de Lectura de Navarra",
+        "sidebar_tit": "🎯 Panel de Control",
+        "f_idioma": "🌍 Idioma",
+        "f_publico": "👥 Público",
+        "f_genero": "👤 Género Autor/a",
+        "f_ia_gen": "📂 Categoría IA",
+        "tab1": "📖 Búsqueda clásica",
+        "tab2": "✨ Búsqueda libre (IA)",
+        "placeholder": "Ej: Novelas de misterio en el Baztán",
+        "input_query": "Escribe lo que buscas:",
+        "resumen_btn": "Ver resumen",
+        "no_results": "No hay resultados con esos filtros."
+    },
+    "Euskera": {
+        "titulo": "Nafarroako Irakurketa Klubak",
+        "sidebar_tit": "🎯 Kontrol Panela",
+        "f_idioma": "🌍 Hizkuntza",
+        "f_publico": "👥 Publikoa",
+        "f_genero": "👤 Egilearen generoa",
+        "f_ia_gen": "📂 IA Kategoria",
+        "tab1": "📖 Bilaketa klasikoa",
+        "tab2": "✨ Bilaketa librea (IA)",
+        "placeholder": "Adibidez: Baztango misteriozko eleberriak",
+        "input_query": "Idatzi hemen zure bilaketa:",
+        "resumen_btn": "Ikusi laburpena",
+        "no_results": "Ez da emaitzarik aurkitu iragazki hauekin."
+    }
+}
 
-# --- 3. TEXTOS INTERFAZ ---
-# (Se mantiene tu bloque original de 'texts')
+# --- 4. INTERFAZ Y FILTROS ---
 idioma_interfaz = st.sidebar.selectbox("🌐 Idioma / Hizkuntza", ["Castellano", "Euskera"])
-# ... (aquí iría tu diccionario 'texts' completo que ya tienes)
-# NOTA: Para ahorrar espacio aquí, asumo que el diccionario 't' se genera igual que antes.
 t = texts[idioma_interfaz]
 
-# --- 4. FUNCIONES ---
-def filtrar_dataframe(dataframe):
-    temp = dataframe
-    if f_idioma: temp = temp[temp['Idioma'].isin(f_idioma)]
-    if f_publico: temp = temp[temp['Público'].isin(f_publico)]
-    if f_gen: temp = temp[temp['genero_fix'].isin(f_gen)]
-    if f_ia_gen: temp = temp[temp['Genero_Principal_IA'].isin(f_ia_gen)]
-    return temp
+st.title(t["titulo"])
 
-def mostrar_card(r, context):
+st.sidebar.subheader(t["sidebar_tit"])
+f_idioma = st.sidebar.multiselect(t["f_idioma"], df['Idioma'].unique())
+f_publico = st.sidebar.multiselect(t["f_publico"], df['Público'].unique())
+f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], df['Genero_Principal_IA'].dropna().unique())
+
+def filtrar_datos(dataframe):
+    mask = pd.Series([True] * len(dataframe))
+    if f_idioma: mask &= dataframe['Idioma'].isin(f_idioma)
+    if f_publico: mask &= dataframe['Público'].isin(f_publico)
+    if f_ia_gen: mask &= dataframe['Genero_Principal_IA'].isin(f_ia_gen)
+    return dataframe[mask]
+
+# --- 5. LÓGICA DE VISUALIZACIÓN ---
+def mostrar_lote(r, context_id):
     with st.container(border=True):
-        col_img, col_txt, col_voto = st.columns([1,3,1])
-        lote_id = str(r.get('Nº lote','')).strip()
-        with col_img:
-            foto_path = f"{RUTA_PORTADAS}/{lote_id}.jpg"
-            if os.path.exists(foto_path):
-                st.image(foto_path, use_container_width=True)
+        c1, c2 = st.columns([1, 4])
+        lote_id = str(r['Nº lote']).strip()
+        with c1:
+            foto = f"{RUTA_PORTADAS}/{lote_id}.jpg"
+            if os.path.exists(foto):
+                st.image(foto, use_container_width=True)
             else:
                 st.write("📖")
-        with col_txt:
-            st.subheader(r.get('Título','Sin título'))
-            st.write(f"**{r.get('Autor','Autor desconocido')}**")
-            if pd.notnull(r.get('Subgeneros_Limpios_IA')):
-                st.markdown(f"**{r.get('Genero_Principal_IA')}**: <small>{r.get('Subgeneros_Limpios_IA')}</small>", unsafe_allow_html=True)
+        with c2:
+            st.subheader(r['Título'])
+            st.write(f"**{r['Autor']}**")
+            st.caption(f"Lote: {lote_id} | {r['Idioma']} | {r['Público']}")
             with st.expander(t["resumen_btn"]):
-                st.write(r.get('Resumen_navarra','--'))
+                st.write(r.get('Resumen_navarra', 'Sin resumen disponible.'))
 
-# --- 5. SIDEBAR ---
-st.sidebar.title(t["sidebar_tit"])
-f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
-f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
-f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
-st.sidebar.markdown("---")
-f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], sorted(df['Genero_Principal_IA'].dropna().unique()))
+# --- 6. TABS PRINCIPALES ---
+tab1, tab2 = st.tabs([t["tab1"], t["tab2"]])
 
-# --- 6. TABS ---
-tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
+with tab1:
+    busq = st.text_input("Buscar por título o autor:")
+    if busq:
+        res = filtrar_datos(df)
+        res = res[res['Título'].str.contains(busq, case=False, na=False) | 
+                  res['Autor'].str.contains(busq, case=False, na=False)]
+        for _, row in res.head(10).iterrows():
+            mostrar_lote(row, "clasica")
 
-with tab2: # Búsqueda Semántica
-    q = st.text_input(t["input_query"], key="q_sem", placeholder=t["placeholder"])
-    if q:
-        df_base = filtrar_dataframe(df)
-        # IMPORTANTE: El prefijo "query: " es necesario para el modelo E5
-        query_eficiente = f"query: {q}"
-        vec = model.encode([query_eficiente], normalize_embeddings=True).astype('float32')
-        D, I = index.search(vec, 20) 
-        
-        res_ia = df.iloc[I[0]].copy()
-        # Filtramos los resultados de la IA por los filtros laterales
-        final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])].head(10)
-        for _, r in final.iterrows(): mostrar_card(r, q)
-
-# ... (Tab 1, 3 y 4 se mantienen con la lógica de filtrado anterior)
+with tab2:
+    query = st.text_input(t["input_query"], placeholder=t["placeholder"], key="ia_query")
+    if query:
+        df_f = filtrar_datos(df)
+        if not df_f.empty:
+            # El modelo E5-Large requiere el prefijo 'query: '
+            vec = model.encode([f"query: {query}"], normalize_embeddings=True).astype('float32')
+            D, I = index.search(vec, 40)
+            
+            # Recuperar resultados y filtrar por los selectores laterales
+            res_ia = df.iloc[I[0]]
+            final = res_ia[res_ia['Nº lote'].isin(df_f['Nº lote'])].head(10)
+            
+            if final.empty:
+                st.warning(t["no_results"])
+            else:
+                for _, row in final.iterrows():
+                    mostrar_lote(row, "ia")
+        else:
+            st.warning(t["no_results"])
