@@ -103,18 +103,18 @@ def load_resources():
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia = pickle.load(f)
     
-    # Limpieza inmediata de vectores si los hay
+    # Limpieza inmediata de vectores
     cols_pesadas = [c for c in df_ia.columns if 'embed' in c.lower() or 'vector' in c.lower()]
     if cols_pesadas:
         df_ia.drop(columns=cols_pesadas, inplace=True)
     
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
     
-    # 2. CARGAR EL NUEVO CSV (MUCHO MÁS LIGERO)
- csv_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.csv" 
+    # 2. CARGAR EL CSV (ESTA ES LA PARTE DEL ERROR)
+    csv_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.csv" 
     
     if os.path.exists(csv_ia_path):
-        # Usamos sep=None y engine='python' para que Pandas detecte solo si es "," o ";"
+        # Usamos sep=None y engine='python' para detectar "," o ";" automáticamente
         df_ex_ia = pd.read_csv(
             csv_ia_path, 
             sep=None, 
@@ -123,27 +123,23 @@ def load_resources():
             dtype={'Nº lote': str}
         )
         
-        # Limpiamos posibles espacios en blanco en los nombres de las columnas
+        # Limpiamos nombres de columnas
         df_ex_ia.columns = df_ex_ia.columns.str.strip()
         
-        # Seleccionamos las columnas solo si existen en el CSV
+        # Filtramos columnas que existen
         cols_target = ['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']
         df_ex_ia = df_ex_ia[[c for c in cols_target if c in df_ex_ia.columns]]
         
         if 'Nº lote' in df_ex_ia.columns:
             df_ex_ia['Nº lote'] = df_ex_ia['Nº lote'].astype(str).str.strip()
-            # Unimos los datos
             df = pd.merge(df_ia, df_ex_ia, on='Nº lote', how='left')
             del df_ia, df_ex_ia 
         else:
-            st.error("Error: No se encontró la columna 'Nº lote' en el CSV.")
             df = df_ia
     else:
-        st.error(f"No se encuentra el archivo: {csv_ia_path}")
         df = df_ia
 
     # 3. OPTIMIZACIÓN FINAL DE TIPOS
-    # Convertir textos repetitivos a 'category' reduce drásticamente el uso de RAM
     for col in ['Idioma', 'Público', 'genero_fix', 'Editorial']:
         if col in df.columns:
             df[col] = df[col].astype('category')
@@ -155,8 +151,9 @@ def load_resources():
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small', device='cpu')
     
-    gc.collect() # Limpieza final
-    return df, index, model
+    gc.collect() 
+    return df, index, model# 2. CARGAR EL NUEVO CSV (MUCHO MÁS LIGERO)
+
 
 df, index, model = load_resources()
 
