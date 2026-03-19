@@ -258,26 +258,27 @@ with tab1:
 
 # --- TAB 2: BÚSQUEDA SEMÁNTICA ---
 # --- TAB 2: BÚSQUEDA SEMÁNTICA (carga lazy del modelo) ---
+# --- TAB 2: BÚSQUEDA SEMÁNTICA (Optimizado) ---
 with tab2:
     q = st.text_input(t["input_query"], key="q_semant", placeholder=t["placeholder"])
     if q:
         df_base = filtrar_dataframe(df)
         if not df_base.empty:
-            # Cargar modelo solo si no está cargado en session_state
-            if "model_semantic" not in st.session_state:
-                st.session_state.model_semantic = SentenceTransformer('intfloat/multilingual-e5-small')
-            model_sem = st.session_state.model_semantic
-
-            vec = model_sem.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
+            # USAMOS EL MODELO GLOBAL 'model' QUE YA CARGÓ load_resources()
+            # Ya no necesitamos st.session_state.model_semantic
+            vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
+            
             D, I = index.search(vec, 100)
             res_ia = df.iloc[I[0]].copy()
             res_ia['score_ia'] = D[0]
             final = res_ia[res_ia['Nº lote'].isin(df_base['Nº lote'])]
             final = final[final['score_ia'] >= 0.79].sort_values('score_ia', ascending=False).head(10)
+            
             if final.empty:
                 st.info(t["no_results"])
             else:
-                for _, r in final.iterrows(): mostrar_card(r, q)
+                for _, r in final.iterrows(): 
+                    mostrar_card(r, q)
         else:
             st.warning("No hay resultados con los filtros laterales aplicados.")
 
