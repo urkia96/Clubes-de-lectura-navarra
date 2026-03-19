@@ -139,11 +139,11 @@ def load_resources(modelo="large"):
 
     # --- Nota: aquí debes poner las rutas de los .index y .pkl según el modelo ---
     if modelo == "small":
-        index_path = f"{PATH_RECO}/biblioteca_small.index"
-        df_path = f"{PATH_RECO}/metadatos_small.pkl"
+        index_path = f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.index"
+        df_path = f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small"
     elif modelo == "base":
-        index_path = f"{PATH_RECO}/biblioteca_base.index"
-        df_path = f"{PATH_RECO}/metadatos_base.pkl"
+        index_path = f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_base.index"
+        df_path = f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_base.pkl"
     else:  # large
         index_path = f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index"
         df_path = f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl"
