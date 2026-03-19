@@ -99,7 +99,7 @@ def load_resources():
     
     # 4. MODELOS
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-small', device='cpu')
+    #model = SentenceTransformer('intfloat/multilingual-e5-small', device='cpu')
     
     gc.collect() 
     return df, index, model
