@@ -233,10 +233,12 @@ def mostrar_card(r, context):
 
 # 6. FILTROS LATERALES
 st.sidebar.title(t["sidebar_tit"])
-f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
-f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
-f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
-f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
+
+# Filtros con comprobación de existencia para evitar KeyError
+f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique())) if 'Idioma' in df.columns else []
+f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique())) if 'Público' in df.columns else []
+f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique())) if 'genero_fix' in df.columns else []
+f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique())) if 'Editorial' in df.columns else []
 
 col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
 max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
@@ -245,30 +247,46 @@ f_local = st.sidebar.checkbox(t["f_local"])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🤖 Filtros de contenido")
-opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
-f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
 
-if f_ia_gen:
-    df_temp_ia = df[df['Genero_Principal_IA'].isin(f_ia_gen)]
-    subs_disponibles = set()
-    df_temp_ia['Subgeneros_Limpios_IA'].str.split(', ').dropna().apply(subs_disponibles.update)
-    f_ia_sub = st.sidebar.multiselect(t["f_ia_sub"], sorted(list(subs_disponibles)))
+f_ia_gen = []
+f_ia_sub = []
+
+# Filtro IA Genero Principal
+if 'Genero_Principal_IA' in df.columns:
+    opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
+    f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
+
+    # Filtro IA Subgéneros (solo si hay género principal seleccionado)
+    if f_ia_gen and 'Subgeneros_Limpios_IA' in df.columns:
+        df_temp_ia = df[df['Genero_Principal_IA'].isin(f_ia_gen)]
+        subs_disponibles = set()
+        df_temp_ia['Subgeneros_Limpios_IA'].str.split(', ').dropna().apply(subs_disponibles.update)
+        f_ia_sub = st.sidebar.multiselect(t["f_ia_sub"], sorted(list(subs_disponibles)))
 else:
-    f_ia_sub = []
+    st.sidebar.info("Filtros IA no disponibles")
 
 def filtrar_dataframe(dataframe):
     temp = dataframe.copy()
-    if f_idioma: temp = temp[temp['Idioma'].isin(f_idioma)]
-    if f_publico: temp = temp[temp['Público'].isin(f_publico)]
-    if f_gen: temp = temp[temp['genero_fix'].isin(f_gen)]
-    if f_edit: temp = temp[temp['Editorial'].isin(f_edit)]
-    if f_ia_gen: temp = temp[temp['Genero_Principal_IA'].isin(f_ia_gen)]
-    if f_ia_sub:
+    # Filtros estándar
+    if f_idioma and 'Idioma' in temp.columns: temp = temp[temp['Idioma'].isin(f_idioma)]
+    if f_publico and 'Público' in temp.columns: temp = temp[temp['Público'].isin(f_publico)]
+    if f_gen and 'genero_fix' in temp.columns: temp = temp[temp['genero_fix'].isin(f_gen)]
+    if f_edit and 'Editorial' in temp.columns: temp = temp[temp['Editorial'].isin(f_edit)]
+    
+    # Filtros IA
+    if f_ia_gen and 'Genero_Principal_IA' in temp.columns: 
+        temp = temp[temp['Genero_Principal_IA'].isin(f_ia_gen)]
+    if f_ia_sub and 'Subgeneros_Limpios_IA' in temp.columns:
         temp = temp[temp['Subgeneros_Limpios_IA'].apply(
             lambda x: any(tema in str(x) for tema in f_ia_sub) if pd.notnull(x) else False
         )]
-    if col_pag_name in temp.columns: temp = temp[temp[col_pag_name].fillna(0) <= f_pag]
-    if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
+    
+    # Filtros numéricos y otros
+    if col_pag_name in temp.columns: 
+        temp = temp[temp[col_pag_name].fillna(0) <= f_pag]
+    if f_local and 'Geografia_Autor' in temp.columns: 
+        temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
+    
     return temp
 
 # 7. INTERFAZ PRINCIPAL
