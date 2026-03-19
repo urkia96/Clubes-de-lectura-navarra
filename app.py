@@ -97,14 +97,19 @@ def load_resources():
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
-    # 4. MODELOS
+# 4. CARGAR INDEX Y MODELO
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
+    
+    # Importamos torch aquí mismo para configurar el ahorro de RAM
+    import torch
+    torch.set_num_threads(1) # Evita que la CPU intente usar demasiada memoria a la vez
+    
+    # Cargamos el modelo forzando limpieza
     model = SentenceTransformer('intfloat/multilingual-e5-small', device='cpu')
     
+    # Limpieza agresiva de RAM
     gc.collect() 
     return df, index, model
-
-df, index, model = load_resources()
 
 # 3. CONEXIÓN CON GOOGLE SHEETS
 def conectar_sheets():
