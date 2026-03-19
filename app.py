@@ -185,18 +185,35 @@ def mostrar_card(r, context):
                     guardar_voto(lote_id, r.get('Título','S/T'), 0, context)
                     st.session_state[kv] = 0
                     st.rerun()
-
 # 6. FILTROS LATERALES
-st.sidebar.title(t["sidebar_tit"])
-f_idioma = st.sidebar.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
-f_publico = st.sidebar.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
-f_gen = st.sidebar.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
-f_edit = st.sidebar.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
+st.sidebar.subheader(t["sidebar_tit"])
 
-col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
-max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
-f_pag = st.sidebar.slider(t["f_paginas"], 0, max_p, max_p)
-f_local = st.sidebar.checkbox(t["f_local"])
+# --- GRUPO 1: FILTROS DE CONTENIDO IA (Subidos de posición) ---
+# Los ponemos arriba para que sean lo primero que se vea
+opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
+f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
+
+if f_ia_gen:
+    df_temp_ia = df[df['Genero_Principal_IA'].isin(f_ia_gen)]
+    subs_disponibles = set()
+    df_temp_ia['Subgeneros_Limpios_IA'].str.split(', ').dropna().apply(subs_disponibles.update)
+    f_ia_sub = st.sidebar.multiselect(t["f_ia_sub"], sorted(list(subs_disponibles)))
+else:
+    f_ia_sub = []
+
+st.sidebar.markdown("---")
+
+# --- GRUPO 2: FILTROS TÉCNICOS (Dentro de un Expander para ahorrar espacio) ---
+with st.sidebar.expander("⚙️ Filtros adicionales", expanded=False):
+    f_idioma = st.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
+    f_publico = st.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
+    f_gen = st.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
+    f_edit = st.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
+
+    col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
+    max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
+    f_pag = st.slider(t["f_paginas"], 0, max_p, max_p)
+    f_local = st.checkbox(t["f_local"])
 
 # --- SECCIÓN IA (MOVIDA ABAJO DEL TODO) ---
 st.sidebar.markdown("---")
