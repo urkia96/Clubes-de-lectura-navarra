@@ -98,8 +98,8 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     # 4. MODELOS
-    #index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
-    #model = SentenceTransformer('intfloat/multilingual-e5-small', device='cpu')
+    index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
+    model = SentenceTransformer('intfloat/multilingual-e5-small', device='cpu')
     
     gc.collect() 
     return df, index, model
