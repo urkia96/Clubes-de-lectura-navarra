@@ -252,8 +252,63 @@ with tab4:
         if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
     if 'azar' in st.session_state: mostrar_card(st.session_state.azar, "Seren")
 
-# MONITOR RAM
+# =========================
+# 📊 MONITOR DE MEMORIA COMPLETO
+# =========================
+import psutil
+import os
+import tracemalloc
+import gc
+
+# Iniciar tracemalloc solo una vez
+if "trace_started" not in st.session_state:
+    tracemalloc.start()
+    st.session_state.trace_started = True
+
 process = psutil.Process(os.getpid())
-mem_mb = process.memory_info().rss / 1024 / 1024
-color = "green" if mem_mb < 850 else "red"
-st.sidebar.markdown(f"RAM: :{color}[{mem_mb:.2f} MB]")
+mem_info = process.memory_full_info()
+
+# 🔹 Memoria del sistema (proceso)
+rss = mem_info.rss / 1024 / 1024
+vms = mem_info.vms / 1024 / 1024
+
+# 🔹 Memoria Python
+current, peak = tracemalloc.get_traced_memory()
+current_mb = current / 1024 / 1024
+peak_mb = peak / 1024 / 1024
+
+# 🔹 Colores según uso
+def color_mem(val):
+    if val < 700:
+        return "green"
+    elif val < 1000:
+        return "orange"
+    else:
+        return "red"
+
+# 🔹 Mostrar en sidebar
+st.sidebar.markdown("## 🧠 Monitor RAM")
+
+st.sidebar.markdown(f"**RSS (real proceso):** :{color_mem(rss)}[{rss:.2f} MB]")
+st.sidebar.markdown(f"**VMS (virtual):** {vms:.2f} MB")
+
+st.sidebar.markdown("---")
+
+st.sidebar.markdown(f"**Python actual:** :{color_mem(current_mb)}[{current_mb:.2f} MB]")
+st.sidebar.markdown(f"**Python pico:** :{color_mem(peak_mb)}[{peak_mb:.2f} MB]")
+
+st.sidebar.markdown("---")
+
+# 🔹 Botón para forzar limpieza
+if st.sidebar.button("🧹 Forzar Garbage Collector"):
+    gc.collect()
+    st.sidebar.success("GC ejecutado")
+
+# 🔹 Info interpretativa rápida
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🧾 Interpretación")
+st.sidebar.caption(f"""
+- RSS = memoria REAL total (incluye modelo, FAISS, etc.)
+- Python = solo objetos Python (df, listas...)
+- Pico = máximo alcanzado (clave para crashes)
+""")
