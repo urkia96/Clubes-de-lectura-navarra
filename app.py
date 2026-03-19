@@ -93,13 +93,39 @@ texts = {
 }
 t = texts[idioma_interfaz]
 
-# 2. CARGA DE RECURSOS
+# --- CONTADOR DE USUARIOS (SIMULACIÓN) ---
+if "active_users" not in st.session_state:
+    st.session_state.active_users = 1
+else:
+    st.session_state.active_users += 1
+
+# --- SELECCIÓN AUTOMÁTICA DE MODELO ---
+def seleccionar_modelo():
+    """
+    Selecciona small, base o large según la demanda simulada
+    (número de usuarios activos en session_state).
+    """
+    n = st.session_state.active_users
+    # Nota: ajusta estos umbrales según tu servidor
+    if n <= 3:
+        modelo = "large"
+    elif n <= 6:
+        modelo = "base"
+    else:
+        modelo = "small"
+    return modelo
+
+# --- CARGA DE RECURSOS ---
 @st.cache_resource
-def load_resources():
+def load_resources(modelo="large"):
+    """
+    Carga df, índice FAISS y modelo elegido.
+    """
+    # Carga del dataframe principal
     df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
-    
-    # Carga del nuevo Excel procesado
+
+    # Carga del Excel procesado
     excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     if os.path.exists(excel_ia_path):
         df_ex_ia = pd.read_excel(excel_ia_path)
@@ -107,16 +133,32 @@ def load_resources():
         df = pd.merge(df_ia, df_ex_ia[['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']], on='Nº lote', how='left')
     else:
         df = df_ia
-        
+
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-    index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-large')
+
+    # --- Nota: aquí debes poner las rutas de los .index y .pkl según el modelo ---
+    if modelo == "small":
+        index_path = f"{PATH_RECO}/biblioteca_small.index"
+        df_path = f"{PATH_RECO}/metadatos_small.pkl"
+    elif modelo == "base":
+        index_path = f"{PATH_RECO}/biblioteca_base.index"
+        df_path = f"{PATH_RECO}/metadatos_base.pkl"
+    else:  # large
+        index_path = f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index"
+        df_path = f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl"
+
+    # Carga índice FAISS y modelo embeddings
+    index = faiss.read_index(index_path)
+    model = SentenceTransformer(f"intfloat/multilingual-e5-{modelo}")
+
     return df, index, model
 
-df, index, model = load_resources()
+# Selección automática de modelo
+modelo_actual = seleccionar_modelo()
+df, index, model_semantic = load_resources(modelo_actual)
 
-# 3. CONEXIÓN CON GOOGLE SHEETS
+# --- CONEXIÓN CON GOOGLE SHEETS ---
 def conectar_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
@@ -125,15 +167,22 @@ def conectar_sheets():
     sheet = client.open_by_url(sheet_url).sheet1
     return sheet
 
-def guardar_voto(lote, titulo, valor, query):
+def guardar_voto(lote, titulo, valor, query, modelo):
     try:
         sheet = conectar_sheets()
-        sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), str(lote), str(titulo), "👍" if valor == 1 else "👎", str(query)])
+        sheet.append_row([
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            str(lote),
+            str(titulo),
+            "👍" if valor == 1 else "👎",
+            str(query),
+            modelo  # Guardamos el modelo usado
+        ])
         st.toast("✅ ¡Voto guardado!")
     except Exception as e:
         st.error(f"Error al guardar: {e}")
 
-# 5. MOSTRAR TARJETA
+# --- MOSTRAR TARJETA ---
 def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1,3,1])
@@ -178,13 +227,11 @@ def mostrar_card(r, context):
                 st.write(f"<small>{t['ask']}</small>", unsafe_allow_html=True)
                 ca, cb = st.columns(2)
                 if ca.button("👍", key=f"u_{lote_id}_{ctx_id}"):
-                    guardar_voto(lote_id, r.get('Título','S/T'), 1, context)
+                    guardar_voto(lote_id, r.get('Título','S/T'), 1, context, modelo_actual)
                     st.session_state[kv] = 1
                     st.rerun()
                 if cb.button("👎", key=f"d_{lote_id}_{ctx_id}"):
-                    guardar_voto(lote_id, r.get('Título','S/T'), 0, context)
-                    st.session_state[kv] = 0
-                    st.rerun()
+                    guardar_voto(lote_id, r.get('Título','S/T'), 0, context, modelo_actual)
 
 # 6. FILTROS LATERALES
 st.sidebar.title(t["sidebar_tit"])
