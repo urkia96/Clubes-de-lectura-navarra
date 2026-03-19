@@ -9,15 +9,15 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 
+# --- 1. CONFIGURACIÓN E IDIOMA ---
+st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
+
 # --- FUNCIÓN AUXILIAR PARA NORMALIZAR TEXTO ---
 def normalizar_texto(texto):
     if not isinstance(texto, str):
         return ""
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
-
-# 1. CONFIGURACIÓN E IDIOMA
-st.set_page_config(page_title="Clubes de Lectura de Navarra", layout="wide")
 
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
@@ -93,13 +93,12 @@ texts = {
 }
 t = texts[idioma_interfaz]
 
-# 2. CARGA DE RECURSOS
+# --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
     df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_genero.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
-   
-    # Carga del nuevo Excel procesado
+    
     excel_ia_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     if os.path.exists(excel_ia_path):
         df_ex_ia = pd.read_excel(excel_ia_path)
@@ -107,7 +106,7 @@ def load_resources():
         df = pd.merge(df_ia, df_ex_ia[['Nº lote', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']], on='Nº lote', how='left')
     else:
         df = df_ia
-       
+        
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_genero.index")
@@ -116,7 +115,7 @@ def load_resources():
 
 df, index, model = load_resources()
 
-# 3. CONEXIÓN CON GOOGLE SHEETS
+# --- 3. FUNCIONES DE APOYO (Google Sheets y Tarjetas) ---
 def conectar_sheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
@@ -133,7 +132,6 @@ def guardar_voto(lote, titulo, valor, query):
     except Exception as e:
         st.error(f"Error al guardar: {e}")
 
-# 5. MOSTRAR TARJETA
 def mostrar_card(r, context):
     with st.container(border=True):
         col_img, col_txt, col_voto = st.columns([1,3,1])
@@ -158,8 +156,7 @@ def mostrar_card(r, context):
             except:
                 pags_display = str(pags_val)
             st.caption(f"Lote: {lote_id} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
-           
-            # Badge de subgéneros IA si existen
+            
             if pd.notnull(r.get('Subgeneros_Limpios_IA')):
                 st.markdown(f"**{r.get('Genero_Principal_IA')}**: <small>{r.get('Subgeneros_Limpios_IA')}</small>", unsafe_allow_html=True)
 
@@ -185,38 +182,11 @@ def mostrar_card(r, context):
                     guardar_voto(lote_id, r.get('Título','S/T'), 0, context)
                     st.session_state[kv] = 0
                     st.rerun()
-# 6. FILTROS LATERALES
-st.sidebar.subheader(t["sidebar_tit"])
 
-# --- GRUPO 1: FILTROS DE CONTENIDO IA (Subidos de posición) ---
-# Los ponemos arriba para que sean lo primero que se vea
-opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
-f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
+# --- 4. FILTROS LATERALES (REORGANIZADOS) ---
+st.sidebar.title(t["sidebar_tit"])
 
-if f_ia_gen:
-    df_temp_ia = df[df['Genero_Principal_IA'].isin(f_ia_gen)]
-    subs_disponibles = set()
-    df_temp_ia['Subgeneros_Limpios_IA'].str.split(', ').dropna().apply(subs_disponibles.update)
-    f_ia_sub = st.sidebar.multiselect(t["f_ia_sub"], sorted(list(subs_disponibles)))
-else:
-    f_ia_sub = []
-
-st.sidebar.markdown("---")
-
-# --- GRUPO 2: FILTROS TÉCNICOS (Dentro de un Expander para ahorrar espacio) ---
-with st.sidebar.expander("⚙️ Filtros adicionales", expanded=False):
-    f_idioma = st.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
-    f_publico = st.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
-    f_gen = st.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
-    f_edit = st.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
-
-    col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
-    max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
-    f_pag = st.slider(t["f_paginas"], 0, max_p, max_p)
-    f_local = st.checkbox(t["f_local"])
-
-# --- SECCIÓN IA (MOVIDA ABAJO DEL TODO) ---
-st.sidebar.markdown("---")
+# A. FILTROS DE IA (PRIORITARIOS - ARRIBA)
 st.sidebar.subheader("🤖 Filtros de contenido")
 opciones_ia_gen = sorted(df['Genero_Principal_IA'].dropna().unique())
 f_ia_gen = st.sidebar.multiselect(t["f_ia_gen"], opciones_ia_gen)
@@ -229,25 +199,40 @@ if f_ia_gen:
 else:
     f_ia_sub = []
 
+st.sidebar.markdown("---")
+
+# B. OTROS FILTROS (DENTRO DE UN EXPANDER PARA AHORRAR ESPACIO)
+with st.sidebar.expander("⚙️ Filtros por edición/autor"):
+    f_idioma = st.multiselect(t["f_idioma"], sorted(df['Idioma'].dropna().unique()))
+    f_publico = st.multiselect(t["f_publico"], sorted(df['Público'].dropna().unique()))
+    f_gen = st.multiselect(t["f_genero"], sorted(df['genero_fix'].dropna().unique()))
+    f_edit = st.multiselect(t["f_editorial"], sorted(df['Editorial'].dropna().unique()))
+
+    col_pag_name = 'Páginas' if 'Páginas' in df.columns else 'Páginas_ex'
+    max_p = int(df[col_pag_name].max()) if col_pag_name in df.columns else 1500
+    f_pag = st.slider(t["f_paginas"], 0, max_p, max_p)
+    f_local = st.checkbox(t["f_local"])
+
+# --- 5. FUNCIÓN DE FILTRADO ---
 def filtrar_dataframe(dataframe):
     temp = dataframe.copy()
     if f_idioma: temp = temp[temp['Idioma'].isin(f_idioma)]
     if f_publico: temp = temp[temp['Público'].isin(f_publico)]
     if f_gen: temp = temp[temp['genero_fix'].isin(f_gen)]
     if f_edit: temp = temp[temp['Editorial'].isin(f_edit)]
-   
+    
     # Aplicar Filtros IA
     if f_ia_gen: temp = temp[temp['Genero_Principal_IA'].isin(f_ia_gen)]
     if f_ia_sub:
         temp = temp[temp['Subgeneros_Limpios_IA'].apply(
             lambda x: any(tema in str(x) for tema in f_ia_sub) if pd.notnull(x) else False
         )]
-       
+        
     if col_pag_name in temp.columns: temp = temp[temp[col_pag_name].fillna(0) <= f_pag]
     if f_local: temp = temp[temp['Geografia_Autor'].astype(str).str.contains("Local", case=False, na=False)]
     return temp
 
-# 7. INTERFAZ PRINCIPAL
+# --- 6. INTERFAZ PRINCIPAL ---
 col_logo, col_tit = st.columns([1,6])
 with col_logo:
     if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
@@ -262,7 +247,7 @@ with tab1:
     c1,c2 = st.columns(2)
     with c1: b_tit = st.text_input(t["busq_titulo"], key="b_tit")
     with c2: b_aut = st.text_input(t["busq_autor"], key="b_aut")
-   
+    
     if b_tit or b_aut:
         res_trad = filtrar_dataframe(df)
         if b_tit: res_trad = res_trad[res_trad['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
