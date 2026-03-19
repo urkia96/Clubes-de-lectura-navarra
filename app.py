@@ -96,7 +96,7 @@ t = texts[idioma_interfaz]
 # 2. CARGA DE RECURSOS
 @st.cache_resource
 def load_resources():
-    df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_base.pkl", "rb"))
+    df_ia = pickle.load(open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb"))
     df_ia['Nº lote'] = df_ia['Nº lote'].astype(str).str.strip()
     
     # Carga del nuevo Excel procesado
@@ -110,8 +110,8 @@ def load_resources():
         
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-    index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_base.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-base')
+    index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
+    model = SentenceTransformer('intfloat/multilingual-e5-small')
     return df, index, model
 
 df, index, model = load_resources()
