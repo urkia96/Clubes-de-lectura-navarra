@@ -244,7 +244,7 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
-with col_content:
+     with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
 
@@ -271,6 +271,7 @@ with col_content:
                 # Aquí podrías añadir una columna de resumen en euskera si la tuvieras, 
                 # de momento se mantiene el de Navarra.
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
+    
                 
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
