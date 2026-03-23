@@ -311,7 +311,7 @@ with tab2:
 # --- TAB3: lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
     # Ahora permitimos varios lotes separados por comas
-    lid_input = st.text_input(t["lote_input"] + " (puedes poner varios lotes separados por comas: 001N,002N...)", key="txt_sim_lote_multi")
+    lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
     
     if lid_input:
         # 1. Limpiamos y obtenemos la lista de lotes
