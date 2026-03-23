@@ -249,24 +249,35 @@ st.sidebar.title(t["sidebar_tit"])
 
 # 5.1 FILTROS GENERALES
 with st.sidebar.expander(t["exp_gral"], expanded=False):
-    f_idioma = st.multiselect(t["f_idioma"], sorted(df[col_idioma].unique()))
-    f_publico = st.multiselect(t["f_publico"], sorted(df[col_publico].unique()))
-    f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[col_gen_aut].unique()))
+    # Cargamos opciones únicas de la columna de idioma (Castellano o Euskera según corresponda)
+    f_idioma = st.multiselect(t["f_idioma"], sorted([i for i in df[col_idioma].unique() if i != "Desconocido"]))
+    
+    # Público (Infantil, Heldua, etc.)
+    f_publico = st.multiselect(t["f_publico"], sorted([p for p in df[col_publico].unique() if p != "Desconocido"]))
+    
+    # Género del autor/a
+    f_gen_aut = st.multiselect(t["f_genero_aut"], sorted([g for g in df[col_gen_aut].unique() if g != "Desconocido"]))
+    
+    # Editorial (esta se mantiene igual para ambos idiomas)
     f_editorial = st.multiselect(t["f_editorial"], sorted([e for e in df['Editorial'].unique() if e != "Desconocido"]))
+    
     f_local = st.checkbox(t["f_local"])
     f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
-# 5.2 FILTROS DE CONTENIDO
+# 5.2 FILTROS DE CONTENIDO (Basados en IA y traducidos)
 with st.sidebar.expander(t["exp_cont"], expanded=False):
     f_ia_gen = st.multiselect(t["f_ia_gen"], sorted([g for g in df[col_ia_gen].unique() if g != "Desconocido"]))
+    
     f_ia_sub = []
     if f_ia_gen:
         subs = set()
+        # Buscamos subgéneros dentro de los géneros seleccionados (usando columnas traducidas)
         df[df[col_ia_gen].isin(f_ia_gen)][col_ia_sub].str.split(',').dropna().apply(lambda x: subs.update([s.strip() for s in x]))
         f_ia_sub = st.multiselect(t["f_ia_sub"], sorted([s for s in list(subs) if s != "Desconocido"]))
 
 def filtrar(dataframe):
     temp = dataframe.copy()
+    # Aplicamos filtros usando las variables dinámicas de columna (col_...)
     if f_idioma: temp = temp[temp[col_idioma].isin(f_idioma)]
     if f_publico: temp = temp[temp[col_publico].isin(f_publico)]
     if f_gen_aut: temp = temp[temp[col_gen_aut].isin(f_gen_aut)]
@@ -274,8 +285,11 @@ def filtrar(dataframe):
     if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
     if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
     if f_ia_gen: temp = temp[temp[col_ia_gen].isin(f_ia_gen)]
-    if f_ia_sub: temp = temp[temp[col_ia_sub].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
+    if f_ia_sub: 
+        # Lógica para buscar subgéneros dentro de strings separados por comas
+        temp = temp[temp[col_ia_sub].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
     return temp
+
 
 # --- 6. INTERFAZ ---
 col_logo, col_tit = st.columns([1,6])
