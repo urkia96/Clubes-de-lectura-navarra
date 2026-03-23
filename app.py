@@ -29,15 +29,13 @@ if "auth" not in st.session_state:
 
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
-URL_SERENDIPIA = f"{PATH_RECO}/serendipia.png" 
+URL_SERENDIPIA = f"{PATH_RECO}/serendipia.png"
 RUTA_PORTADAS = "portadas"
 
 def normalizar_texto(texto):
     if not isinstance(texto, str): return ""
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
-
-
 
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
@@ -46,33 +44,86 @@ with col_lang:
 
 texts = {
     "Castellano": {
-        "titulo": "Clubes de Lectura de Navarra", "subtitulo": "Nafarroako Irakurketa Klubak",
-        "sidebar_tit": "🎯 Panel de Control", 
-        "exp_gral": "⚙️ Filtros generales", "exp_cont": "📖 Filtros de contenido",
-        "f_idioma": "🌍 Idioma", "f_publico": "👥 Público",
-        "f_genero_aut": "👤 Género Autor/a", "f_editorial": "📚 Editorial", "f_paginas": "📄 Número de páginas",
-        "f_local": "🏠 Autores locales", "f_ia_gen": "📂 Género", "f_ia_sub": "🏷️ Subgénero",
-        "tab1": "📖 Búsqueda por autor/título", "tab2": "✨ Búsqueda libre", "tab3": "🔍 Lotes similares", "tab4": "🎲 Búsqueda aleatoria",
-        "placeholder": "Ej: Novelas sobre la historia de Navarra", "input_query": "Puedes escribir lo que quieras",
-        "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:", "busq_titulo": "Buscar por Título:", "busq_autor": "Buscar por Autor:",
-        "resumen_btn": "Ver resumen", "pags_label": "págs", "thanks": "✅ Voto registrado", "ask": "¿Te gusta esta recomendación?",
-        "boton_txt": "¡Sorpréndeme!", "no_results": "Sin resultados con esos filtros."
+        "titulo": "Clubes de Lectura de Navarra", 
+        "subtitulo": "Nafarroako Irakurketa Klubak",
+        "sidebar_tit": "🎯 Panel de Control",
+        "exp_gral": "⚙️ Filtros generales", 
+        "exp_cont": "📖 Filtros de contenido",
+        "f_idioma": "🌍 Idioma", 
+        "f_publico": "👥 Público",
+        "f_genero_aut": "👤 Género Autor/a", 
+        "f_editorial": "📚 Editorial", 
+        "f_paginas": "📄 Número de páginas",
+        "f_local": "🏠 Autores locales", 
+        "f_ia_gen": "📂 Género", 
+        "f_ia_sub": "🏷️ Subgénero",
+        "tab1": "📖 Búsqueda por autor/título", 
+        "tab2": "✨ Búsqueda libre", 
+        "tab3": "🔍 Lotes similares", 
+        "tab4": "🎲 Búsqueda aleatoria",
+        "placeholder": "Ej: Novelas sobre la historia de Navarra", 
+        "input_query": "Puedes escribir lo que quieras",
+        "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:", 
+        "busq_titulo": "Buscar por Título:", 
+        "busq_autor": "Buscar por Autor:",
+        "resumen_btn": "Ver resumen", 
+        "pags_label": "págs", 
+        "thanks": "✅ Voto registrado", 
+        "ask": "¿Te gusta esta recomendación?",
+        "boton_txt": "¡Sorpréndeme!", 
+        "no_results": "Sin resultados con esos filtros.",
+        "cols": {
+            "idioma": "Idioma",
+            "publico": "Público",
+            "genero_aut": "genero_fix",
+            "ia_gen": "Genero_Principal_IA",
+            "ia_sub": "Subgeneros_Limpios_IA"
+        }
     },
     "Euskera": {
-        "titulo": "Nafarroako Irakurketa Klubak", "subtitulo": "Clubes de Lectura de Navarra",
-        "sidebar_tit": "🎯 Kontrol Panela", 
-        "exp_gral": "⚙️ Iragazki orokorrak", "exp_cont": "📖 Edukiaren iragazkiak",
-        "f_idioma": "🌍 Hizkuntza", "f_publico": "👥 Publikoa",
-        "f_genero_aut": "👤 Egilearen generoa", "f_editorial": "📚 Argitaletxea", "f_paginas": "📄 Orrialde kopurua",
-        "f_local": "🏠 Bertako autoreak", "f_ia_gen": "📂 Generoa", "f_ia_sub": "🏷️ Azpigeneroa",
-        "tab1": "📖 Izenburu / Idazle bilaketa", "tab2": "✨ Bilaketa librea", "tab3": "🔍 Lote antzekoak", "tab4": "🎲 Zorizko bilaketa",
-        "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak", "input_query": "Nahi duzuna idatzi dezakezu",
-        "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:", "busq_titulo": "Izenburuaren arabera bilatu:", "busq_autor": "Egilearen arabera bilatu:",
-        "resumen_btn": "Ikusi laburpena", "pags_label": "orr", "thanks": "✅ Iritzia gordeta", "ask": "Gogoko duzu?",
-        "boton_txt": "Harritu nazazu!", "no_results": "Ez da emaitzarik aurkitu iragazki hauekin."
+        "titulo": "Nafarroako Irakurketa Klubak", 
+        "subtitulo": "Clubes de Lectura de Navarra",
+        "sidebar_tit": "🎯 Kontrol Panela",
+        "exp_gral": "⚙️ Iragazki orokorrak", 
+        "exp_cont": "📖 Edukiaren iragazkiak",
+        "f_idioma": "🌍 Hizkuntza", 
+        "f_publico": "👥 Publikoa",
+        "f_genero_aut": "👤 Egilearen generoa", 
+        "f_editorial": "📚 Argitaletxea", 
+        "f_paginas": "📄 Orrialde kopurua",
+        "f_local": "🏠 Bertako autoreak", 
+        "f_ia_gen": "📂 Generoa", 
+        "f_ia_sub": "🏷️ Azpigeneroa",
+        "tab1": "📖 Izenburu / Idazle bilaketa", 
+        "tab2": "✨ Bilaketa librea", 
+        "tab3": "🔍 Lote antzekoak", 
+        "tab4": "🎲 Zorizko bilaketa",
+        "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak", 
+        "input_query": "Nahi duzuna idatzi dezakezu",
+        "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:", 
+        "busq_titulo": "Izenburuaren arabera bilatu:", 
+        "busq_autor": "Egilearen arabera bilatu:",
+        "resumen_btn": "Ikusi laburpena", 
+        "pags_label": "orr", 
+        "thanks": "✅ Iritzia gordeta", 
+        "ask": "Gogoko duzu?",
+        "boton_txt": "Harritu nazazu!", 
+        "no_results": "Ez da emaitzarik aurkitu iragazki hauekin.",
+        "cols": {
+            "idioma": "Idioma_eus",
+            "publico": "Público_eus",
+            "genero_aut": "genero_fix_eus",
+            "ia_gen": "Genero_Principal_IA_eus",
+            "ia_sub": "Subgeneros_Limpios_IA_eus"
+        }
     }
 }
+
 t = texts[st.session_state.idioma]
+c = t["cols"]
+
+
+
 
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
