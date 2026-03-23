@@ -54,7 +54,7 @@ texts = {
         "f_local": "🏠 Autores locales", "f_ia_gen": "📂 Género", "f_ia_sub": "🏷️ Subgénero",
         "tab1": "📖 Búsqueda por autor/título", "tab2": "✨ Búsqueda libre", "tab3": "🔍 Lotes similares", "tab4": "🎲 Búsqueda aleatoria",
         "placeholder": "Ej: Novelas sobre la historia de Navarra", "input_query": "Puedes escribir lo que quieras",
-        "lote_input": "Introduce el código del lote. Puedes introducir más de un lote, por ejemplo, 121N, 445N, etc.:", "busq_titulo": "Buscar por Título:", "busq_autor": "Buscar por Autor:",
+        "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:", "busq_titulo": "Buscar por Título:", "busq_autor": "Buscar por Autor:",
         "resumen_btn": "Ver resumen", "pags_label": "págs", "thanks": "✅ Voto registrado", "ask": "¿Te gusta esta recomendación?",
         "boton_txt": "¡Sorpréndeme!", "no_results": "Sin resultados con esos filtros."
     },
@@ -67,7 +67,7 @@ texts = {
         "f_local": "🏠 Bertako autoreak", "f_ia_gen": "📂 Generoa", "f_ia_sub": "🏷️ Azpigeneroa",
         "tab1": "📖 Izenburu / Idazle bilaketa", "tab2": "✨ Bilaketa librea", "tab3": "🔍 Lote antzekoak", "tab4": "🎲 Zorizko bilaketa",
         "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak", "input_query": "Nahi duzuna idatzi dezakezu",
-        "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, adibidez: 121N, 445N, etab.:", "busq_titulo": "Izenburuaren arabera bilatu:", "busq_autor": "Egilearen arabera bilatu:",
+        "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:", "busq_titulo": "Izenburuaren arabera bilatu:", "busq_autor": "Egilearen arabera bilatu:",
         "resumen_btn": "Ikusi laburpena", "pags_label": "orr", "thanks": "✅ Iritzia gordeta", "ask": "Gogoko duzu?",
         "boton_txt": "Harritu nazazu!", "no_results": "Ez da emaitzarik aurkitu iragazki hauekin."
     }
