@@ -192,7 +192,7 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
-           with col_content:
+        with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
 
