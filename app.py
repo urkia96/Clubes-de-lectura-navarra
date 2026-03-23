@@ -46,8 +46,6 @@ with col_lang:
         st.session_state.idioma = idioma_sel
         st.rerun()
 
-t = texts[st.session_state.idioma]
-
 # AHORA definimos las columnas: esto garantiza que siempre tengan el valor del idioma actual
 es_eus = st.session_state.idioma == "Euskera"
 col_idioma = 'Idioma_eus' if es_eus else 'Idioma'
