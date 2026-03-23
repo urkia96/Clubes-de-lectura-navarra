@@ -74,6 +74,15 @@ texts = {
 }
 t = texts[st.session_state.idioma]
 
+# Mapeo de columnas según idioma
+es_eus = st.session_state.idioma == "Euskera"
+col_idioma = 'Idioma_eus' if es_eus else 'Idioma'
+col_publico = 'Público_eus' if es_eus else 'Público'
+col_gen_aut = 'genero_fix_eus' if es_eus else 'genero_fix'
+col_ia_gen = 'Genero_Principal_IA_eus' if es_eus else 'Genero_Principal_IA'
+col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA'
+
+
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
@@ -183,25 +192,20 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
-        with col_content:
+           with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
 
-            # Info adicional
-            pags_val = r.get('Páginas', r.get('Páginas_ex','--'))
-            try:
-                pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
-            except:
-                pags_display = str(pags_val)
-            st.caption(f"{r.get('Editorial','--')} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
+            # Usamos los valores traducidos para la ficha
+            val_pags = r.get('Páginas', '--')
+            st.caption(f"{r.get('Editorial','--')} | {r.get(col_idioma,'--')} | {val_pags} {t['pags_label']} | {r.get(col_publico,'--')}")
 
-            # Subgéneros
-            if pd.notnull(r.get('Subgeneros_Limpios_IA')):
-                st.write(f"**{r.get('Genero_Principal_IA')}**: {r.get('Subgeneros_Limpios_IA')}")
+            if pd.notnull(r.get(col_ia_sub)):
+                st.write(f"**{r.get(col_ia_gen)}**: {r.get(col_ia_sub)}")
 
-            # Resumen con expander
             with st.expander(t["resumen_btn"], expanded=False):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
+
                 
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
