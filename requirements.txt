@@ -1,9 +1,0 @@
-streamlit
-pandas
-faiss-cpu
-sentence-transformers==2.2.2
-openpyxl
-gspread
-google-auth
-psutil
-torch --index-url https://download.pytorch.org/whl/cpu
