@@ -190,37 +190,37 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
-with col_content:
-    st.markdown(f"### {r.get('Título','Sin título')}")
-    st.write(f"**{r.get('Autor','Autor desconocido')}**")
+        with col_content:
+            st.markdown(f"### {r.get('Título','Sin título')}")
+            st.write(f"**{r.get('Autor','Autor desconocido')}**")
 
-    # Info adicional
-    pags_val = r.get('Páginas', r.get('Páginas_ex','--'))
-    try:
-        pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
-    except:
-        pags_display = str(pags_val)
+            # Info adicional
+            pags_val = r.get('Páginas', r.get('Páginas_ex','--'))
+            try:
+                pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
+            except:
+                pags_display = str(pags_val)
 
-    st.caption(
-        f"{r.get('Editorial','--')} | "
-        f"{r.get(col_lang('Idioma'),'--')} | "
-        f"{pags_display} {t['pags_label']} | "
-        f"{r.get(col_lang('Público'),'--')}"
-    )
+            st.caption(
+            f"{r.get('Editorial','--')} | "
+            f"{r.get(col_lang('Idioma'),'--')} | "
+            f"{pags_display} {t['pags_label']} | "
+            f"{r.get(col_lang('Público'),'--')}"
+            )
 
-    # Subgéneros (adaptado a idioma)
-    gen_principal = r.get(col_lang('Genero_Principal_IA'))
-    subgeneros = r.get(col_lang('Subgeneros_Limpios_IA'))
+            # Subgéneros (adaptado a idioma)
+            en_principal = r.get(col_lang('Genero_Principal_IA'))
+            subgeneros = r.get(col_lang('Subgeneros_Limpios_IA'))
 
-    if pd.notnull(subgeneros) and str(subgeneros).strip() != "":
-        st.write(f"**{gen_principal}**: {subgeneros}")
+            if pd.notnull(subgeneros) and str(subgeneros).strip() != "":
+                st.write(f"**{gen_principal}**: {subgeneros}")
 
-    # Resumen (de momento solo castellano, como lo tienes)
-    with st.expander(t["resumen_btn"], expanded=False):
-        st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
+            # Resumen (de momento solo castellano, como lo tienes)
+            with st.expander(t["resumen_btn"], expanded=False):
+                st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
                 
 
-        # --- COLUMNA 3: BOTONES DE VOTO ---
+         # --- COLUMNA 3: BOTONES DE VOTO ---
         with col_vote:
             st.markdown("<p style='font-weight:bold;'>¿Es relevante?</p>", unsafe_allow_html=True)
             ctx_id = str(context)[:10].replace(" ","_")
