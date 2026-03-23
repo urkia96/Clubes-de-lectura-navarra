@@ -244,33 +244,33 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
-           with col_content:
-                st.markdown(f"### {r.get('Título','Sin título')}")
-                st.write(f"**{r.get('Autor','Autor desconocido')}**")
-    
-                # Info adicional
-                pags_val = r.get('Páginas', r.get('Páginas_ex','--'))
-                try:
-                    pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
-                except:
-                    pags_display = str(pags_val)
-                
-                # NUEVO: Usamos c['idioma'] y c['publico'] para que cambie según el selector
-                st.caption(f"{r.get('Editorial','--')} | {r.get(c['idioma'],'--')} | {pags_display} {t['pags_label']} | {r.get(c['publico'],'--')}")
-    
-                # Subgéneros dinámicos
-                # NUEVO: Usamos c['ia_gen'] y c['ia_sub']
-                genero_ia = r.get(c['ia_gen'])
-                subgeneros_ia = r.get(c['ia_sub'])
-                
-                if pd.notnull(subgeneros_ia) and subgeneros_ia != "Desconocido":
-                    st.write(f"**{genero_ia}**: {subgeneros_ia}")
-    
-                # Resumen con expander
-                with st.expander(t["resumen_btn"], expanded=False):
-                    # Aquí podrías añadir una columna de resumen en euskera si la tuvieras, 
-                    # de momento se mantiene el de Navarra.
-                    st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
+       with col_content:
+            st.markdown(f"### {r.get('Título','Sin título')}")
+            st.write(f"**{r.get('Autor','Autor desconocido')}**")
+
+            # Info adicional
+            pags_val = r.get('Páginas', r.get('Páginas_ex','--'))
+            try:
+                pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
+            except:
+                pags_display = str(pags_val)
+            
+            # NUEVO: Usamos c['idioma'] y c['publico'] para que cambie según el selector
+            st.caption(f"{r.get('Editorial','--')} | {r.get(c['idioma'],'--')} | {pags_display} {t['pags_label']} | {r.get(c['publico'],'--')}")
+
+            # Subgéneros dinámicos
+            # NUEVO: Usamos c['ia_gen'] y c['ia_sub']
+            genero_ia = r.get(c['ia_gen'])
+            subgeneros_ia = r.get(c['ia_sub'])
+            
+            if pd.notnull(subgeneros_ia) and subgeneros_ia != "Desconocido":
+                st.write(f"**{genero_ia}**: {subgeneros_ia}")
+
+            # Resumen con expander
+            with st.expander(t["resumen_btn"], expanded=False):
+                # Aquí podrías añadir una columna de resumen en euskera si la tuvieras, 
+                # de momento se mantiene el de Navarra.
+                st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
                 
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
