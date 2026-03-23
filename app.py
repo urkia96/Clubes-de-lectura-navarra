@@ -80,40 +80,35 @@ col_idioma = 'Idioma_eus' if es_eus else 'Idioma'
 col_publico = 'Público_eus' if es_eus else 'Público'
 col_gen_aut = 'genero_fix_eus' if es_eus else 'genero_fix'
 col_ia_gen = 'Genero_Principal_IA_eus' if es_eus else 'Genero_Principal_IA'
-col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA'
+col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA
 
 
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
-    if not os.path.exists(excel_path):
-        st.error(f"Archivo crítico no encontrado: {excel_path}")
-        st.stop()
-    
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     df['Nº lote'] = df['Nº lote'].astype(str).str.strip()
-    
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-    cols_check = ['Idioma', 'Público', 'genero_fix', 'Editorial', 'Geografia_Autor', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']
-    for col in cols_check:
-        if col in df.columns:
-            df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>'], "Desconocido")
-        else:
-            df[col] = "Desconocido"
-            
+    
+    # Asegurar que existan todas las columnas necesarias (evitar errores si falta alguna _eus)
+    todas_cols = ['Idioma', 'Idioma_eus', 'Público', 'Público_eus', 'genero_fix', 'genero_fix_eus', 
+                  'Editorial', 'Geografia_Autor', 'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
+                  'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus']
+    for c in todas_cols:
+        if c not in df.columns: df[c] = "Desconocido"
+        else: df[c] = df[c].astype(str).replace(['nan', 'None', '<NA>'], "Desconocido")
+           
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-    
+   
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip()
-    
+   
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
-    
-    gc.collect() 
     return df, df_ia_meta, index, model
 
 df, df_ia_meta, index, model = load_resources()
