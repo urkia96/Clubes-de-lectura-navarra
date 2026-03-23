@@ -202,11 +202,7 @@ def mostrar_card(r, context):
             # Resumen con expander
             with st.expander(t["resumen_btn"], expanded=False):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
-                tags = r.get('IA_Tags','')
-                if pd.notnull(tags) and str(tags).strip() != "":
-                    st.divider()
-                    label = t.get('kw_label', 'Palabras clave')
-                    st.write(f"**{label}:** {tags}")
+                
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
         with col_vote:
