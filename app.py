@@ -33,14 +33,28 @@ def normalizar_texto(texto):
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
 
-# Selector de idioma con rerun forzado para actualizar mapeo de columnas
+# --- Selector de idioma ---
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
-    idioma_actual = st.selectbox("🌐", ["Castellano", "Euskera"],
+    # Usamos index para que refleje el estado actual
+    idioma_sel = st.selectbox("🌐", ["Castellano", "Euskera"],
                                  index=0 if st.session_state.idioma == "Castellano" else 1,
-                                 key="selector_global", 
-                                 on_change=None) # Streamlit suele refrescar solo, pero si falla pon st.rerun
-    st.session_state.idioma = idioma_actual
+                                 key="selector_global")
+    
+    # Si el idioma cambió, actualizamos y relanzamos para que todo el script use las nuevas columnas
+    if idioma_sel != st.session_state.idioma:
+        st.session_state.idioma = idioma_sel
+        st.rerun()
+
+t = texts[st.session_state.idioma]
+
+# AHORA definimos las columnas: esto garantiza que siempre tengan el valor del idioma actual
+es_eus = st.session_state.idioma == "Euskera"
+col_idioma = 'Idioma_eus' if es_eus else 'Idioma'
+col_publico = 'Público_eus' if es_eus else 'Público'
+col_gen_aut = 'genero_fix_eus' if es_eus else 'genero_fix'
+col_ia_gen = 'Genero_Principal_IA_eus' if es_eus else 'Genero_Principal_IA'
+col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA'
 
 texts = {
     "Castellano": {
@@ -192,28 +206,24 @@ def mostrar_card(r, context):
 
             st.caption(f"Lote {lote_id}")
 
-         # --- COLUMNA 2: CONTENIDO ---
+         # --- COLUMNA 2: CONTENIDO (Dentro de mostrar_card) ---
         with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
 
-            # Formateo de páginas para evitar decimales (ej: 32.0 -> 32)
             pags_val = r.get('Páginas', '--')
             try:
                 pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
             except:
                 pags_display = str(pags_val)
 
-            # Info adicional usando columnas traducidas (Idioma y Público)
             st.caption(f"{r.get('Editorial','--')} | {r.get(col_idioma,'--')} | {pags_display} {t['pags_label']} | {r.get(col_publico,'--')}")
 
-            # Género e IA con columnas traducidas
+            # NUEVA LÍNEA: Género del autor/a traducido
+            st.write(f"**{t['f_genero_aut']}:** {r.get(col_gen_aut, '--')}")
+
             if pd.notnull(r.get(col_ia_sub)) and r.get(col_ia_sub) != "Desconocido":
                 st.write(f"**{r.get(col_ia_gen)}**: {r.get(col_ia_sub)}")
-
-            # Resumen (mantenemos Resumen_navarra ya que es texto largo)
-            with st.expander(t["resumen_btn"], expanded=False):
-                st.write(r.get('Resumen_navarra', 'No hay resumen disponible.'))
                 
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
