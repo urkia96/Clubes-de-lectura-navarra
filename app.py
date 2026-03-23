@@ -80,7 +80,7 @@ col_idioma = 'Idioma_eus' if es_eus else 'Idioma'
 col_publico = 'Público_eus' if es_eus else 'Público'
 col_gen_aut = 'genero_fix_eus' if es_eus else 'genero_fix'
 col_ia_gen = 'Genero_Principal_IA_eus' if es_eus else 'Genero_Principal_IA'
-col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA
+col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA'
 
 
 # --- 2. CARGA DE RECURSOS ---
