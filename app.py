@@ -113,19 +113,30 @@ df, df_ia_meta, index, model = load_resources()
 # --- 3. FUNCIONES AUXILIARES ---
 def conectar_sheets():
     try:
-        if "GCP_SERVICE_ACCOUNT" in os.environ and "GSHEET_URL" in os.environ:
+        # --- PRIORIDAD: Streamlit secrets ---
+        if "gcp_service_account" in st.secrets:
+            creds_info = st.secrets["gcp_service_account"]
+            sheet_url = st.secrets["GSHEET_URL"]
+
+        # --- FALLBACK: Hugging Face / entorno ---
+        elif "GCP_SERVICE_ACCOUNT" in os.environ:
             creds_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
             sheet_url = os.environ["GSHEET_URL"]
-            creds = Credentials.from_service_account_info(
-                creds_info,
-                scopes=["https://www.googleapis.com/auth/spreadsheets"]
-            )
-            gc_client = gspread.authorize(creds)
-            sheet = gc_client.open_by_url(sheet_url).sheet1
-            st.success("✅ Conectado a Google Sheets correctamente")
-            return sheet
+
         else:
-            st.error("❌ Faltan las variables de entorno GCP_SERVICE_ACCOUNT o GSHEET_URL")
+            st.error("❌ No se encontraron credenciales")
+            return None
+
+        creds = Credentials.from_service_account_info(
+            creds_info,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+
+        gc_client = gspread.authorize(creds)
+        sheet = gc_client.open_by_url(sheet_url).sheet1
+
+        return sheet
+
     except Exception as e:
         st.error(f"❌ Error conectando a Sheets: {e}")
         return None
