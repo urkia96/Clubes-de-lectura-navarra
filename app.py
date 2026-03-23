@@ -38,10 +38,17 @@ def normalizar_texto(texto):
     return texto.lower().strip()
 
 
+def col_lang(col_base, dataframe):
+    if st.session_state.idioma == "Euskera":
+        col_eus = f"{col_base}_eus"
+        if col_eus in dataframe.columns:
+            return col_eus
+    return col_base
 
-col_main, col_lang = st.columns([12, 1])
-with col_lang:
-    idioma_actual = st.selectbox("🌐", ["Castellano", "Euskera"], index=0 if st.session_state.idioma == "Castellano" else 1, key="selector_global")
+col_main, col_lang_sel = st.columns([12,1])
+with col_lang_sel:
+    idioma_actual = st.selectbox("🌐", ["Castellano","Euskera"],
+                                index=0 if st.session_state.idioma=="Castellano" else 1)
     st.session_state.idioma = idioma_actual
 
 texts = {
