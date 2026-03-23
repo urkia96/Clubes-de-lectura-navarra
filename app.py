@@ -29,7 +29,7 @@ if "auth" not in st.session_state:
 
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
-URL_SERENDIPIA = f"{PATH_RECO}/serendipia.png" 
+URL_SERENDIPIA = f"{PATH_RECO}/serendipia.png"
 RUTA_PORTADAS = "portadas"
 
 def normalizar_texto(texto):
@@ -37,17 +37,19 @@ def normalizar_texto(texto):
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
 
-
-
+# Selector de idioma en la interfaz
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
-    idioma_actual = st.selectbox("🌐", ["Castellano", "Euskera"], index=0 if st.session_state.idioma == "Castellano" else 1, key="selector_global")
+    idioma_actual = st.selectbox("🌐", ["Castellano", "Euskera"], 
+                                 index=0 if st.session_state.idioma == "Castellano" else 1, 
+                                 key="selector_global")
     st.session_state.idioma = idioma_actual
 
+# Diccionario de textos de la interfaz
 texts = {
     "Castellano": {
         "titulo": "Clubes de Lectura de Navarra", "subtitulo": "Nafarroako Irakurketa Klubak",
-        "sidebar_tit": "🎯 Panel de Control", 
+        "sidebar_tit": "🎯 Panel de Control",
         "exp_gral": "⚙️ Filtros generales", "exp_cont": "📖 Filtros de contenido",
         "f_idioma": "🌍 Idioma", "f_publico": "👥 Público",
         "f_genero_aut": "👤 Género Autor/a", "f_editorial": "📚 Editorial", "f_paginas": "📄 Número de páginas",
@@ -56,11 +58,11 @@ texts = {
         "placeholder": "Ej: Novelas sobre la historia de Navarra", "input_query": "Puedes escribir lo que quieras",
         "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:", "busq_titulo": "Buscar por Título:", "busq_autor": "Buscar por Autor:",
         "resumen_btn": "Ver resumen", "pags_label": "págs", "thanks": "✅ Voto registrado", "ask": "¿Te gusta esta recomendación?",
-        "boton_txt": "¡Sorpréndeme!", "no_results": "Sin resultados con esos filtros."
+        "boton_txt": "¡Sorpréndeme!", "no_results": "Sin resultados con esos filtros.", "voto_tit": "¿Es relevante?"
     },
     "Euskera": {
         "titulo": "Nafarroako Irakurketa Klubak", "subtitulo": "Clubes de Lectura de Navarra",
-        "sidebar_tit": "🎯 Kontrol Panela", 
+        "sidebar_tit": "🎯 Kontrol Panela",
         "exp_gral": "⚙️ Iragazki orokorrak", "exp_cont": "📖 Edukiaren iragazkiak",
         "f_idioma": "🌍 Hizkuntza", "f_publico": "👥 Publikoa",
         "f_genero_aut": "👤 Egilearen generoa", "f_editorial": "📚 Argitaletxea", "f_paginas": "📄 Orrialde kopurua",
@@ -69,18 +71,19 @@ texts = {
         "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak", "input_query": "Nahi duzuna idatzi dezakezu",
         "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:", "busq_titulo": "Izenburuaren arabera bilatu:", "busq_autor": "Egilearen arabera bilatu:",
         "resumen_btn": "Ikusi laburpena", "pags_label": "orr", "thanks": "✅ Iritzia gordeta", "ask": "Gogoko duzu?",
-        "boton_txt": "Harritu nazazu!", "no_results": "Ez da emaitzarik aurkitu iragazki hauekin."
+        "boton_txt": "Harritu nazazu!", "no_results": "Ez da emaitzarik aurkitu iragazki hauekin.", "voto_tit": "Garrantzitsua da?"
     }
 }
 t = texts[st.session_state.idioma]
 
-# Mapeo de columnas según idioma
+# Mapeo dinámico de columnas del Excel según el idioma seleccionado
 es_eus = st.session_state.idioma == "Euskera"
 col_idioma = 'Idioma_eus' if es_eus else 'Idioma'
 col_publico = 'Público_eus' if es_eus else 'Público'
 col_gen_aut = 'genero_fix_eus' if es_eus else 'genero_fix'
 col_ia_gen = 'Genero_Principal_IA_eus' if es_eus else 'Genero_Principal_IA'
 col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA'
+
 
 
 # --- 2. CARGA DE RECURSOS ---
