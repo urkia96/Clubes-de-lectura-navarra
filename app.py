@@ -363,7 +363,7 @@ with tab2:
         D, I = index.search(vec, 50)
         
         # Filtramos los índices donde la distancia (similitud) sea >= 0.8
-        indices_validos = I[0][D[0] >= 0.81]
+        indices_validos = I[0][D[0] >= 0.82]
         
         if len(indices_validos) > 0:
             lotes_ia = df_ia_meta.iloc[indices_validos]['Nº lote'].tolist()
@@ -409,7 +409,7 @@ with tab3:
             D, I = index.search(v_ref, 30) # Pedimos más para filtrar los originales
             
             # Filtramos por el umbral del 80% (0.8)
-            indices_validos = I[0][D[0] >= 0.81]
+            indices_validos = I[0][D[0] >= 0.82]
             lotes_sim = df_ia_meta.iloc[indices_validos]['Nº lote'].tolist()
             
             df_base = filtrar(df)
