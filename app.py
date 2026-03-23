@@ -22,11 +22,7 @@ if "idioma" not in st.session_state:
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
-
-
-
 # --- 1. CONFIGURACIÓN E IDIOMAS ---
-
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
 URL_SERENDIPIA = f"{PATH_RECO}/serendipia.png"
@@ -37,15 +33,15 @@ def normalizar_texto(texto):
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
 
-# Selector de idioma en la interfaz
+# Selector de idioma con rerun forzado para actualizar mapeo de columnas
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
-    idioma_actual = st.selectbox("🌐", ["Castellano", "Euskera"], 
-                                 index=0 if st.session_state.idioma == "Castellano" else 1, 
-                                 key="selector_global")
+    idioma_actual = st.selectbox("🌐", ["Castellano", "Euskera"],
+                                 index=0 if st.session_state.idioma == "Castellano" else 1,
+                                 key="selector_global", 
+                                 on_change=None) # Streamlit suele refrescar solo, pero si falla pon st.rerun
     st.session_state.idioma = idioma_actual
 
-# Diccionario de textos de la interfaz
 texts = {
     "Castellano": {
         "titulo": "Clubes de Lectura de Navarra", "subtitulo": "Nafarroako Irakurketa Klubak",
@@ -76,15 +72,13 @@ texts = {
 }
 t = texts[st.session_state.idioma]
 
-# Mapeo dinámico de columnas del Excel según el idioma seleccionado
+# Mapeo dinámico - ESTO SE EJECUTA EN CADA RERUN
 es_eus = st.session_state.idioma == "Euskera"
 col_idioma = 'Idioma_eus' if es_eus else 'Idioma'
 col_publico = 'Público_eus' if es_eus else 'Público'
 col_gen_aut = 'genero_fix_eus' if es_eus else 'genero_fix'
 col_ia_gen = 'Genero_Principal_IA_eus' if es_eus else 'Genero_Principal_IA'
 col_ia_sub = 'Subgeneros_Limpios_IA_eus' if es_eus else 'Subgeneros_Limpios_IA'
-
-
 
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
@@ -97,26 +91,23 @@ def load_resources():
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     df['Nº lote'] = df['Nº lote'].astype(str).str.strip()
-   
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-    
-    # Lista de todas las columnas necesarias (originales y euskera)
-    todas_cols = ['Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
-                  'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
-                  'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
+   
+    todas_cols = ['Idioma', 'Idioma_eus', 'Público', 'Público_eus',
+                  'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
+                  'Genero_Principal_IA', 'Genero_Principal_IA_eus',
                   'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus']
-    
+   
     for c in todas_cols:
         if c in df.columns:
-            df[c] = df[c].astype(str).replace(['nan', 'None', '<NA>'], "Desconocido")
+            # LIMPIEZA CLAVE: Convertimos a string y quitamos espacios
+            df[c] = df[c].astype(str).str.strip().replace(['nan', 'None', '<NA>', ''], "Desconocido")
         else:
-            # Si falta la columna traducida en el Excel, evitamos que el código explote
             df[c] = "Desconocido"
            
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
    
-    # Carga de archivos IA
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip()
@@ -128,7 +119,6 @@ def load_resources():
     return df, df_ia_meta, index, model
 
 df, df_ia_meta, index, model = load_resources()
-
 
 # --- 3. FUNCIONES AUXILIARES ---
 def conectar_sheets():
