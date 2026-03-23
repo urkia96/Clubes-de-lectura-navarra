@@ -244,7 +244,7 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
-        with col_content:
+       with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
 
@@ -254,11 +254,17 @@ def mostrar_card(r, context):
                 pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
             except:
                 pags_display = str(pags_val)
-            st.caption(f"{r.get('Editorial','--')} | {r.get('Idioma','--')} | {pags_display} {t['pags_label']} | {r.get('Público','--')}")
+            
+           
+            st.caption(f"{r.get('Editorial','--')} | {r.get(c['idioma'],'--')} | {pags_display} {t['pags_label']} | {r.get(c['publico'],'--')}")
 
-            # Subgéneros
-            if pd.notnull(r.get('Subgeneros_Limpios_IA')):
-                st.write(f"**{r.get('Genero_Principal_IA')}**: {r.get('Subgeneros_Limpios_IA')}")
+            # Subgéneros dinámicos
+            # NUEVO: Usamos c['ia_gen'] y c['ia_sub']
+            genero_ia = r.get(c['ia_gen'])
+            subgeneros_ia = r.get(c['ia_sub'])
+            
+            if pd.notnull(subgeneros_ia) and subgeneros_ia != "Desconocido":
+                st.write(f"**{genero_ia}**: {subgeneros_ia}")
 
             # Resumen con expander
             with st.expander(t["resumen_btn"], expanded=False):
