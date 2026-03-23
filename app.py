@@ -202,21 +202,28 @@ def mostrar_card(r, context):
 
             st.caption(f"Lote {lote_id}")
 
-        # --- COLUMNA 2: CONTENIDO ---
+         # --- COLUMNA 2: CONTENIDO ---
         with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
 
-            # Usamos los valores traducidos para la ficha
-            val_pags = r.get('Páginas', '--')
-            st.caption(f"{r.get('Editorial','--')} | {r.get(col_idioma,'--')} | {val_pags} {t['pags_label']} | {r.get(col_publico,'--')}")
+            # Formateo de páginas para evitar decimales (ej: 32.0 -> 32)
+            pags_val = r.get('Páginas', '--')
+            try:
+                pags_display = str(int(float(pags_val))) if pd.notnull(pags_val) and str(pags_val).replace('.','',1).isdigit() else str(pags_val)
+            except:
+                pags_display = str(pags_val)
 
-            if pd.notnull(r.get(col_ia_sub)):
+            # Info adicional usando columnas traducidas (Idioma y Público)
+            st.caption(f"{r.get('Editorial','--')} | {r.get(col_idioma,'--')} | {pags_display} {t['pags_label']} | {r.get(col_publico,'--')}")
+
+            # Género e IA con columnas traducidas
+            if pd.notnull(r.get(col_ia_sub)) and r.get(col_ia_sub) != "Desconocido":
                 st.write(f"**{r.get(col_ia_gen)}**: {r.get(col_ia_sub)}")
 
+            # Resumen (mantenemos Resumen_navarra ya que es texto largo)
             with st.expander(t["resumen_btn"], expanded=False):
-                st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
-
+                st.write(r.get('Resumen_navarra', 'No hay resumen disponible.'))
                 
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
