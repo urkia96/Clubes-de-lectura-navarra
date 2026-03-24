@@ -11,6 +11,8 @@ from google.oauth2.service_account import Credentials
 import json
 import gc
 import numpy as np
+import sqlite3
+import hashlib
 
 
 # --- 0. CONFIGURACIÓN DE PÁGINA ---
