@@ -6,3 +6,5 @@ gspread
 google-auth
 openpyxl
 numpy
+sqlite3
+hashlib
