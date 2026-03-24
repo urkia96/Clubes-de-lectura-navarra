@@ -174,49 +174,87 @@ df, df_ia_meta, index, model = load_resources()
 
 
 # --- 3. FUNCIONES AUXILIARES ---
-def conectar_sheets():
+
+def hash_password(password):
+    """Cifra la contraseña para no guardarla en texto plano."""
+    return hashlib.sha256(str.encode(password)).hexdigest()
+
+def conectar_hoja_usuarios():
+    """Conexión segura a la pestaña de Usuarios usando Secrets."""
     try:
-        # --- PRIORIDAD: Streamlit secrets ---
-        if "gcp_service_account" in st.secrets:
-            creds_info = st.secrets["gcp_service_account"]
-            sheet_url = st.secrets["GSHEET_URL"]
-
-        # --- FALLBACK: Hugging Face / entorno ---
-        elif "GCP_SERVICE_ACCOUNT" in os.environ:
-            creds_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
-            sheet_url = os.environ["GSHEET_URL"]
-
-        else:
-            st.error("❌ No se encontraron credenciales")
-            return None
-
+        # Los secretos se configuran en Streamlit Cloud o en .streamlit/secrets.toml
+        creds_info = st.secrets["gcp_service_account"]
+        sheet_url = st.secrets["GSHEET_URL"]
+        
         creds = Credentials.from_service_account_info(
-            creds_info,
+            creds_info, 
             scopes=["https://www.googleapis.com/auth/spreadsheets"]
         )
-
         gc_client = gspread.authorize(creds)
-        sheet = gc_client.open_by_url(sheet_url).sheet1
-
-        return sheet
-
+        sh = gc_client.open_by_url(sheet_url)
+        
+        # Intentar obtener la pestaña 'Usuarios', si no existe, crearla
+        try:
+            return sh.worksheet("Usuarios")
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = sh.add_worksheet(title="Usuarios", rows="100", cols="3")
+            worksheet.append_row(["fecha_registro", "username", "password"])
+            return worksheet
     except Exception as e:
-        st.error(f"❌ Error conectando a Sheets: {e}")
+        st.error(f"Error de conexión con Google Sheets: {e}")
         return None
 
+def gestionar_usuario(username, password, modo="login"):
+    """Maneja el registro y acceso de sujetos."""
+    worksheet = conectar_hoja_usuarios()
+    if not worksheet:
+        return False, "Error de conexión."
+
+    # Obtener datos actuales
+    datos = worksheet.get_all_records()
+    df_users = pd.DataFrame(datos)
+    h_pass = hash_password(password)
+
+    if modo == "registro":
+        if not df_users.empty and username in df_users['username'].values:
+            return False, "Ese nombre de usuario ya está pillado."
+        
+        nueva_fila = [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), username, h_pass]
+        worksheet.append_row(nueva_fila)
+        return True, "¡Cuenta creada! Ya puedes iniciar sesión."
+
+    elif modo == "login":
+        if df_users.empty:
+            return False, "No hay usuarios registrados todavía."
+        
+        # Verificar si existe el usuario con ese hash de contraseña
+        user_match = df_users[(df_users['username'] == username) & (df_users['password'] == h_pass)]
+        if not user_match.empty:
+            return True, "Login correcto"
+        else:
+            return False, "Usuario o contraseña incorrectos."
+
 def guardar_voto(lote, titulo, valor, query):
-    sheet = conectar_sheets()
+    """Guarda el voto incluyendo el ID del sujeto que inició sesión."""
+    sheet = conectar_sheets() # Tu función original que usa st.secrets
     if sheet:
         try:
             val_txt = "👍" if valor == 1 else "👎"
-            row = [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), str(lote), str(titulo), val_txt, str(query)]
-            st.write(f"Intentando guardar fila: {row}") 
+            # Sacamos el usuario del session_state
+            usuario_actual = st.session_state.get("user", "Anonimo")
+            
+            row = [
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                usuario_actual, 
+                str(lote), 
+                str(titulo), 
+                val_txt, 
+                str(query)
+            ]
             sheet.append_row(row)
-            st.success(f"{val_txt} ¡Voto registrado!")
+            st.success(f"Voto de {usuario_actual} registrado correctamente.")
         except Exception as e:
             st.error(f"❌ No se pudo guardar el voto: {e}")
-    else:
-        st.error("❌ No se pudo obtener la hoja de cálculo")
 
 # 4. Mostrar tarjeta
 @st.fragment
@@ -330,6 +368,37 @@ def filtrar(dataframe):
     return temp
     
 # --- 6. INTERFAZ ---
+# --- SISTEMA DE LOGIN ---
+if not st.session_state.auth:
+    st.sidebar.title("🔑 Acceso al Sistema")
+    auth_mode = st.sidebar.radio("Acción:", ["Iniciar Sesión", "Registrarse"])
+    u = st.sidebar.text_input("Usuario")
+    p = st.sidebar.text_input("Contraseña", type="password")
+    
+    if st.sidebar.button("Entrar / Registrar"):
+        if u and p:
+            modo_func = "login" if auth_mode == "Iniciar Sesión" else "registro"
+            success, msg = gestionar_usuario(u, p, modo=modo_func)
+            if success:
+                if modo_func == "login":
+                    st.session_state.auth = True
+                    st.session_state.user = u
+                    st.rerun()
+                else:
+                    st.sidebar.success(msg)
+            else:
+                st.sidebar.error(msg)
+        else:
+            st.sidebar.warning("Rellena todos los campos")
+    
+    st.info("Por favor, identifícate en el panel lateral para continuar.")
+    st.stop() # <--- IMPORTANTE: Detiene la app aquí si no está logueado
+else:
+    st.sidebar.write(f"Sujeto actual: **{st.session_state.user}**")
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state.auth = False
+        st.rerun()
+        
 col_logo, col_tit = st.columns([1,6])
 with col_logo:
     if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
