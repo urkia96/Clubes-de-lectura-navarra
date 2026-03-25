@@ -269,25 +269,24 @@ def guardar_voto(lote, titulo, valor, query):
         try:
             val_txt = "👍" if valor == 1 else "👎"
             
-            # 1. Recuperamos el nombre que guardamos antes en el Muro
-            # Si no hay nadie logeado (raro), pondrá "Anónimo"
-            nombre_usuario = st.session_state.get("usuario_actual", "Anónimo")
+            # Recuperamos el nombre del usuario de la sesión
+            usuario = st.session_state.get("usuario_actual", "Anónimo")
             
-            # 2. Creamos la fila para el Excel (Ahora tiene 6 datos)
+            # NUEVO ORDEN DE COLUMNAS:
+            # 1. Fecha | 2. Lote | 3. Título | 4. Voto | 5. Query | 6. Usuario
             row = [
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
-                nombre_usuario,  # <--- ESTA ES LA COLUMNA NUEVA
-                str(lote), 
-                str(titulo), 
-                val_txt, 
-                str(query)
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Columna A (Fecha)
+                str(lote),                                    # Columna B (Lote)
+                str(titulo),                                  # Columna C (Título)
+                val_txt,                                      # Columna D (Voto)
+                str(query),                                   # Columna E (Query)
+                usuario                                       # Columna F (Usuario) <--- AL FINAL
             ]
             
             sheet.append_row(row)
-            st.success(f"¡Voto de {nombre_usuario} registrado!")
+            st.success(f"✅ Voto registrado por {usuario}")
         except Exception as e:
-            st.error(f"❌ Error: {e}")
-
+            st.error(f"❌ Error al guardar: {e}")
 # 4. Mostrar tarjeta
 @st.fragment
 def mostrar_card(r, context):
