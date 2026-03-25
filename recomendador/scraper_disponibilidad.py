@@ -83,12 +83,12 @@ def ejecutar_scraping_final():
             if not enlaces:
                 print("❌ No se detectaron libros. Finalizando por precaución.")
                 break
-                        resultados.append({
-                            'Lote': lote,
-                            'Fechas_Reservadas': agrupar_ocupados(fechas_ocupadas),
-                            'URL_Ficha': full_url
+                    resultados.append({
+                        'Lote': lote,
+                        'Fechas_Reservadas': agrupar_ocupados(fechas_ocupadas),
+                        'URL_Ficha': full_url
                         })
-                        print(f" ✅ Lote {lote} procesado.")
+                    print(f" ✅ Lote {lote} procesado.")
                    
                     time.sleep(1.2)
                 except Exception as e:
