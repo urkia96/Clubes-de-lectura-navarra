@@ -23,8 +23,66 @@ if "idioma" not in st.session_state:
     st.session_state.idioma = "Castellano"
 if "auth" not in st.session_state:
     st.session_state.auth = False
+# --- FUNCIONES DE AUTENTICACIÓN ---
+def crear_tabla_usuarios():
+    conn = sqlite3.connect('usuarios.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS usuarios 
+                 (username TEXT PRIMARY KEY, password TEXT)''')
+    conn.commit()
+    conn.close()
 
+def hash_password(password):
+    return hashlib.sha256(str.encode(password)).hexdigest()
 
+def registrar_usuario(username, password):
+    try:
+        conn = sqlite3.connect('usuarios.db')
+        c = conn.cursor()
+        c.execute('INSERT INTO usuarios (username, password) VALUES (?,?)', 
+                  (username, hash_password(password)))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+def verificar_usuario(username, password):
+    conn = sqlite3.connect('usuarios.db')
+    c = conn.cursor()
+    c.execute('SELECT password FROM usuarios WHERE username = ?', (username,))
+    data = c.fetchone()
+    conn.close()
+    if data:
+        return data[0] == hash_password(password)
+    return False
+
+crear_tabla_usuarios() # La ejecutamos una vez al cargar
+if not st.session_state.auth:
+    col_a, col_b, col_c = st.columns([1, 2, 1])
+    with col_b:
+        st.title("🔐 Acceso")
+        opcion = st.radio("Acción", ["Login", "Registro"], horizontal=True)
+        
+        if opcion == "Login":
+            with st.form("f_login"):
+                u = st.text_input("Usuario")
+                p = st.text_input("Contraseña", type="password")
+                if st.form_submit_button("Entrar"):
+                    if verificar_usuario(u, p):
+                        st.session_state.auth = True
+                        st.rerun()
+                    else:
+                        st.error("Error en credenciales")
+        else:
+            with st.form("f_reg"):
+                nu = st.text_input("Nuevo Usuario")
+                np = st.text_input("Nueva Contraseña", type="password")
+                if st.form_submit_button("Registrarse"):
+                    if registrar_usuario(nu, np): st.success("¡Creado!")
+                    else: st.error("El usuario ya existe")
+    
+    st.stop() # <--- ESTO ES LO QUE BLOQUEA EL RESTO DEL CÓDIGO. Se puede quitar para no obligar a autenticarse.
 
 
 # --- 1. CONFIGURACIÓN E IDIOMAS ---
@@ -295,6 +353,12 @@ def mostrar_card(r, context):
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
+#Boton de Logoet
+f st.sidebar.button("🚪 Cerrar Sesión"):
+    st.session_state.auth = False
+    st.rerun() # Esto hace que el script vuelva arriba, vea que auth es False y muestre el muro
+
+st.sidebar.markdown("---") # Una línea divisoria para separar del resto de filtros
 
 # 5.1 FILTROS GENERALES
 with st.sidebar.expander(t["exp_gral"], expanded=False):
