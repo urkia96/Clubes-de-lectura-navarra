@@ -1,0 +1,33 @@
+name: Actualizador de Disponibilidad
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Se ejecuta todos los lunes a las 3:00 AM (hora UTC)
+  workflow_dispatch: # Botón para ejecutarlo a mano cuando quieras
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código del repo
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Instalar librerías
+        run: |
+          pip install requests pandas beautifulsoup4 openpyxl
+
+      - name: Ejecutar Scraper
+        run: python scraper_disponibilidad.py
+
+      - name: Guardar cambios en el Excel
+        run: |
+          git config --global user.name 'GitHub Action Bot'
+          git config --global user.email 'action@github.com'
+          git add disponibilidad_catalogo_completo.xlsx
+          git commit -m "Actualización automática de reservas $(date +'%Y-%m-%d')" || echo "Sin cambios"
+          git push
