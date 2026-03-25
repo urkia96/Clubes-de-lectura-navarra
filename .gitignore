@@ -1,3 +1,17 @@
+# Base de datos de usuarios 
 usuarios.db
+
+# Credenciales locales
+*.json
+
+# Carpetas temporales de Python
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Archivos de configuración local de Streamlit
+.streamlit/config.toml
+.streamlit/secrets.toml
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
