@@ -71,6 +71,7 @@ if not st.session_state.auth:
                 if st.form_submit_button("Entrar"):
                     if verificar_usuario(u, p):
                         st.session_state.auth = True
+                        st.session_state.usuario_actual = u
                         st.rerun()
                     else:
                         st.error("Error en credenciales")
@@ -267,14 +268,25 @@ def guardar_voto(lote, titulo, valor, query):
     if sheet:
         try:
             val_txt = "👍" if valor == 1 else "👎"
-            row = [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), str(lote), str(titulo), val_txt, str(query)]
-            st.write(f"Intentando guardar fila: {row}") 
+            
+            # 1. Recuperamos el nombre que guardamos antes en el Muro
+            # Si no hay nadie logeado (raro), pondrá "Anónimo"
+            nombre_usuario = st.session_state.get("usuario_actual", "Anónimo")
+            
+            # 2. Creamos la fila para el Excel (Ahora tiene 6 datos)
+            row = [
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                nombre_usuario,  # <--- ESTA ES LA COLUMNA NUEVA
+                str(lote), 
+                str(titulo), 
+                val_txt, 
+                str(query)
+            ]
+            
             sheet.append_row(row)
-            st.success(f"{val_txt} ¡Voto registrado!")
+            st.success(f"¡Voto de {nombre_usuario} registrado!")
         except Exception as e:
-            st.error(f"❌ No se pudo guardar el voto: {e}")
-    else:
-        st.error("❌ No se pudo obtener la hoja de cálculo")
+            st.error(f"❌ Error: {e}")
 
 # 4. Mostrar tarjeta
 @st.fragment
