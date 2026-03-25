@@ -346,29 +346,29 @@ def mostrar_card(r, context):
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
         def guardar_voto(lote, titulo, valor, query):
-    sheet = conectar_sheets()
-    if sheet:
-        try:
-            val_txt = "👍" if valor == 1 else "👎"
-            
-            # Recuperamos el nombre del usuario de la sesión
-            usuario = st.session_state.get("usuario_actual", "Anónimo")
-            
-            # NUEVO ORDEN DE COLUMNAS:
-            # 1. Fecha | 2. Lote | 3. Título | 4. Voto | 5. Query | 6. Usuario
-            row = [
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Columna A (Fecha)
-                str(lote),                                    # Columna B (Lote)
-                str(titulo),                                  # Columna C (Título)
-                val_txt,                                      # Columna D (Voto)
-                str(query),                                   # Columna E (Query)
-                usuario                                       # Columna F (Usuario) <--- AL FINAL
-            ]
-            
-            sheet.append_row(row)
-            st.success(f"✅ Voto registrado por {usuario}")
-        except Exception as e:
-            st.error(f"❌ Error al guardar: {e}")
+            sheet = conectar_sheets()
+            if sheet:
+                try:
+                    val_txt = "👍" if valor == 1 else "👎"
+                    
+                    # Recuperamos el nombre del usuario de la sesión
+                    usuario = st.session_state.get("usuario_actual", "Anónimo")
+                    
+                    # NUEVO ORDEN DE COLUMNAS:
+                    # 1. Fecha | 2. Lote | 3. Título | 4. Voto | 5. Query | 6. Usuario
+                    row = [
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Columna A (Fecha)
+                        str(lote),                                    # Columna B (Lote)
+                        str(titulo),                                  # Columna C (Título)
+                        val_txt,                                      # Columna D (Voto)
+                        str(query),                                   # Columna E (Query)
+                        usuario                                       # Columna F (Usuario) <--- AL FINAL
+                    ]
+                    
+                    sheet.append_row(row)
+                    st.success(f"✅ Voto registrado por {usuario}")
+                except Exception as e:
+                    st.error(f"❌ Error al guardar: {e}")
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
