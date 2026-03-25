@@ -263,7 +263,7 @@ def conectar_sheets():
         st.error(f"❌ Error conectando a Sheets: {e}")
         return None
 
-    def guardar_voto(lote, titulo, valor, query):
+def guardar_voto(lote, titulo, valor, query):
     sheet = conectar_sheets()
     if sheet:
         try:
