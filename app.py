@@ -263,6 +263,28 @@ def conectar_sheets():
         st.error(f"❌ Error conectando a Sheets: {e}")
         return None
 
+    def guardar_voto(lote, titulo, valor, query):
+    sheet = conectar_sheets()
+    if sheet:
+        try:
+            val_txt = "👍" if valor == 1 else "👎"
+            usuario = st.session_state.get("usuario_actual", "Anónimo")
+            
+            # ORDEN: Fecha, Lote, Título, Voto, Query, Usuario
+            row = [
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                str(lote), 
+                str(titulo), 
+                val_txt, 
+                str(query), 
+                usuario  # <--- USUARIO AL FINAL
+            ]
+            
+            sheet.append_row(row)
+            st.toast(f"✅ Voto de {usuario} registrado", icon="🗳️")
+        except Exception as e:
+            st.error(f"❌ Error al guardar: {e}")
+
 
 # 4. Mostrar tarjeta
 @st.fragment
@@ -319,33 +341,16 @@ def mostrar_card(r, context):
                 # Aquí podrías añadir una columna de resumen en euskera si la tuvieras, 
                 # de momento se mantiene el de Navarra.
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
-                
+
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
-        def guardar_voto(lote, titulo, valor, query):
-            sheet = conectar_sheets()
-            if sheet:
-                try:
-                    val_txt = "👍" if valor == 1 else "👎"
-                    
-                    # Recuperamos el nombre del usuario de la sesión
-                    usuario = st.session_state.get("usuario_actual", "Anónimo")
-                    
-                    # NUEVO ORDEN DE COLUMNAS:
-                    # 1. Fecha | 2. Lote | 3. Título | 4. Voto | 5. Query | 6. Usuario
-                    row = [
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Columna A (Fecha)
-                        str(lote),                                    # Columna B (Lote)
-                        str(titulo),                                  # Columna C (Título)
-                        val_txt,                                      # Columna D (Voto)
-                        str(query),                                   # Columna E (Query)
-                        usuario                                       # Columna F (Usuario) <--- AL FINAL
-                    ]
-                    
-                    sheet.append_row(row)
-                    st.success(f"✅ Voto registrado por {usuario}")
-                except Exception as e:
-                    st.error(f"❌ Error al guardar: {e}")
+       
+        with col_vote:
+            # Usamos llaves únicas para que Streamlit no se confunda entre libros
+            if st.button("👍", key=f"up_{lote_id}_{context}"):
+                guardar_voto(lote_id, r.get('Título'), 1, context)
+            if st.button("👎", key=f"down_{lote_id}_{context}"):
+                guardar_voto(lote_id, r.get('Título'), 0, context)
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
