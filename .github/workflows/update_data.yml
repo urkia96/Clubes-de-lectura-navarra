@@ -2,17 +2,16 @@ name: Actualizador de Disponibilidad
 
 on:
   schedule:
-    - cron: '0 3 * * 1' # Cada lunes a las 3 AM
-  workflow_dispatch: # Para ejecutarlo a mano
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
 
+# --- AQUÍ EMPIEZA EL BLOQUE QUE TIENES QUE PEGAR ---
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Descargar codigo
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }} 
 
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -25,12 +24,14 @@ jobs:
 
       - name: Ejecutar Scraper
         working-directory: ./recomendador
-        run: python scraper_disponibilidad.py
+        run: |
+          python scraper_disponibilidad.py
 
       - name: Guardar cambios en el Repositorio
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add recomendador/disponibilidad_catalogo_completo.xlsx
-          git commit -m "Update automatico: $(date +'%Y-%m-%d')" || echo "Sin cambios"
+          git commit -m "Update automático: $(date +'%Y-%m-%d')" || exit 0
           git push
+# --- AQUÍ TERMINA EL BLOQUE ---
