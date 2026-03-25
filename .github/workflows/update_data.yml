@@ -19,7 +19,7 @@ jobs:
 
       - name: Instalar librerias
         run: |
-          pip install requests pandas beautifulsoup4 openpyxl
+          pip install requests pandas beautifulsoup4 openpyxl lxm
 
       - name: Ejecutar Scraper
         # MUY IMPORTANTE: Esta linea le dice al robot que entre en la carpeta
