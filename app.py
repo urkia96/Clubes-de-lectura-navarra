@@ -354,7 +354,7 @@ def mostrar_card(r, context):
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
 #Boton de Logoet
-f st.sidebar.button("🚪 Cerrar Sesión"):
+if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state.auth = False
     st.rerun() # Esto hace que el script vuelva arriba, vea que auth es False y muestre el muro
 
