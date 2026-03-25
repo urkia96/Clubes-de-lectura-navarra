@@ -1,0 +1,37 @@
+name: Actualizador de Disponibilidad
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Lunes a las 3:00 AM
+  workflow_dispatch: # Botón manual
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código del repo
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: v4
+        with:
+          python-version: '3.9'
+
+      - name: Instalar librerías
+        run: |
+          pip install requests pandas beautifulsoup4 openpyxl
+
+      - name: Ejecutar Scraper
+        # Hemos quitado las comillas sueltas y corregido el espacio en el path
+        run: python scraper_disponibilidad.py
+        working-directory: ./recomendador
+
+      - name: Guardar cambios en el Excel
+        run: |
+          git config --global user.name 'GitHub Action Bot'
+          git config --global user.email 'action@github.com'
+          # CRÍTICO: Hay que poner la ruta completa para que Git lo encuentre
+          git add recomendador/disponibilidad_catalogo_completo.xlsx
+          git commit -m "Actualización automática de reservas $(date +'%Y-%m-%d')" || echo "Sin cambios"
+          git push
+
