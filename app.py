@@ -97,6 +97,23 @@ def normalizar_texto(texto):
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
 
+# --- APOYO PARA FECHAS ---
+def comprobar_disponibilidad(texto_reserva, rango_usuario):
+    if not isinstance(texto_reserva, str) or texto_reserva.lower() in ["nan", ""]:
+        return True 
+    if len(rango_usuario) != 2:
+        return True 
+    try:
+        import re
+        fechas = re.findall(r'(\d{2}/\d{2}/\d{4})', texto_reserva)
+        if len(fechas) < 2: return False 
+        inicio_res = datetime.strptime(fechas[0], "%d/%m/%Y").date()
+        fin_res = datetime.strptime(fechas[-1], "%d/%m/%Y").date()
+        ini_u, fin_u = rango_usuario
+        return not ((ini_u <= fin_res) and (fin_u >= inicio_res))
+    except:
+        return False
+
 # --- SELECTOR DE IDIOMA (Antes de los textos) ---
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
@@ -441,11 +458,14 @@ if 'df' in locals() and df is not None:
         if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
         
         # 2. Filtro de Disponibilidad (Checkbox o Rango)
-        # Si el usuario marca fechas, filtramos los que tengan la celda vacía
-        if f_solo_disponibles or len(f_rango) == 2:
+        if len(f_rango) == 2:
+            # Usamos la función de apoyo que pusimos arriba
+            mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
+            temp = temp[mask]
+        elif f_solo_disponibles:
             temp = temp[
-                (temp['Fechas_Reservadas'].isna()) | 
-                (temp['Fechas_Reservadas'].astype(str).str.strip() == "") | 
+                (temp['Fechas_Reservadas'].isna()) |
+                (temp['Fechas_Reservadas'].astype(str).str.strip() == "") |
                 (temp['Fechas_Reservadas'].astype(str).str.lower() == "nan")
             ]
         
