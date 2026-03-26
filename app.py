@@ -189,7 +189,7 @@ c = t["cols"]
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
-    excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
+    excel_path = f"recomendador/CATALOGO_PROCESADO_version3.xlsx"
     disp_path = f"recomendador/disponibilidad_catalogo_completo.xlsx"
     
     # 1. CARGA CATÁLOGO PRINCIPAL
