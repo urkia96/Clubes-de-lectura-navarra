@@ -192,42 +192,67 @@ def load_resources():
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     disp_path = f"recomendador/disponibilidad_catalogo_completo.xlsx"
     
-    # Carga base
+    # 1. Carga base y limpieza de nombres de columnas
     df = pd.read_excel(excel_path)
-    df.columns = df.columns.str.strip()
-    df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
+    df.columns = df.columns.str.strip() # Quita espacios al inicio/final de los nombres de columnas
     
-    # Unión con disponibilidad
+    # --- FIX CRÍTICO: Buscar la columna del lote si el nombre exacto falla ---
+    posibles_nombres = ['Nº lote', 'Nº Lote', 'Lote', 'lote', 'NºLote']
+    col_lote_encontrada = None
+    for nombre in posibles_nombres:
+        if nombre in df.columns:
+            col_lote_encontrada = nombre
+            break
+    
+    if col_lote_encontrada:
+        # Renombramos a nuestro estándar para que el resto del código funcione
+        df = df.rename(columns={col_lote_encontrada: 'Nº lote'})
+        df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
+    else:
+        st.error(f"❌ No se encontró la columna de Lote. Columnas detectadas: {list(df.columns)}")
+        st.stop()
+    
+    # 2. Unión con disponibilidad
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
-        df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
-        # Evitamos duplicar columnas si ya existían
+        
+        # Buscamos la columna de unión en el segundo Excel
+        col_disp = 'Lote' if 'Lote' in df_disp.columns else df_disp.columns[0]
+        df_disp[col_disp] = df_disp[col_disp].astype(str).str.strip().upper()
+        
         if 'Fechas_Reservadas' in df.columns:
             df = df.drop(columns=['Fechas_Reservadas'])
-        df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas']], 
-                      left_on='Nº lote', right_on='Lote', how='left')
+            
+        df = pd.merge(df, df_disp[[col_disp, 'Fechas_Reservadas']], 
+                      left_on='Nº lote', right_on=col_disp, how='left')
     else:
         df['Fechas_Reservadas'] = ""
 
-    # IMPORTANTE: Forzar que las columnas que usa 'c' existan siempre
+    # 3. Forzar columnas necesarias para evitar NameErrors posteriores
     columnas_necesarias = [
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
         'genero_fix', 'genero_fix_eus', 'Genero_Principal_IA', 
-        'Genero_Principal_IA_eus', 'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
+        'Genero_Principal_IA_eus', 'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus',
+        'Editorial', 'Geografia_Autor', 'Páginas'
     ]
     for col in columnas_necesarias:
         if col not in df.columns:
             df[col] = "Desconocido"
         else:
-            df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
+            df[col] = df[col].replace(['nan', 'None', '', np.nan], "Desconocido")
 
-    # Resto de carga (FAISS, Model...)
+    # 4. Resto de carga
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
+    
+    # Asegurar que el pkl también tenga el nombre de columna correcto
+    if 'Nº lote' not in df_ia_meta.columns:
+        df_ia_meta.columns = [c if c != 'Lote' else 'Nº lote' for c in df_ia_meta.columns]
+    
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
     
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
@@ -235,8 +260,11 @@ def load_resources():
     
     return df, df_ia_meta, index, model
 
+# --- JUSTO DESPUÉS DE DEFINIR LA FUNCIÓN load_resources ---
 df, df_ia_meta, index, model = load_resources()
 
+t = texts[st.session_state.idioma]
+c = t["cols"]
 
 # --- 3. FUNCIONES AUXILIARES ---
 def conectar_sheets():
