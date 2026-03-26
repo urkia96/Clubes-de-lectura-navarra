@@ -127,6 +127,9 @@ texts = {
         "sidebar_tit": "🎯 Panel de Control",
         "exp_gral": "⚙️ Filtros generales", 
         "exp_cont": "📖 Filtros de contenido",
+        "exp_disp": "📅 Disponibilidad", # <--- NUEVA
+        "f_actualizacion": "Última actualización: 25/03/2026", # <--- NUEVA
+        "f_solo_disp": "Solo disponibles ahora", # <--- NUEV
         "f_idioma": "🌍 Idioma", 
         "f_publico": "👥 Público",
         "f_genero_aut": "👤 Género Autor/a", 
@@ -164,6 +167,9 @@ texts = {
         "sidebar_tit": "🎯 Kontrol Panela",
         "exp_gral": "⚙️ Iragazki orokorrak", 
         "exp_cont": "📖 Edukiaren iragazkiak",
+        "exp_disp": "📅 Erabilgarritasuna", # <--- NUEVA
+        "f_actualizacion": "Azken eguneratzea: 2026/03/25", # <--- NUEVA
+        "f_solo_disp": "Libre daudenak bakarrik", # <--- NUEVA
         "f_idioma": "🌍 Hizkuntza", 
         "f_publico": "👥 Publikoa",
         "f_genero_aut": "👤 Egilearen generoa", 
@@ -435,15 +441,17 @@ if 'df' in locals() and df is not None:
             )
             f_ia_sub = st.multiselect(t["f_ia_sub"], sorted([s for s in list(subs) if s != "Desconocido"]))
 
-    # 5.3 FILTROS DE DISPONIBILIDAD (NUEVO DESPLEGABLE)
-    with st.sidebar.expander("📅 Disponibilidad", expanded=False):
+    # 5.3 FILTROS DE DISPONIBILIDAD (ACTUALIZADO Y TRADUCIDO)
+    with st.sidebar.expander(t["exp_disp"], expanded=False):
+        # Mensaje informativo con la fecha manual
+        st.info(t["f_actualizacion"])
+        
         # Selector de rango de fechas
         label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
         f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
-        
-        # Checkbox clásico
-        label_disp = "Solo disponibles ahora" if st.session_state.idioma == "Castellano" else "Libre daudenak bakarrik"
-        f_solo_disponibles = st.checkbox(label_disp)
+       
+        # Checkbox con traducción desde el diccionario
+        f_solo_disponibles = st.checkbox(t["f_solo_disp"])
 
     # --- FUNCIÓN FILTRAR ---
     def filtrar(dataframe):
