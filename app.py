@@ -532,13 +532,17 @@ with tab2:
 
 # --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
+    # Permitimos varios lotes separados por comas o espacios
     lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
    
     if lid_input:
+        # 1. Limpieza de entrada: aceptamos comas, espacios y pasamos a mayúsculas
         lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
+        
         vectores_para_promediar = []
         lotes_encontrados = []
 
+        # 2. Extraemos los vectores de cada lote solicitado
         for lid_clean in lotes_solicitados:
             ref_ia = df_ia_meta[df_ia_meta['Nº lote'] == lid_clean]
             if not ref_ia.empty:
@@ -550,26 +554,37 @@ with tab3:
                 st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
 
         if vectores_para_promediar:
+            # 3. CÁLCULO DEL PUNTO MEDIO (Centroide de la búsqueda)
             v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
-            D, I = index.search(v_ref, 30)
+            
+            # 4. Buscamos en el índice FAISS
+            D, I = index.search(v_ref, 30) 
             indices_validos = I[0][D[0] >= 0.82]
             lotes_sim = df_ia_meta.iloc[indices_validos]['Nº lote'].unique().tolist()
            
+            # 5. Aplicamos los filtros de la Sidebar (idioma, disponibilidad, etc.)
             df_base = filtrar(df)
-            # Quitamos los originales y filtramos
+            
+            # 6. Quitamos los lotes que el usuario ya ha introducido para no repetirlos
             lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
+            
+            # --- CRÍTICO: Evitar duplicados que causan el error de Streamlit ---
             res_sim = df_base[df_base['Nº lote'].isin(lotes_ordenados)].copy()
+            res_sim = res_sim.drop_duplicates(subset=['Nº lote']) # Evita doble tarjeta por lote
+            
+            # 7. Ordenamos por relevancia (similitud con el punto medio)
             res_sim['Nº lote'] = pd.Categorical(res_sim['Nº lote'], categories=lotes_ordenados, ordered=True)
             res_sim = res_sim.sort_values('Nº lote').dropna(subset=['Título']).head(10)
            
-            contexto_voto = f"Punto medio de: {', '.join(lotes_encontrados)}"
+            # 8. ID único y corto para los botones de esta búsqueda específica
+            contexto_voto = f"Sim_{hash(lid_input) % 10000}" 
            
             if not res_sim.empty:
-                st.info(f"Mostrando similares a: {', '.join(lotes_encontrados)}")
+                st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
                 for _, r in res_sim.iterrows():
                     mostrar_card(r, contexto_voto)
             else:
-                st.warning(t["no_results"])
+                st.warning("No hay otros lotes con suficiente similitud para esta combinación.")
 
 # --- TAB4: Búsqueda aleatoria ---
 with tab4:
