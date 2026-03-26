@@ -87,7 +87,6 @@ if not st.session_state.auth:
 
 
 # --- 1. CONFIGURACIÓN E IDIOMAS ---
-
 PATH_RECO = "recomendador"
 URL_LOGO = f"{PATH_RECO}/logo_B. Navarra.jpg"
 URL_SERENDIPIA = f"{PATH_RECO}/serendipia.png"
@@ -98,6 +97,7 @@ def normalizar_texto(texto):
     texto = "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
     return texto.lower().strip()
 
+# --- SELECTOR DE IDIOMA (Antes de los textos) ---
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
     idioma_actual = st.selectbox("🌐", ["Castellano", "Euskera"], index=0 if st.session_state.idioma == "Castellano" else 1, key="selector_global")
@@ -183,8 +183,7 @@ texts = {
 t = texts[st.session_state.idioma]
 c = t["cols"]
 
-
-# --- 2. CARGA DE RECURSOS ---
+# --- 2. CARGA DE RECURSOS (Definición y Ejecución) ---
 @st.cache_resource
 def load_resources():
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
@@ -198,41 +197,31 @@ def load_resources():
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     
-    # Normalización: Si el Excel trae 'Nº lote', lo pasamos a 'Lote'
-    if 'Nº lote' in df.columns:
-        df = df.rename(columns={'Nº lote': 'Lote'})
+    # Normalización para que la APP siempre use 'Nº lote' (aunque el Excel diga Lote)
+    if 'Lote' in df.columns and 'Nº lote' not in df.columns:
+        df = df.rename(columns={'Lote': 'Nº lote'})
+    df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
     
-    # Forzamos 'Lote' como string, limpio y en mayúsculas
-    df['Lote'] = df['Lote'].astype(str).str.strip().upper()
-    
-    # 2. VINCULAR CON DISPONIBILIDAD (Nuevo Excel)
+    # 2. VINCULAR CON DISPONIBILIDAD
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
-        
-        # Unificamos nombre de columna en el excel de disponibilidad
-        if 'Nº lote' in df_disp.columns:
-            df_disp = df_disp.rename(columns={'Nº lote': 'Lote'})
-        
         if 'Lote' in df_disp.columns:
-            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
-            
-            # Limpiamos columnas duplicadas antes del merge por si acaso
-            df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
-            
-            # Unimos los datos (vínculo por columna Lote)
-            df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
+            df_disp = df_disp.rename(columns={'Lote': 'Nº lote'})
+        
+        if 'Nº lote' in df_disp.columns:
+            df_disp['Nº lote'] = df_disp['Nº lote'].astype(str).str.strip().upper()
+            df = df.drop(columns=[col for col in ['Fechas_Reservadas', 'URL_Ficha'] if col in df.columns], errors='ignore')
+            df = pd.merge(df, df_disp[['Nº lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Nº lote', how='left')
 
-    # 3. LIMPIEZA DE DATOS Y COLUMNAS EUSKERA
+    # 3. LIMPIEZA DE DATOS
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-    
     cols_check = [
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
         'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
         'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
         'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
     ]
-    
     for col in cols_check:
         if col in df.columns:
             df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
@@ -242,21 +231,21 @@ def load_resources():
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
-    # 4. CARGA DE RECURSOS IA (.pkl e .index)
-    # Cargamos metadatos (que traen 'Nº lote' internamente)
+    # 4. RECURSOS IA
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    # TRADUCCIÓN: Pasamos el 'Nº lote' del PKL a nuestro estándar 'Lote'
-    if 'Nº lote' in df_ia_meta.columns:
-        df_ia_meta = df_ia_meta.rename(columns={'Nº lote': 'Lote'})
-    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip().upper()
+    if 'Lote' in df_ia_meta.columns:
+        df_ia_meta = df_ia_meta.rename(columns={'Lote': 'Nº lote'})
+    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
     
-    # Carga del índice y el modelo e5-small
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
     
     gc.collect()
     return df, df_ia_meta, index, model
+
+# ¡IMPORTANTE! Llamamos a la función aquí para que df exista para los filtros
+df, df_ia_meta, index, model = load_resources()
 
 # Ejecución de la carga
 # --- 3. FUNCIONES AUXILIARES ---
