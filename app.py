@@ -194,19 +194,18 @@ def load_resources():
     
     # 1. CARGA CATÁLOGO PRINCIPAL
     df = pd.read_excel(excel_path)
-    # Limpieza de espacios en los nombres de columnas (p. ej. "Lote " -> "Lote")
-    df.columns = df.columns.str.strip()
+    # Limpiamos nombres de columnas por si hay espacios invisibles
+    df.columns = df.columns.str.strip() 
     
-    # Verificamos que "Lote" exista, si no, avisamos
-    if "Lote" not in df.columns:
-        st.error(f"❌ No encuentro la columna 'Lote' en el catálogo. Columnas detectadas: {list(df.columns)}")
-        st.stop()
-    
-    # Renombramos internamente a "Nº lote" para no tener que cambiar todo el resto de tu código
+    # IMPORTANTE: Como ahora se llama "Lote" en el Excel, 
+    # lo renombramos a "Nº lote" solo dentro de Python para que
+    # el resto de tus filtros y botones no fallen.
     df = df.rename(columns={"Lote": "Nº lote"})
+    
+    # Ahora sí, esta línea no dará error:
     df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
     
-    # 2. UNIÓN CON DISPONIBILIDAD
+    # 2. UNIÓN CON DISPONIBILIDAD (También se llama "Lote")
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
@@ -214,50 +213,39 @@ def load_resources():
         if "Lote" in df_disp.columns:
             df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
             
-            # Limpieza de columnas duplicadas antes del merge
+            # Limpiamos columnas que vamos a traer para que no se dupliquen
             for c in ['Fechas_Reservadas', 'URL_Ficha']:
                 if c in df.columns:
                     df = df.drop(columns=[c])
             
-            # UNIÓN PERFECTA: Ambos se llaman igual ahora
+            # UNIÓN: 'Nº lote' (del catálogo) con 'Lote' (de disponibilidad)
             df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], 
                           left_on='Nº lote', right_on='Lote', how='left')
         else:
-            st.warning("⚠️ La columna 'Lote' no aparece en el archivo de disponibilidad.")
             df['Fechas_Reservadas'] = ""
             df['URL_Ficha'] = ""
     else:
         df['Fechas_Reservadas'] = ""
         df['URL_Ficha'] = ""
 
-    # 3. RELLENO DE SEGURIDAD (Columnas para el Sidebar y Cards)
-    columnas_necesarias = [
-        'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
-        'genero_fix', 'genero_fix_eus', 'Genero_Principal_IA', 
-        'Genero_Principal_IA_eus', 'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus',
-        'Editorial', 'Geografia_Autor', 'Páginas', 'Título', 'Autor'
-    ]
+    # 3. RELLENO DE SEGURIDAD PARA LAS TARJETAS Y SIDEBAR
+    columnas_necesarias = ['Idioma', 'Público', 'Editorial', 'Título', 'Autor']
     for col in columnas_necesarias:
         if col not in df.columns:
-            # Si no existe, intentamos buscarla sin tildes o en minúsculas
-            parecida = next((c for c in df.columns if normalizar_texto(c) == normalizar_texto(col)), None)
-            if parecida:
-                df = df.rename(columns={parecida: col})
-            else:
-                df[col] = "Desconocido"
-        
-        df[col] = df[col].fillna("Desconocido").astype(str).replace(['nan', 'None', ''], "Desconocido")
+            df[col] = "Desconocido"
+        df[col] = df[col].fillna("Desconocido").astype(str)
 
-    # 4. NORMALIZACIÓN Y MODELOS
+    # 4. NORMALIZACIÓN PARA EL BUSCADOR
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
+    # 5. CARGA DE INTELIGENCIA ARTIFICIAL (PKL e Índice)
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
     
-    # Ajuste lote en metadatos IA (PKL)
+    # Ajustamos el nombre en el archivo de la IA también
     df_ia_meta.columns = df_ia_meta.columns.str.strip()
-    col_lote_ia = next((c for c in df_ia_meta.columns if "lote" in str(c).lower()), df_ia_meta.columns[0])
+    col_lote_ia = "Lote" if "Lote" in df_ia_meta.columns else df_ia_meta.columns[0]
     df_ia_meta = df_ia_meta.rename(columns={col_lote_ia: 'Nº lote'})
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
     
