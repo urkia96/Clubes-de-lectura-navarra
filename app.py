@@ -185,6 +185,7 @@ c = t["cols"]
 
 # --- 2. CARGA DE RECURSOS (Definición y Ejecución) ---
 @st.cache_resource
+@st.cache_resource
 def load_resources():
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
@@ -197,25 +198,38 @@ def load_resources():
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     
-    # Normalización para que la APP siempre use 'Nº lote' (aunque el Excel diga Lote)
-    if 'Lote' in df.columns and 'Nº lote' not in df.columns:
+    # --- NORMALIZACIÓN CRÍTICA DEL NOMBRE DE COLUMNA ---
+    # Buscamos si existe 'Lote' o 'Nº lote' y lo unificamos a 'Nº lote'
+    if 'Lote' in df.columns:
         df = df.rename(columns={'Lote': 'Nº lote'})
-    df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
+    
+    # Verificamos que ahora sí exista 'Nº lote' antes de tocarlo
+    if 'Nº lote' in df.columns:
+        df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
+    else:
+        st.error(f"Error: No se encuentra la columna de identificación (Lote o Nº lote). Columnas: {df.columns.tolist()}")
+        st.stop()
     
     # 2. VINCULAR CON DISPONIBILIDAD
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
+        
+        # Unificamos también en el de disponibilidad
         if 'Lote' in df_disp.columns:
             df_disp = df_disp.rename(columns={'Lote': 'Nº lote'})
         
         if 'Nº lote' in df_disp.columns:
             df_disp['Nº lote'] = df_disp['Nº lote'].astype(str).str.strip().upper()
-            df = df.drop(columns=[col for col in ['Fechas_Reservadas', 'URL_Ficha'] if col in df.columns], errors='ignore')
+            # Quitamos columnas duplicadas antes de unir
+            cols_a_borrar = [c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns]
+            df = df.drop(columns=cols_a_borrar, errors='ignore')
+            # Unión por 'Nº lote'
             df = pd.merge(df, df_disp[['Nº lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Nº lote', how='left')
 
     # 3. LIMPIEZA DE DATOS
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
+    
     cols_check = [
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
         'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
@@ -234,6 +248,8 @@ def load_resources():
     # 4. RECURSOS IA
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
+        
+    # Normalizamos el PKL también a 'Nº lote'
     if 'Lote' in df_ia_meta.columns:
         df_ia_meta = df_ia_meta.rename(columns={'Lote': 'Nº lote'})
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
@@ -244,9 +260,8 @@ def load_resources():
     gc.collect()
     return df, df_ia_meta, index, model
 
-# ¡IMPORTANTE! Llamamos a la función aquí para que df exista para los filtros
+# Ejecución
 df, df_ia_meta, index, model = load_resources()
-
 # Ejecución de la carga
 # --- 3. FUNCIONES AUXILIARES ---
 def conectar_sheets():
