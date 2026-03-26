@@ -330,7 +330,7 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
-        # --- COLUMNA 2: CONTENIDO ---
+        
         with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
@@ -378,7 +378,6 @@ def mostrar_card(r, context):
             if st.button("👎", key=f"down_{lote_id}_{context}"):
                 guardar_voto(lote_id, r.get('Título'), 0, context)
                 
-# --- 5. PANEL DE CONTROL (DINÁMICO) ---
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
 
