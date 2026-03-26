@@ -187,40 +187,40 @@ c = t["cols"]
 @st.cache_resource
 def load_resources():
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
-    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
-    
+    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx" # Ruta disponibilidad
+
     if not os.path.exists(excel_path):
         st.error(f"Archivo crítico no encontrado: {excel_path}")
         st.stop()
     
-    # 1. CARGA CATÁLOGO PRINCIPAL
+    # 1. CARGA CATÁLOGO PRINCIPAL (Tu código exacto)
     df = pd.read_excel(excel_path)
+    df.columns = df.columns.str.strip()
+    df['Nº lote'] = df['Nº lote'].astype(str).str.strip()
     
-    # --- LA SOLUCIÓN DEFINITIVA ---
-    # En lugar de buscar el nombre, renombramos la COLUMNA 0 (la primera)
-    # Esto evita cualquier error de tildes, símbolos 'º' o espacios.
-    df = df.rename(columns={df.columns[0]: 'Nº lote'})
-    
-    # Limpiamos el ID (quitando el .0 de los números puros y pasando a mayúsculas)
-    df['Nº lote'] = df['Nº lote'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().upper()
-    
-    # 2. VINCULAR CON DISPONIBILIDAD
+    # --- AÑADIDO: VINCULAR DISPONIBILIDAD (Solo si existe el archivo) ---
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
-        # Hacemos lo mismo: la primera columna del excel de disponibilidad es el Lote
-        df_disp = df_disp.rename(columns={df_disp.columns[0]: 'Nº lote'})
-        df_disp['Nº lote'] = df_disp['Nº lote'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().upper()
+        df_disp.columns = df_disp.columns.str.strip()
+        # Aseguramos que la columna se llame Nº lote para el cruce
+        if 'Lote' in df_disp.columns: df_disp = df_disp.rename(columns={'Lote': 'Nº lote'})
         
-        # Quitamos basura antes de unir
-        df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
-        df = pd.merge(df, df_disp[['Nº lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Nº lote', how='left')
+        if 'Nº lote' in df_disp.columns:
+            df_disp['Nº lote'] = df_disp['Nº lote'].astype(str).str.strip()
+            # Limpiamos columnas previas si existen
+            df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
+            # Unión
+            df = pd.merge(df, df_disp[['Nº lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Nº lote', how='left')
+    # -------------------------------------------------------------------
 
-    # 3. LIMPIEZA DE DATOS (Asegurar columnas para evitar más errores)
-    df['Páginas'] = pd.to_numeric(df.get('Páginas', 0), errors='coerce').fillna(0).astype(int)
+    df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
     
+    # Limpieza de columnas (Tu código exacto)
     cols_check = [
-        'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
-        'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
+        'Idioma', 'Idioma_eus', 
+        'Público', 'Público_eus', 
+        'genero_fix', 'genero_fix_eus', 
+        'Editorial', 'Geografia_Autor', 
         'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
         'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
     ]
@@ -231,20 +231,13 @@ def load_resources():
         else:
             df[col] = "Desconocido"
             
-    # Aseguramos que Título y Autor existan antes de normalizar
-    df['Título'] = df.get('Título', 'Sin Título').astype(str)
-    df['Autor'] = df.get('Autor', 'Anónimo').astype(str)
-    
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
-    # 4. RECURSOS IA
+    # Carga de Metadatos IA (Tu código exacto)
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    
-    # En el PKL también forzamos que la primera columna sea 'Nº lote'
-    df_ia_meta = df_ia_meta.rename(columns={df_ia_meta.columns[0]: 'Nº lote'})
-    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip().upper()
+    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip()
     
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
