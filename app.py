@@ -235,6 +235,8 @@ def load_resources():
     
     return df, df_ia_meta, index, model
 
+df, df_ia_meta, index, model = load_resources()
+
 
 # --- 3. FUNCIONES AUXILIARES ---
 def conectar_sheets():
