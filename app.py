@@ -183,14 +183,7 @@ texts = {
 t = texts[st.session_state.idioma]
 c = t["cols"]
 
-# --- 2. CARGA DE RECURSOS ---
-¡Claro que sí! Aquí tienes el bloque de carga totalmente actualizado.
 
-He aplicado la "traducción" de nombres para que todo el sistema use Lote (como en tus nuevos Excel), pero gestione correctamente los archivos .pkl antiguos que aún vienen con Nº lote. También he integrado el cruce (merge) con el nuevo archivo de disponibilidad.
-
-Sustituye tu sección --- 2. CARGA DE RECURSOS --- por esta:
-
-Python
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
