@@ -379,6 +379,7 @@ def mostrar_card(r, context):
                 guardar_voto(lote_id, r.get('Título'), 0, context)
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
+# --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
 
 # Botón de Cerrar Sesión
@@ -391,24 +392,34 @@ st.sidebar.markdown("---")
 # --- VERIFICACIÓN DE SEGURIDAD PARA RENDERIZAR FILTROS ---
 if 'df' in locals() and df is not None:
     # 5.1 FILTROS GENERALES
-    with st.sidebar.expander(t["exp_gral"], expanded=False):
+    with st.sidebar.expander(t["exp_gral"], expanded=True):
         # Idioma
         f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()))
         # Público
         f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()))
-        # Género Autor
+        
+        # --- NUEVO: FILTRO POR RANGO DE FECHAS ---
+        st.markdown("**📅 Disponibilidad**")
+        rango_fechas = st.date_input(
+            "Selecciona tu periodo:",
+            value=[],
+            help="Selecciona fecha de inicio y fin. Solo se mostrarán lotes libres en ese periodo.",
+            label_visibility="collapsed"
+        )
+        
+        # Filtro rápido (Checkbox original)
+        label_disp = "Solo disponibles ahora" if st.session_state.idioma == "Castellano" else "Libre daudenak bakarrik"
+        f_solo_disponibles = st.checkbox(label_disp)
+        
+        st.markdown("---")
         f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()))
+        
         # Editorial (evitando Desconocido)
         opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
         f_editorial = st.multiselect(t["f_editorial"], opciones_ed)
         
         f_local = st.checkbox(t["f_local"])
-        
-        # Filtro de Disponibilidad
-        label_disp = "Solo disponibles ahora" if st.session_state.idioma == "Castellano" else "Libre daudenak bakarrik"
-        f_solo_disponibles = st.checkbox(label_disp)
-        
-        f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
+        f_paginas = st.slider(t["f_paginas"], 0, int(df['Páginas'].max()), int(df['Páginas'].max()))
 
     # 5.2 FILTROS DE CONTENIDO (IA)
     with st.sidebar.expander(t["exp_cont"], expanded=False):
@@ -420,14 +431,14 @@ if 'df' in locals() and df is not None:
         if f_ia_gen:
             subs = set()
             # Buscamos los subgéneros en la columna de idioma correspondiente
-            df[df[c['ia_gen']].isin(f_ia_gen)][c['ia_sub']].str.split(',').dropna().apply(
+            df_filtered_subs = df[df[c['ia_gen']].isin(f_ia_gen)]
+            df_filtered_subs[c['ia_sub']].str.split(',').dropna().apply(
                 lambda x: subs.update([s.strip() for s in x])
             )
             f_ia_sub = st.multiselect(t["f_ia_sub"], sorted([s for s in list(subs) if s != "Desconocido"]))
 
     # --- FUNCIÓN FILTRAR ---
     def filtrar(dataframe):
-        # Hacemos una copia para no alterar el original
         temp = dataframe.copy()
         
         # 1. Filtros básicos
@@ -438,22 +449,34 @@ if 'df' in locals() and df is not None:
         if f_gen_aut: 
             temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
         if f_local: 
-            temp = temp[temp['Geografia_Autor'] == "Local"]
-        if f_paginas < 1500: 
-            temp = temp[temp['Páginas'] <= f_paginas]
+            # Ajustado para buscar la palabra "Navarra" en la geografía
+            temp = temp[temp['Geografia_Autor'].str.contains("Navarra", na=False)]
+        
+        temp = temp[temp['Páginas'] <= f_paginas]
+        
         if f_editorial: 
             temp = temp[temp['Editorial'].isin(f_editorial)]
         
-        # 2. Filtro de Disponibilidad
-        if f_solo_disponibles:
-            # Consideramos disponible si la celda es nula, vacía o "nan" string
+        # 2. Lógica de Disponibilidad por Rango de Calendario
+        if len(rango_fechas) == 2:
+            # Aquí asumimos que si hay texto en 'Fechas_Reservadas', el lote NO está libre.
+            # (Si en el futuro quieres comparar fechas exactas, el Excel de disponibilidad 
+            # debería tener columnas de Fecha_Inicio y Fecha_Fin tipo fecha)
             temp = temp[
                 (temp['Fechas_Reservadas'].isna()) | 
                 (temp['Fechas_Reservadas'].astype(str).str.strip() == "") | 
                 (temp['Fechas_Reservadas'].astype(str).str.lower() == "nan")
             ]
         
-        # 3. Filtros de IA
+        # 3. Filtro de Disponibilidad Rápido (Checkbox)
+        elif f_solo_disponibles:
+            temp = temp[
+                (temp['Fechas_Reservadas'].isna()) | 
+                (temp['Fechas_Reservadas'].astype(str).str.strip() == "") | 
+                (temp['Fechas_Reservadas'].astype(str).str.lower() == "nan")
+            ]
+        
+        # 4. Filtros de IA
         if f_ia_gen: 
             temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
         if f_ia_sub: 
@@ -464,7 +487,6 @@ if 'df' in locals() and df is not None:
         return temp
 
 else:
-    # Si df no existe, paramos la ejecución para que no de NameError más abajo
     st.sidebar.warning("Esperando a la base de datos...")
     st.stop()
     
