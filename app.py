@@ -474,62 +474,56 @@ with col_tit:
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
 
-# --- TAB1: búsqueda por título/autor ---
+# --- TAB1: Búsqueda por título/autor ---
 with tab1:
-    c1,c2 = st.columns(2)
+    c1, c2 = st.columns(2)
     b_tit = c1.text_input(t["busq_titulo"], key="busq_t_input")
     b_aut = c2.text_input(t["busq_autor"], key="busq_a_input")
-    
+   
     if b_tit or b_aut:
         texto_buscado = f"Tit: {b_tit} | Aut: {b_aut}".strip(" | ")
-        
         res = filtrar(df)
         if b_tit: res = res[res['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
         if b_aut: res = res[res['autor_norm'].str.contains(normalizar_texto(b_aut), na=False)]
         res = res.dropna(subset=['Título']).reset_index(drop=True)
-        
-        for _, r in res.head(10).iterrows(): 
+       
+        for _, r in res.head(10).iterrows():
             mostrar_card(r, texto_buscado)
 
-# --- TAB2: búsqueda libre con FAISS ---
+# --- TAB2: Búsqueda libre con FAISS ---
 with tab2:
     q = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_80")
     if q:
         vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
         D, I = index.search(vec, 50)
-        
-        # Filtramos los índices donde la distancia (similitud) sea >= 0.8
         indices_validos = I[0][D[0] >= 0.82]
-        
+       
         if len(indices_validos) > 0:
-            lotes_ia = df_ia_meta.iloc[indices_validos]['Nº lote'].tolist()
+            lotes_ia = df_ia_meta.iloc[indices_validos]['Nº lote'].unique().tolist()
             df_base = filtrar(df)
-            res_final = df_base[df_base['Nº lote'].isin(lotes_ia)]
-            res_final = res_final.set_index('Nº lote').reindex(lotes_ia).dropna(subset=['Título']).reset_index()
-            
-            for _, r in res_final.head(10).iterrows(): 
+            # Filtramos y ordenamos por la relevancia de la IA
+            res_final = df_base[df_base['Nº lote'].isin(lotes_ia)].copy()
+            res_final['Nº lote'] = pd.Categorical(res_final['Nº lote'], categories=lotes_ia, ordered=True)
+            res_final = res_final.sort_values('Nº lote').dropna(subset=['Título']).head(10)
+           
+            for _, r in res_final.iterrows():
                  mostrar_card(r, q)
         else:
-            st.warning("No se encontraron resultados con una similitud superior al 80%.")
+            st.warning(t["no_results"])
 
-# --- TAB3: lotes similares (Punto Medio / Multi-lote) ---
+# --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
-    # Ahora permitimos varios lotes separados por comas
     lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
-    
+   
     if lid_input:
-        # 1. Limpiamos y obtenemos la lista de lotes
-        lotes_solicitados = [l.strip().upper() for l in lid_input.split(",") if l.strip()]
-        
+        lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
         vectores_para_promediar = []
         lotes_encontrados = []
 
-        # 2. Extraemos los vectores de cada lote del índice
         for lid_clean in lotes_solicitados:
             ref_ia = df_ia_meta[df_ia_meta['Nº lote'] == lid_clean]
             if not ref_ia.empty:
                 idx_ia = ref_ia.index[0]
-                # reconstruct nos da el vector original del lote
                 v_lote = index.reconstruct(int(idx_ia))
                 vectores_para_promediar.append(v_lote)
                 lotes_encontrados.append(lid_clean)
@@ -537,40 +531,42 @@ with tab3:
                 st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
 
         if vectores_para_promediar:
-            # --- 3. CÁLCULO DEL PUNTO MEDIO (CENTROIDE) ---
-            # Promediamos todos los vectores encontrados
             v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
-            
-            # 4. Buscamos en el índice usando el vector "mezclado"
-            D, I = index.search(v_ref, 30) # Pedimos más para filtrar los originales
-            
-            # Filtramos por el umbral del 80% (0.8)
+            D, I = index.search(v_ref, 30)
             indices_validos = I[0][D[0] >= 0.82]
-            lotes_sim = df_ia_meta.iloc[indices_validos]['Nº lote'].tolist()
-            
+            lotes_sim = df_ia_meta.iloc[indices_validos]['Nº lote'].unique().tolist()
+           
             df_base = filtrar(df)
-            
-            # 5. Quitamos los lotes que el usuario ya usó para la búsqueda
-            res_sim = df_base[df_base['Nº lote'].isin(lotes_sim) & (~df_base['Nº lote'].isin(lotes_encontrados))]
-            
-            # Reindexamos para mantener el orden de similitud respecto al punto medio
+            # Quitamos los originales y filtramos
             lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
-            res_sim = res_sim.set_index('Nº lote').reindex(lotes_ordenados).dropna(subset=['Título']).reset_index()
-            
+            res_sim = df_base[df_base['Nº lote'].isin(lotes_ordenados)].copy()
+            res_sim['Nº lote'] = pd.Categorical(res_sim['Nº lote'], categories=lotes_ordenados, ordered=True)
+            res_sim = res_sim.sort_values('Nº lote').dropna(subset=['Título']).head(10)
+           
             contexto_voto = f"Punto medio de: {', '.join(lotes_encontrados)}"
-            
+           
             if not res_sim.empty:
-                st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
-                for _, r in res_sim.head(10).iterrows(): 
+                st.info(f"Mostrando similares a: {', '.join(lotes_encontrados)}")
+                for _, r in res_sim.iterrows():
                     mostrar_card(r, contexto_voto)
             else:
-                st.warning("No hay otros lotes con más del 80% de similitud con esa combinación.")
+                st.warning(t["no_results"])
 
-# --- TAB4: búsqueda aleatoria ---
+# --- TAB4: Búsqueda aleatoria ---
 with tab4:
-    if os.path.exists(URL_SERENDIPIA):
-        st.image(URL_SERENDIPIA, use_container_width=False, width=150)
-    if st.button(t["boton_txt"]):
-        posibles = filtrar(df)
-        if not posibles.empty: st.session_state.azar = posibles.sample(1).iloc[0]
-    if 'azar' in st.session_state: mostrar_card(st.session_state.azar, "Seren")
+    col_s1, col_s2 = st.columns([1, 4])
+    with col_s1:
+        if os.path.exists(URL_SERENDIPIA):
+            st.image(URL_SERENDIPIA, width=120)
+    with col_s2:
+        if st.button(t["boton_txt"], use_container_width=True):
+            posibles = filtrar(df)
+            if not posibles.empty: 
+                st.session_state.azar = posibles.sample(1).iloc[0]
+            else:
+                st.session_state.azar = None
+
+    if 'azar' in st.session_state and st.session_state.azar is not None:
+        mostrar_card(st.session_state.azar, "Serendipia")
+    elif 'azar' in st.session_state:
+        st.info(t["no_results"])
