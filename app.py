@@ -194,9 +194,20 @@ def load_resources():
     
     # 1. CARGA CATÁLOGO PRINCIPAL
     df = pd.read_excel(excel_path)
-    df.columns = df.columns.str.strip() # Limpiamos espacios
     
-    # IMPORTANTE: Ahora usamos solo "Lote" porque es lo que hay en tu Excel
+    # --- LIMPIEZA CRÍTICA DE COLUMNAS ---
+    # Esto elimina espacios al principio/final de los nombres de las columnas
+    df.columns = df.columns.str.strip() 
+    
+    # Verificación de seguridad: si no encuentra "Lote", buscamos "Nº lote"
+    if 'Lote' not in df.columns and 'Nº lote' in df.columns:
+        df = df.rename(columns={'Nº lote': 'Lote'})
+    elif 'Lote' not in df.columns:
+        # Si sigue sin aparecer, mostramos qué columnas está viendo Pandas en realidad
+        st.error(f"No se encontró la columna 'Lote'. Columnas actuales: {df.columns.tolist()}")
+        st.stop()
+
+    # Ahora la transformación ya no dará AttributeError
     df['Lote'] = df['Lote'].astype(str).str.strip().upper()
     
     # 2. UNIÓN CON DISPONIBILIDAD
@@ -204,52 +215,20 @@ def load_resources():
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
         
+        # Estandarizamos también aquí para que el merge funcione
         if "Lote" in df_disp.columns:
             df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
+        elif "Nº lote" in df_disp.columns:
+            df_disp = df_disp.rename(columns={'Nº lote': 'Lote'})
+            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
             
-            # Limpiamos columnas para que no se dupliquen al unir
-            for c in ['Fechas_Reservadas', 'URL_Ficha']:
-                if c in df.columns:
-                    df = df.drop(columns=[c])
+        # Limpiamos antes de unir
+        for col_to_drop in ['Fechas_Reservadas', 'URL_Ficha']:
+            if col_to_drop in df.columns:
+                df = df.drop(columns=[col_to_drop])
             
-            # Unión directa por la columna "Lote"
-            df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], 
-                          on='Lote', how='left')
-        else:
-            df['Fechas_Reservadas'] = ""
-            df['URL_Ficha'] = ""
-    else:
-        df['Fechas_Reservadas'] = ""
-        df['URL_Ficha'] = ""
-
-    # 3. RELLENO DE SEGURIDAD (Sidebar y tarjetas)
-    columnas_necesarias = ['Idioma', 'Público', 'Editorial', 'Título', 'Autor']
-    for col in columnas_necesarias:
-        if col not in df.columns:
-            df[col] = "Desconocido"
-        df[col] = df[col].fillna("Desconocido").astype(str)
-
-    # 4. NORMALIZACIÓN PARA BÚSQUEDAS
-    df['titulo_norm'] = df['Título'].apply(normalizar_texto)
-    df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-    
-    # 5. CARGA DE IA (PKL)
-    with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
-        df_ia_meta = pickle.load(f)
-    
-    # Ajustamos el PKL para que también use "Lote"
-    df_ia_meta.columns = df_ia_meta.columns.str.strip()
-    if "Lote" not in df_ia_meta.columns:
-        # Si el pkl tuviera otro nombre, lo cambiamos a Lote
-        df_ia_meta = df_ia_meta.rename(columns={df_ia_meta.columns[0]: 'Lote'})
-    
-    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip().upper()
-    
-    # 6. CARGA DE MODELOS
-    index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-small')
-    
-    return df, df_ia_meta, index, model
+        df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], 
+                     on='Lote', how='left')
 # --- JUSTO DESPUÉS DE DEFINIR LA FUNCIÓN load_resources ---
 df, df_ia_meta, index, model = load_resources()
 
