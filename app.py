@@ -186,51 +186,74 @@ c = t["cols"]
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
-    excel_path = f"recomendador/CATALOGO_PROCESADO_version3.xlsx"
-    disp_path = f"recomendador/disponibilidad_catalogo_completo.xlsx"
+    excel_path = "recomendador/CATALOGO_PROCESADO_version3.xlsx"
+    disp_path = "recomendador/disponibilidad_catalogo_completo.xlsx"
     
     # 1. CARGA CATÁLOGO PRINCIPAL
     df = pd.read_excel(excel_path)
+    df.columns = df.columns.str.strip() # Limpiar espacios en nombres de columnas
+
+    # --- NORMALIZACIÓN DE COLUMNA LOTE ---
+    # Buscamos posibles variantes del nombre
+    posibles_nombres = ['Lote', 'Nº lote', 'Nº Lote', 'lote']
+    columna_encontrada = None
+    for p in posibles_nombres:
+        if p in df.columns:
+            columna_encontrada = p
+            break
     
-    # --- LIMPIEZA CRÍTICA DE COLUMNAS ---
-    # Esto elimina espacios al principio/final de los nombres de las columnas
-    df.columns = df.columns.str.strip() 
-    
-    # Verificación de seguridad: si no encuentra "Lote", buscamos "Nº lote"
-    if 'Lote' not in df.columns and 'Nº lote' in df.columns:
-        df = df.rename(columns={'Nº lote': 'Lote'})
-    elif 'Lote' not in df.columns:
-        # Si sigue sin aparecer, mostramos qué columnas está viendo Pandas en realidad
-        st.error(f"No se encontró la columna 'Lote'. Columnas actuales: {df.columns.tolist()}")
+    if columna_encontrada:
+        df = df.rename(columns={columna_encontrada: 'Lote'})
+    else:
+        st.error(f"No se encontró la columna de Lote. Columnas: {df.columns.tolist()}")
         st.stop()
 
-    # Ahora la transformación ya no dará AttributeError
+    # Aseguramos que sea string para el cruce
     df['Lote'] = df['Lote'].astype(str).str.strip().upper()
-    
-    # 2. UNIÓN CON DISPONIBILIDAD
+
+    # 2. CARGA DE DISPONIBILIDAD Y MERGE
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
         
-        # Estandarizamos también aquí para que el merge funcione
-        if "Lote" in df_disp.columns:
-            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
-        elif "Nº lote" in df_disp.columns:
+        # Normalizar columna Lote en el segundo excel
+        if 'Nº lote' in df_disp.columns:
             df_disp = df_disp.rename(columns={'Nº lote': 'Lote'})
+        
+        if 'Lote' in df_disp.columns:
             df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
             
-        # Limpiamos antes de unir
-        for col_to_drop in ['Fechas_Reservadas', 'URL_Ficha']:
-            if col_to_drop in df.columns:
-                df = df.drop(columns=[col_to_drop])
+            # Limpiamos columnas duplicadas antes de unir si existieran
+            cols_to_use = ['Lote', 'Fechas_Reservadas', 'URL_Ficha']
+            # Solo nos quedamos con las columnas que existen en df_disp
+            cols_present = [c for c in cols_to_use if c in df_disp.columns]
             
-        df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], 
-                     on='Lote', how='left')
-# --- JUSTO DESPUÉS DE DEFINIR LA FUNCIÓN load_resources ---
-df, df_ia_meta, index, model = load_resources()
+            df = pd.merge(df, df_disp[cols_present], on='Lote', how='left')
 
-t = texts[st.session_state.idioma]
-c = t["cols"]
+    # 3. CARGA DE RECURSOS IA (Asegúrate de que estos archivos existan)
+    # Aquí asumo que tienes estos archivos, si no, ajusta las rutas
+    try:
+        with open(f"{PATH_RECO}/embeddings.pkl", "rb") as f:
+            datos_ia = pickle.load(f)
+            # datos_ia debería ser un diccionario o tupla con (df_ia_meta, index)
+            df_ia_meta = datos_ia['metadata']
+            index = datos_ia['index']
+        
+        model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+        
+        # Importante: Normalizar también el 'Nº lote' en df_ia_meta para las búsquedas FAISS
+        if 'Nº lote' in df_ia_meta.columns:
+            df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
+            
+    except Exception as e:
+        st.error(f"Error cargando recursos de IA: {e}")
+        return df, None, None, None
+
+    # ¡ESTO ES VITAL! El return que faltaba
+    return df, df_ia_meta, index, model
+
+# Llamada correcta
+df, df_ia_meta, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
 def conectar_sheets():
