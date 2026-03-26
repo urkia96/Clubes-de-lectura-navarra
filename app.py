@@ -253,7 +253,6 @@ def load_resources():
     # Cargamos metadatos (que traen 'Nº lote' internamente)
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    
     # TRADUCCIÓN: Pasamos el 'Nº lote' del PKL a nuestro estándar 'Lote'
     if 'Nº lote' in df_ia_meta.columns:
         df_ia_meta = df_ia_meta.rename(columns={'Nº lote': 'Lote'})
