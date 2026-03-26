@@ -192,67 +192,59 @@ def load_resources():
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     disp_path = f"recomendador/disponibilidad_catalogo_completo.xlsx"
     
-    # 1. Carga base y limpieza de nombres de columnas
+    # 1. Carga catálogo principal
     df = pd.read_excel(excel_path)
-    df.columns = df.columns.str.strip() # Quita espacios al inicio/final de los nombres de columnas
+    df.columns = df.columns.str.strip()
     
-    # --- FIX CRÍTICO: Buscar la columna del lote si el nombre exacto falla ---
-    posibles_nombres = ['Nº lote', 'Nº Lote', 'Lote', 'lote', 'NºLote']
-    col_lote_encontrada = None
-    for nombre in posibles_nombres:
-        if nombre in df.columns:
-            col_lote_encontrada = nombre
-            break
+    # Buscamos la columna del lote en el catálogo principal (por si acaso no es exacto)
+    col_lote_cat = next((c for c in df.columns if c.lower() in ['nº lote', 'nºlote', 'lote']), df.columns[0])
+    df = df.rename(columns={col_lote_cat: 'Nº lote'})
+    df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
     
-    if col_lote_encontrada:
-        # Renombramos a nuestro estándar para que el resto del código funcione
-        df = df.rename(columns={col_lote_encontrada: 'Nº lote'})
-        df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
-    else:
-        st.error(f"❌ No se encontró la columna de Lote. Columnas detectadas: {list(df.columns)}")
-        st.stop()
-    
-    # 2. Unión con disponibilidad
+    # 2. Unión con disponibilidad (Usando tu columna "Lote")
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
         
-        # Buscamos la columna de unión en el segundo Excel
-        col_disp = 'Lote' if 'Lote' in df_disp.columns else df_disp.columns[0]
-        df_disp[col_disp] = df_disp[col_disp].astype(str).str.strip().upper()
-        
-        if 'Fechas_Reservadas' in df.columns:
-            df = df.drop(columns=['Fechas_Reservadas'])
+        # Forzamos que la columna "Lote" sea string y esté limpia
+        if "Lote" in df_disp.columns:
+            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
             
-        df = pd.merge(df, df_disp[[col_disp, 'Fechas_Reservadas']], 
-                      left_on='Nº lote', right_on=col_disp, how='left')
+            # Eliminamos Fechas_Reservadas si ya existía para que no se duplique con _x o _y
+            if 'Fechas_Reservadas' in df.columns:
+                df = df.drop(columns=['Fechas_Reservadas'])
+            
+            # UNIÓN CRÍTICA
+            df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas']], 
+                          left_on='Nº lote', right_on='Lote', how='left')
+        else:
+            st.warning("⚠️ No se encontró la columna 'Lote' en disponibilidad.xlsx")
+            df['Fechas_Reservadas'] = ""
     else:
         df['Fechas_Reservadas'] = ""
 
-    # 3. Forzar columnas necesarias para evitar NameErrors posteriores
+    # 3. Relleno de seguridad para evitar errores de "Desconocido"
     columnas_necesarias = [
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
         'genero_fix', 'genero_fix_eus', 'Genero_Principal_IA', 
         'Genero_Principal_IA_eus', 'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus',
-        'Editorial', 'Geografia_Autor', 'Páginas'
+        'Editorial', 'Geografia_Autor', 'Páginas', 'Título', 'Autor'
     ]
     for col in columnas_necesarias:
         if col not in df.columns:
             df[col] = "Desconocido"
-        else:
-            df[col] = df[col].replace(['nan', 'None', '', np.nan], "Desconocido")
+        df[col] = df[col].fillna("Desconocido").astype(str).replace(['nan', 'None', ''], "Desconocido")
 
-    # 4. Resto de carga
+    # 4. Normalización y Carga de IA
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
     
-    # Asegurar que el pkl también tenga el nombre de columna correcto
-    if 'Nº lote' not in df_ia_meta.columns:
-        df_ia_meta.columns = [c if c != 'Lote' else 'Nº lote' for c in df_ia_meta.columns]
-    
+    # Ajuste de nombre en el PKL
+    col_lote_ia = next((c for c in df_ia_meta.columns if c.lower() in ['nº lote', 'lote']), df_ia_meta.columns[0])
+    df_ia_meta = df_ia_meta.rename(columns={col_lote_ia: 'Nº lote'})
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
     
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
