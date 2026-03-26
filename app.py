@@ -189,55 +189,50 @@ c = t["cols"]
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
-    # Rutas de archivos
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
     disp_path = f"recomendador/disponibilidad_catalogo_completo.xlsx"
     
-    if not os.path.exists(excel_path):
-        st.error(f"Archivo crítico no encontrado: {excel_path}")
-        st.stop()
-    
-    # 1. Cargar catálogo principal
+    # Carga base
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
-    df['Nº lote'] = df['Nº lote'].astype(str).str.strip().str.upper() # Normalizar lote
-
-    # 2. Cargar disponibilidad si existe
+    df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
+    
+    # Unión con disponibilidad
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
-        df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().str.upper()
-        # Unimos los datos (Left join para no perder libros que no tengan info de reserva)
+        df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
+        # Evitamos duplicar columnas si ya existían
+        if 'Fechas_Reservadas' in df.columns:
+            df = df.drop(columns=['Fechas_Reservadas'])
         df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas']], 
                       left_on='Nº lote', right_on='Lote', how='left')
     else:
-        df['Fechas_Reservadas'] = "" # Columna vacía si no hay archivo
+        df['Fechas_Reservadas'] = ""
 
-    # Limpieza de datos habitual
-    df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-    cols_check = ['Idioma', 'Idioma_eus', 'Público', 'Público_eus', 'genero_fix', 
-                  'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
-                  'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
-                  'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus']
-    
-    for col in cols_check:
-        if col in df.columns:
-            df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
-        else:
+    # IMPORTANTE: Forzar que las columnas que usa 'c' existan siempre
+    columnas_necesarias = [
+        'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
+        'genero_fix', 'genero_fix_eus', 'Genero_Principal_IA', 
+        'Genero_Principal_IA_eus', 'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
+    ]
+    for col in columnas_necesarias:
+        if col not in df.columns:
             df[col] = "Desconocido"
-            
+        else:
+            df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
+
+    # Resto de carga (FAISS, Model...)
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
-    # Cargar FAISS e IA
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().str.upper()
+    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
     
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
     
-    gc.collect()
     return df, df_ia_meta, index, model
 
 
