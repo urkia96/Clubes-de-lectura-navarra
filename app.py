@@ -391,65 +391,93 @@ def mostrar_card(r, context):
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
-#Boton de Logoet
+
+# Botón de Cerrar Sesión
 if st.sidebar.button("🚪 Cerrar Sesión"):
     st.session_state.auth = False
-    st.rerun() # Esto hace que el script vuelva arriba, vea que auth es False y muestre el muro
+    st.rerun()
 
-st.sidebar.markdown("---") # Una línea divisoria para separar del resto de filtros
+st.sidebar.markdown("---")
 
-# 5.1 FILTROS GENERALES
-with st.sidebar.expander(t["exp_gral"], expanded=False):
-    # Usamos c['idioma'], c['publico'], etc. para obtener las opciones y filtrar
-    f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].unique()))
-    f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].unique()))
-    f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].unique()))
-    f_editorial = st.multiselect(t["f_editorial"], sorted([e for e in df['Editorial'].unique() if e != "Desconocido"]))
-    f_local = st.checkbox(t["f_local"])
-    # NUEVO FILTRO: Disponibilidad
-    label_disp = "Solo disponibles ahora" if st.session_state.idioma == "Castellano" else "Libre daudenak bakarrik"
-    f_solo_disponibles = st.checkbox(label_disp)
-    f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
-
-# 5.2 FILTROS DE CONTENIDO
-with st.sidebar.expander(t["exp_cont"], expanded=False):
-    f_ia_gen = st.multiselect(t["f_ia_gen"], sorted([g for g in df[c['ia_gen']].unique() if g != "Desconocido"]))
-    f_ia_sub = []
-    if f_ia_gen:
-        subs = set()
-        # Buscamos los subgéneros en la columna de idioma correspondiente
-        df[df[c['ia_gen']].isin(f_ia_gen)][c['ia_sub']].str.split(',').dropna().apply(lambda x: subs.update([s.strip() for s in x]))
-        f_ia_sub = st.multiselect(t["f_ia_sub"], sorted([s for s in list(subs) if s != "Desconocido"]))
-
-def filtrar(dataframe):
-    temp = dataframe.copy()
-    
-    # 1. Filtros de idioma y básicos (usando el diccionario 'c')
-    if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
-    if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
-    if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
-    if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
-    if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
-    if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
-    
-    # 2. NUEVO: Filtro de Disponibilidad
-    # Si el usuario marca "Solo disponibles", quitamos los que tienen fechas ocupadas
-    if f_solo_disponibles:
-        # Consideramos disponible si la celda es nula, es un string vacío o es "nan"
-        temp = temp[
-            (temp['Fechas_Reservadas'].isna()) | 
-            (temp['Fechas_Reservadas'].astype(str) == "") | 
-            (temp['Fechas_Reservadas'].astype(str) == "nan")
-        ]
-    
-    # 3. Filtros de IA (Género y Subgénero)
-    if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
-    if f_ia_sub: 
-        temp = temp[temp[c['ia_sub']].apply(
-            lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False
-        )]
+# --- VERIFICACIÓN DE SEGURIDAD PARA RENDERIZAR FILTROS ---
+if 'df' in locals() and df is not None:
+    # 5.1 FILTROS GENERALES
+    with st.sidebar.expander(t["exp_gral"], expanded=False):
+        # Idioma
+        f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()))
+        # Público
+        f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()))
+        # Género Autor
+        f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()))
+        # Editorial (evitando Desconocido)
+        opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
+        f_editorial = st.multiselect(t["f_editorial"], opciones_ed)
         
-    return temp
+        f_local = st.checkbox(t["f_local"])
+        
+        # Filtro de Disponibilidad
+        label_disp = "Solo disponibles ahora" if st.session_state.idioma == "Castellano" else "Libre daudenak bakarrik"
+        f_solo_disponibles = st.checkbox(label_disp)
+        
+        f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
+
+    # 5.2 FILTROS DE CONTENIDO (IA)
+    with st.sidebar.expander(t["exp_cont"], expanded=False):
+        # Género IA
+        opciones_ia_gen = sorted([g for g in df[c['ia_gen']].dropna().unique() if g != "Desconocido"])
+        f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
+        
+        f_ia_sub = []
+        if f_ia_gen:
+            subs = set()
+            # Buscamos los subgéneros en la columna de idioma correspondiente
+            df[df[c['ia_gen']].isin(f_ia_gen)][c['ia_sub']].str.split(',').dropna().apply(
+                lambda x: subs.update([s.strip() for s in x])
+            )
+            f_ia_sub = st.multiselect(t["f_ia_sub"], sorted([s for s in list(subs) if s != "Desconocido"]))
+
+    # --- FUNCIÓN FILTRAR ---
+    def filtrar(dataframe):
+        # Hacemos una copia para no alterar el original
+        temp = dataframe.copy()
+        
+        # 1. Filtros básicos
+        if f_idioma: 
+            temp = temp[temp[c['idioma']].isin(f_idioma)]
+        if f_publico: 
+            temp = temp[temp[c['publico']].isin(f_publico)]
+        if f_gen_aut: 
+            temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
+        if f_local: 
+            temp = temp[temp['Geografia_Autor'] == "Local"]
+        if f_paginas < 1500: 
+            temp = temp[temp['Páginas'] <= f_paginas]
+        if f_editorial: 
+            temp = temp[temp['Editorial'].isin(f_editorial)]
+        
+        # 2. Filtro de Disponibilidad
+        if f_solo_disponibles:
+            # Consideramos disponible si la celda es nula, vacía o "nan" string
+            temp = temp[
+                (temp['Fechas_Reservadas'].isna()) | 
+                (temp['Fechas_Reservadas'].astype(str).str.strip() == "") | 
+                (temp['Fechas_Reservadas'].astype(str).str.lower() == "nan")
+            ]
+        
+        # 3. Filtros de IA
+        if f_ia_gen: 
+            temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
+        if f_ia_sub: 
+            temp = temp[temp[c['ia_sub']].apply(
+                lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False
+            )]
+            
+        return temp
+
+else:
+    # Si df no existe, paramos la ejecución para que no de NameError más abajo
+    st.sidebar.warning("Esperando a la base de datos...")
+    st.stop()
     
 # --- 6. INTERFAZ ---
 col_logo, col_tit = st.columns([1,6])
