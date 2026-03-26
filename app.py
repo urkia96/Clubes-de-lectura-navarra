@@ -184,77 +184,89 @@ t = texts[st.session_state.idioma]
 c = t["cols"]
 
 # --- 2. CARGA DE RECURSOS ---
+¡Claro que sí! Aquí tienes el bloque de carga totalmente actualizado.
+
+He aplicado la "traducción" de nombres para que todo el sistema use Lote (como en tus nuevos Excel), pero gestione correctamente los archivos .pkl antiguos que aún vienen con Nº lote. También he integrado el cruce (merge) con el nuevo archivo de disponibilidad.
+
+Sustituye tu sección --- 2. CARGA DE RECURSOS --- por esta:
+
+Python
+# --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
-    excel_path = "recomendador/CATALOGO_PROCESADO_version3.xlsx"
-    disp_path = "recomendador/disponibilidad_catalogo_completo.xlsx"
+    excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
+    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
+    
+    if not os.path.exists(excel_path):
+        st.error(f"Archivo crítico no encontrado: {excel_path}")
+        st.stop()
     
     # 1. CARGA CATÁLOGO PRINCIPAL
     df = pd.read_excel(excel_path)
-    df.columns = df.columns.str.strip() # Limpiar espacios en nombres de columnas
-
-    # --- NORMALIZACIÓN DE COLUMNA LOTE ---
-    # Buscamos posibles variantes del nombre
-    posibles_nombres = ['Lote', 'Nº lote', 'Nº Lote', 'lote']
-    columna_encontrada = None
-    for p in posibles_nombres:
-        if p in df.columns:
-            columna_encontrada = p
-            break
+    df.columns = df.columns.str.strip()
     
-    if columna_encontrada:
-        df = df.rename(columns={columna_encontrada: 'Lote'})
-    else:
-        st.error(f"No se encontró la columna de Lote. Columnas: {df.columns.tolist()}")
-        st.stop()
-
-    # Aseguramos que sea string para el cruce
+    # Normalización: Si el Excel trae 'Nº lote', lo pasamos a 'Lote'
+    if 'Nº lote' in df.columns:
+        df = df.rename(columns={'Nº lote': 'Lote'})
+    
+    # Forzamos 'Lote' como string, limpio y en mayúsculas
     df['Lote'] = df['Lote'].astype(str).str.strip().upper()
-
-    # 2. CARGA DE DISPONIBILIDAD Y MERGE
+    
+    # 2. VINCULAR CON DISPONIBILIDAD (Nuevo Excel)
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
         
-        # Normalizar columna Lote en el segundo excel
+        # Unificamos nombre de columna en el excel de disponibilidad
         if 'Nº lote' in df_disp.columns:
             df_disp = df_disp.rename(columns={'Nº lote': 'Lote'})
         
         if 'Lote' in df_disp.columns:
             df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().upper()
             
-            # Limpiamos columnas duplicadas antes de unir si existieran
-            cols_to_use = ['Lote', 'Fechas_Reservadas', 'URL_Ficha']
-            # Solo nos quedamos con las columnas que existen en df_disp
-            cols_present = [c for c in cols_to_use if c in df_disp.columns]
+            # Limpiamos columnas duplicadas antes del merge por si acaso
+            df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
             
-            df = pd.merge(df, df_disp[cols_present], on='Lote', how='left')
+            # Unimos los datos (vínculo por columna Lote)
+            df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
 
-    # 3. CARGA DE RECURSOS IA (Asegúrate de que estos archivos existan)
-    # Aquí asumo que tienes estos archivos, si no, ajusta las rutas
-    try:
-        with open(f"{PATH_RECO}/embeddings.pkl", "rb") as f:
-            datos_ia = pickle.load(f)
-            # datos_ia debería ser un diccionario o tupla con (df_ia_meta, index)
-            df_ia_meta = datos_ia['metadata']
-            index = datos_ia['index']
-        
-        model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-        
-        # Importante: Normalizar también el 'Nº lote' en df_ia_meta para las búsquedas FAISS
-        if 'Nº lote' in df_ia_meta.columns:
-            df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
+    # 3. LIMPIEZA DE DATOS Y COLUMNAS EUSKERA
+    df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
+    
+    cols_check = [
+        'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
+        'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
+        'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
+        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
+    ]
+    
+    for col in cols_check:
+        if col in df.columns:
+            df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
+        else:
+            df[col] = "Desconocido"
             
-    except Exception as e:
-        st.error(f"Error cargando recursos de IA: {e}")
-        return df, None, None, None
-
-    # ¡ESTO ES VITAL! El return que faltaba
+    df['titulo_norm'] = df['Título'].apply(normalizar_texto)
+    df['autor_norm'] = df['Autor'].apply(normalizar_texto)
+    
+    # 4. CARGA DE RECURSOS IA (.pkl e .index)
+    # Cargamos metadatos (que traen 'Nº lote' internamente)
+    with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
+        df_ia_meta = pickle.load(f)
+    
+    # TRADUCCIÓN: Pasamos el 'Nº lote' del PKL a nuestro estándar 'Lote'
+    if 'Nº lote' in df_ia_meta.columns:
+        df_ia_meta = df_ia_meta.rename(columns={'Nº lote': 'Lote'})
+    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip().upper()
+    
+    # Carga del índice y el modelo e5-small
+    index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
+    model = SentenceTransformer('intfloat/multilingual-e5-small')
+    
+    gc.collect()
     return df, df_ia_meta, index, model
 
-# Llamada correcta
-df, df_ia_meta, index, model = load_resources()
-
+# Ejecución de la carga
 # --- 3. FUNCIONES AUXILIARES ---
 def conectar_sheets():
     try:
