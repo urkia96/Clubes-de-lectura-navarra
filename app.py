@@ -183,9 +183,6 @@ texts = {
 t = texts[st.session_state.idioma]
 c = t["cols"]
 
-
-
-
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
