@@ -189,47 +189,56 @@ c = t["cols"]
 # --- 2. CARGA DE RECURSOS ---
 @st.cache_resource
 def load_resources():
+    # Rutas de archivos
     excel_path = f"{PATH_RECO}/CATALOGO_PROCESADO_version3.xlsx"
+    disp_path = f"recomendador/disponibilidad_catalogo_completo.xlsx"
+    
     if not os.path.exists(excel_path):
         st.error(f"Archivo crítico no encontrado: {excel_path}")
         st.stop()
-   
+    
+    # 1. Cargar catálogo principal
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
-    df['Nº lote'] = df['Nº lote'].astype(str).str.strip()
-   
+    df['Nº lote'] = df['Nº lote'].astype(str).str.strip().str.upper() # Normalizar lote
+
+    # 2. Cargar disponibilidad si existe
+    if os.path.exists(disp_path):
+        df_disp = pd.read_excel(disp_path)
+        df_disp.columns = df_disp.columns.str.strip()
+        df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().str.upper()
+        # Unimos los datos (Left join para no perder libros que no tengan info de reserva)
+        df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas']], 
+                      left_on='Nº lote', right_on='Lote', how='left')
+    else:
+        df['Fechas_Reservadas'] = "" # Columna vacía si no hay archivo
+
+    # Limpieza de datos habitual
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-    
-    # NUEVO: Hemos añadido todas las columnas de euskera a la limpieza
-    cols_check = [
-        'Idioma', 'Idioma_eus', 
-        'Público', 'Público_eus', 
-        'genero_fix', 'genero_fix_eus', 
-        'Editorial', 'Geografia_Autor', 
-        'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
-        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
-    ]
+    cols_check = ['Idioma', 'Idioma_eus', 'Público', 'Público_eus', 'genero_fix', 
+                  'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
+                  'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
+                  'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus']
     
     for col in cols_check:
         if col in df.columns:
             df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
         else:
             df[col] = "Desconocido"
-           
+            
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-   
+    
+    # Cargar FAISS e IA
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip()
-   
+    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().str.upper()
+    
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
-   
+    
     gc.collect()
     return df, df_ia_meta, index, model
-
-df, df_ia_meta, index, model = load_resources()
 
 
 # --- 3. FUNCIONES AUXILIARES ---
@@ -314,6 +323,7 @@ def mostrar_card(r, context):
             st.caption(f"Lote {lote_id}")
 
         # --- COLUMNA 2: CONTENIDO ---
+        # --- COLUMNA 2: CONTENIDO ---
         with col_content:
             st.markdown(f"### {r.get('Título','Sin título')}")
             st.write(f"**{r.get('Autor','Autor desconocido')}**")
@@ -325,11 +335,22 @@ def mostrar_card(r, context):
             except:
                 pags_display = str(pags_val)
             
-            # NUEVO: Usamos c['idioma'] y c['publico'] para que cambie según el selector
+            # Caption con Editorial, Idioma, Páginas y Público
             st.caption(f"{r.get('Editorial','--')} | {r.get(c['idioma'],'--')} | {pags_display} {t['pags_label']} | {r.get(c['publico'],'--')}")
 
+            # NUEVO: GESTIÓN DE DISPONIBILIDAD
+            reservas = r.get('Fechas_Reservadas', "")
+            # Comprobamos si hay texto en 'Fechas_Reservadas' (y que no sea 'nan')
+            if pd.notnull(reservas) and str(reservas).strip() != "" and str(reservas).lower() != "nan":
+                # Si está ocupado, mostramos un aviso llamativo
+                msg_ocupado = f"⚠️ **Ocupado:** {reservas}" if st.session_state.idioma == "Castellano" else f"⚠️ **Erreserbatuta:** {reservas}"
+                st.warning(msg_ocupado)
+            else:
+                # Si está libre, un mensaje sutil en verde
+                msg_libre = "✅ Disponible" if st.session_state.idioma == "Castellano" else "✅ Librea"
+                st.markdown(f"<span style='color: #28a745; font-size: 0.9rem;'>{msg_libre}</span>", unsafe_allow_html=True)
+
             # Subgéneros dinámicos
-            # NUEVO: Usamos c['ia_gen'] y c['ia_sub']
             genero_ia = r.get(c['ia_gen'])
             subgeneros_ia = r.get(c['ia_sub'])
             
@@ -338,8 +359,6 @@ def mostrar_card(r, context):
 
             # Resumen con expander
             with st.expander(t["resumen_btn"], expanded=False):
-                # Aquí podrías añadir una columna de resumen en euskera si la tuvieras, 
-                # de momento se mantiene el de Navarra.
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
 
 
@@ -369,6 +388,9 @@ with st.sidebar.expander(t["exp_gral"], expanded=False):
     f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].unique()))
     f_editorial = st.multiselect(t["f_editorial"], sorted([e for e in df['Editorial'].unique() if e != "Desconocido"]))
     f_local = st.checkbox(t["f_local"])
+    # NUEVO FILTRO: Disponibilidad
+    label_disp = "Solo disponibles ahora" if st.session_state.idioma == "Castellano" else "Libre daudenak bakarrik"
+    f_solo_disponibles = st.checkbox(label_disp)
     f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
 # 5.2 FILTROS DE CONTENIDO
@@ -383,15 +405,32 @@ with st.sidebar.expander(t["exp_cont"], expanded=False):
 
 def filtrar(dataframe):
     temp = dataframe.copy()
-    # Filtramos siempre sobre la columna del idioma activo usando 'c'
+    
+    # 1. Filtros de idioma y básicos (usando el diccionario 'c')
     if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
     if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
     if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
     if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
     if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
     if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
+    
+    # 2. NUEVO: Filtro de Disponibilidad
+    # Si el usuario marca "Solo disponibles", quitamos los que tienen fechas ocupadas
+    if f_solo_disponibles:
+        # Consideramos disponible si la celda es nula, es un string vacío o es "nan"
+        temp = temp[
+            (temp['Fechas_Reservadas'].isna()) | 
+            (temp['Fechas_Reservadas'].astype(str) == "") | 
+            (temp['Fechas_Reservadas'].astype(str) == "nan")
+        ]
+    
+    # 3. Filtros de IA (Género y Subgénero)
     if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
-    if f_ia_sub: temp = temp[temp[c['ia_sub']].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
+    if f_ia_sub: 
+        temp = temp[temp[c['ia_sub']].apply(
+            lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False
+        )]
+        
     return temp
     
 # --- 6. INTERFAZ ---
