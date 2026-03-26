@@ -195,62 +195,40 @@ def load_resources():
     
     # 1. CARGA CATÁLOGO PRINCIPAL
     df = pd.read_excel(excel_path)
+    df.columns = df.columns.str.strip() # Limpia espacios en nombres de columnas
     
-    # --- LIMPIEZA EXTREMA DE COLUMNAS ---
-    # 1. Quitamos espacios y pasamos a minúsculas para comparar
-    df.columns = [str(c).strip() for c in df.columns]
-    
-    # 2. Intentamos encontrar la columna de lote de forma flexible
-    col_lote = None
-    posibles_nombres = ["nº lote", "lote", "nºlote", "no lote", "id_lote"]
-    
-    for c in df.columns:
-        # Normalizamos el nombre de la columna para la comparación (quitamos el º si molesta)
-        c_norm = c.lower().replace("º", "").strip()
-        if c_norm in posibles_nombres or c.lower() in posibles_nombres:
-            col_lote = c
-            break
-    
-    # 3. Si no la encuentra por nombre, asumimos que es la PRIMERA columna
-    if col_lote is None:
-        col_lote = df.columns[0]
-        st.sidebar.info(f"Columna detectada por posición: {col_lote}")
-
-    # Renombramos internamente a 'Nº lote' para que el resto del código no falle
-    df = df.rename(columns={col_lote: 'Nº lote'})
-    
-    # Convertimos a string y limpiamos
+    # Forzamos limpieza del ID principal
     df['Nº lote'] = df['Nº lote'].astype(str).str.strip().upper()
     
-    # 2. VINCULAR CON DISPONIBILIDAD
+    # 2. VINCULAR CON DISPONIBILIDAD (Ya con la columna unificada)
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
-        df_disp.columns = [str(c).strip() for c in df_disp.columns]
+        df_disp.columns = df_disp.columns.str.strip()
         
-        # Misma lógica flexible para el segundo Excel
-        col_disp_lote = None
-        for c in df_disp.columns:
-            if c.lower().replace("º", "").strip() in posibles_nombres:
-                col_disp_lote = c
-                break
-        
-        if col_disp_lote is None: col_disp_lote = df_disp.columns[0]
+        if 'Nº lote' in df_disp.columns:
+            df_disp['Nº lote'] = df_disp['Nº lote'].astype(str).str.strip().upper()
             
-        df_disp = df_disp.rename(columns={col_disp_lote: 'Nº lote'})
-        df_disp['Nº lote'] = df_disp['Nº lote'].astype(str).str.strip().upper()
-        
-        # Limpiar antes de unir
-        df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
-        df = pd.merge(df, df_disp[['Nº lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Nº lote', how='left')
+            # Borramos columnas de fechas si ya existen antes de unir
+            df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
+            
+            # Unimos (Merge)
+            df = pd.merge(df, df_disp[['Nº lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Nº lote', how='left')
 
-    # 3. LIMPIEZA DE DATOS RESTANTE
+    # 3. LIMPIEZA DE DATOS (Resto de columnas)
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
     
-    # Columnas que deben existir sí o sí
-    cols_check = ['Idioma', 'Idioma_eus', 'Público', 'Público_eus', 'genero_fix', 'genero_fix_eus', 'Editorial', 'Genero_Principal_IA', 'Subgeneros_Limpios_IA']
+    cols_check = [
+        'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
+        'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
+        'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
+        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
+    ]
+    
     for col in cols_check:
-        if col not in df.columns: df[col] = "Desconocido"
-        else: df[col] = df[col].astype(str).replace(['nan', 'None', ''], "Desconocido")
+        if col in df.columns:
+            df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
+        else:
+            df[col] = "Desconocido"
             
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
@@ -259,9 +237,8 @@ def load_resources():
     with open(f"{PATH_RECO}/metadatos_promptss_infloat_ponderado_small.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
     
-    # Normalizar PKL (usualmente la primera col es el lote)
-    col_pkl_lote = df_ia_meta.columns[0]
-    df_ia_meta = df_ia_meta.rename(columns={col_pkl_lote: 'Nº lote'})
+    # Limpiamos también el PKL
+    df_ia_meta.columns = df_ia_meta.columns.str.strip()
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip().upper()
     
     index = faiss.read_index(f"{PATH_RECO}/biblioteca_prompts_infloat_ponderado_small.index")
@@ -270,7 +247,7 @@ def load_resources():
     gc.collect()
     return df, df_ia_meta, index, model
 
-# Ejecución
+# Ejecución final
 df, df_ia_meta, index, model = load_resources()
 # Ejecución de la carga
 # --- 3. FUNCIONES AUXILIARES ---
