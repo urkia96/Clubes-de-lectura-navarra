@@ -200,6 +200,7 @@ texts = {
         "pags_label": "págs", 
         "thanks": "✅ Voto registrado", 
         "ask": "¿Te gusta esta recomendación?",
+        "col_vote": "Te parece relevante?",
         "boton_txt": "¡Sorpréndeme!", 
         "no_results": "Sin resultados con esos filtros.",
         "cols": {
@@ -240,6 +241,7 @@ texts = {
         "pags_label": "orr", 
         "thanks": "✅ Iritzia gordeta", 
         "ask": "Gogoko duzu?",
+        "col_vote": "Egokia da?",
         "boton_txt": "Harritu nazazu!", 
         "no_results": "Ez da emaitzarik aurkitu iragazki hauekin.",
         "cols": {
@@ -429,13 +431,19 @@ def mostrar_card(r, context):
 
 
         # --- COLUMNA 3: BOTONES DE VOTO ---
-       
         with col_vote:
+            # Mostramos la pregunta traducida según el idioma actual
+            st.caption(f"**{t['voto_pregunta']}**")
+            
             # Usamos llaves únicas para que Streamlit no se confunda entre libros
             if st.button("👍", key=f"up_{lote_id}_{context}"):
                 guardar_voto(lote_id, r.get('Título'), 1, context)
+                st.toast(t["thanks"]) # Opcional: un aviso rápido al votar
+        
             if st.button("👎", key=f"down_{lote_id}_{context}"):
                 guardar_voto(lote_id, r.get('Título'), 0, context)
+                st.toast(t["thanks"])
+
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
