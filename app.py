@@ -200,7 +200,7 @@ texts = {
         "pags_label": "págs", 
         "thanks": "✅ Voto registrado", 
         "ask": "¿Te gusta esta recomendación?",
-        "col_vote": "Te parece relevante?",
+        "voto_pregunta": "Te parece relevante?",
         "boton_txt": "¡Sorpréndeme!", 
         "no_results": "Sin resultados con esos filtros.",
         "cols": {
@@ -241,7 +241,7 @@ texts = {
         "pags_label": "orr", 
         "thanks": "✅ Iritzia gordeta", 
         "ask": "Gogoko duzu?",
-        "col_vote": "Egokia da?",
+        "voto_pregunta": "Egokia da?",
         "boton_txt": "Harritu nazazu!", 
         "no_results": "Ez da emaitzarik aurkitu iragazki hauekin.",
         "cols": {
