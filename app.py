@@ -23,41 +23,86 @@ if "idioma" not in st.session_state:
     st.session_state.idioma = "Castellano"
 if "auth" not in st.session_state:
     st.session_state.auth = False
-# --- FUNCIONES DE AUTENTICACIÓN ---
-def crear_tabla_usuarios():
-    conn = sqlite3.connect('usuarios.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS usuarios 
-                 (username TEXT PRIMARY KEY, password TEXT)''')
-    conn.commit()
-    conn.close()
+
+# --- FUNCIONES DE AUTENTICACIÓN (NUEVAS) ---
+
+def conectar_sheets():
+    try:
+        # --- PRIORIDAD 1: Hugging Face / Variables de Entorno (Settings > Secrets) ---
+        if "GCP_SERVICE_ACCOUNT" in os.environ and "GSHEET_URL" in os.environ:
+            creds_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
+            sheet_url = os.environ["GSHEET_URL"]
+
+        # --- PRIORIDAD 2: Streamlit Cloud secrets (Si usaras share.streamlit.io) ---
+        elif "gcp_service_account" in st.secrets:
+            creds_info = st.secrets["gcp_service_account"]
+            # En Streamlit secrets a veces se usa minúscula o mayúscula, 
+            # aseguramos capturar la URL:
+            sheet_url = st.secrets.get("GSHEET_URL") or st.secrets.get("gsheet_url")
+
+        else:
+            st.error("❌ No se encontraron las credenciales en os.environ ni en st.secrets")
+            return None
+
+        # Configuración de las credenciales de Google
+        creds = Credentials.from_service_account_info(
+            creds_info,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+
+        gc_client = gspread.authorize(creds)
+        sheet = gc_client.open_by_url(sheet_url).sheet1
+
+        return sheet
+
+    except Exception as e:
+        st.error(f"❌ Error conectando a Sheets: {e}")
+        return None
+
 
 def hash_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
-def registrar_usuario(username, password):
+def registrar_usuario_en_sheets(username, password):
+    sheet_control = conectar_sheets()
+    if not sheet_control: return False
     try:
-        conn = sqlite3.connect('usuarios.db')
-        c = conn.cursor()
-        c.execute('INSERT INTO usuarios (username, password) VALUES (?,?)', 
-                  (username, hash_password(password)))
-        conn.commit()
-        conn.close()
+        spreadsheet = sheet_control.spreadsheet
+        try:
+            ws_user = spreadsheet.worksheet("usuarios")
+        except:
+            # Crea la pestaña si no existe
+            ws_user = spreadsheet.add_worksheet(title="usuarios", rows="100", cols="2")
+            ws_user.append_row(["username", "password"])
+
+        # Evitar duplicados
+        usuarios_registrados = ws_user.col_values(1)
+        if username in usuarios_registrados:
+            return False
+
+        ws_user.append_row([username, hash_password(password)])
         return True
-    except sqlite3.IntegrityError:
+    except Exception as e:
+        st.error(f"Error en registro: {e}")
         return False
 
-def verificar_usuario(username, password):
-    conn = sqlite3.connect('usuarios.db')
-    c = conn.cursor()
-    c.execute('SELECT password FROM usuarios WHERE username = ?', (username,))
-    data = c.fetchone()
-    conn.close()
-    if data:
-        return data[0] == hash_password(password)
-    return False
+def verificar_usuario_en_sheets(username, password):
+    sheet_control = conectar_sheets()
+    if not sheet_control: return False
+    try:
+        spreadsheet = sheet_control.spreadsheet
+        ws_user = spreadsheet.worksheet("usuarios")
+        datos = ws_user.get_all_records()
+        for fila in datos:
+            if str(fila['username']) == str(username):
+                return fila['password'] == hash_password(password)
+        return False
+    except Exception as e:
+        # Si la pestaña no existe aún, nadie puede loguearse
+        return False
 
-crear_tabla_usuarios() # La ejecutamos una vez al cargar
+# --- INTERFAZ DE ACCESO ---
+
 if not st.session_state.auth:
     col_a, col_b, col_c = st.columns([1, 2, 1])
     with col_b:
@@ -69,21 +114,25 @@ if not st.session_state.auth:
                 u = st.text_input("Usuario")
                 p = st.text_input("Contraseña", type="password")
                 if st.form_submit_button("Entrar"):
-                    if verificar_usuario(u, p):
+                    if verificar_usuario_en_sheets(u, p): # <--- Llamada a Sheets
                         st.session_state.auth = True
                         st.session_state.usuario_actual = u
                         st.rerun()
                     else:
-                        st.error("Error en credenciales")
+                        st.error("Error en credenciales o usuario inexistente")
         else:
             with st.form("f_reg"):
                 nu = st.text_input("Nuevo Usuario")
                 np = st.text_input("Nueva Contraseña", type="password")
                 if st.form_submit_button("Registrarse"):
-                    if registrar_usuario(nu, np): st.success("¡Creado!")
-                    else: st.error("El usuario ya existe")
+                    if registrar_usuario_en_sheets(nu, np): # <--- Llamada a Sheets
+                        st.success("¡Usuario creado en la nube!")
+                    else:
+                        st.error("El usuario ya existe o hubo un problema técnico")
     
-    st.stop() # <--- ESTO ES LO QUE BLOQUEA EL RESTO DEL CÓDIGO. Se puede quitar para no obligar a autenticarse.
+    st.stop()
+    
+    #st.stop() # <--- ESTO ES LO QUE BLOQUEA EL RESTO DEL CÓDIGO. Se puede quitar para no obligar a autenticarse
 
 
 # --- 1. CONFIGURACIÓN E IDIOMAS ---
@@ -272,57 +321,44 @@ def load_resources():
 df, df_ia_meta, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
-def conectar_sheets():
-    try:
-        # --- PRIORIDAD: Streamlit secrets ---
-        if "gcp_service_account" in st.secrets:
-            creds_info = st.secrets["gcp_service_account"]
-            sheet_url = st.secrets["GSHEET_URL"]
 
-        # --- FALLBACK: Hugging Face / entorno ---
-        elif "GCP_SERVICE_ACCOUNT" in os.environ:
-            creds_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
-            sheet_url = os.environ["GSHEET_URL"]
-
-        else:
-            st.error("❌ No se encontraron credenciales")
-            return None
-
-        creds = Credentials.from_service_account_info(
-            creds_info,
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
-        )
-
-        gc_client = gspread.authorize(creds)
-        sheet = gc_client.open_by_url(sheet_url).sheet1
-
-        return sheet
-
-    except Exception as e:
-        st.error(f"❌ Error conectando a Sheets: {e}")
-        return None
 
 def guardar_voto(lote, titulo, valor, query):
+    usuario = st.session_state.get("usuario_actual", "Anónimo")
+    # Creamos una clave única para este voto en esta sesión
+    voto_id = f"voted_{usuario}_{lote}_{query}"
+    
+    # 1. Verificamos si ya votó en esta sesión
+    if st.session_state.get(voto_id):
+        st.warning("⚠️ Ya has registrado tu opinión sobre este libro.")
+        return False
+
     sheet = conectar_sheets()
     if sheet:
         try:
             val_txt = "👍" if valor == 1 else "👎"
-            usuario = st.session_state.get("usuario_actual", "Anónimo")
-            
-            # ORDEN: Fecha, Lote, Título, Voto, Query, Usuario
             row = [
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
                 str(lote), 
                 str(titulo), 
                 val_txt, 
                 str(query), 
-                usuario  # <--- USUARIO AL FINAL
+                usuario
             ]
             
             sheet.append_row(row)
-            st.toast(f"✅ Voto de {usuario} registrado", icon="🗳️")
+            
+            # 2. Marcamos como votado en el estado de la sesión
+            st.session_state[voto_id] = True
+            
+            # 3. Mensaje de confirmación potente
+            st.success(f"¡Gracias {usuario}! Tu {val_txt} ha sido registrado.")
+            st.toast(f"✅ Voto registrado: {titulo}", icon="🗳️")
+            return True
+            
         except Exception as e:
             st.error(f"❌ Error al guardar: {e}")
+            return False
 
 
 # 4. Mostrar tarjeta
