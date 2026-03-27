@@ -563,8 +563,8 @@ with tab2:
         # 2. Buscar en el índice (pedimos 50 para tener margen tras filtrar)
         D, I = index.search(vec, 50)
         
-        # 3. Filtrar por umbral de similitud (0.83)
-        indices_validos = I[0][D[0] >= 0.82]
+        # 3. Filtrar por umbral de similitud (0.84)
+        indices_validos = I[0][D[0] >= 0.84]
        
         if len(indices_validos) > 0:
             # Obtener los códigos de lote únicos que la IA considera relevantes
