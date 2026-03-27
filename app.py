@@ -563,7 +563,7 @@ with tab2:
         # 2. Buscar en el índice (pedimos 50 para tener margen tras filtrar)
         D, I = index.search(vec, 50)
         
-        # 3. Filtrar por umbral de similitud (0.82)
+        # 3. Filtrar por umbral de similitud (0.83)
         indices_validos = I[0][D[0] >= 0.82]
        
         if len(indices_validos) > 0:
@@ -625,7 +625,7 @@ with tab3:
             
             # 4. Buscamos en el índice FAISS
             D, I = index.search(v_ref, 30) 
-            indices_validos = I[0][D[0] >= 0.82]
+            indices_validos = I[0][D[0] >= 0.83]
             lotes_sim = df_ia_meta.iloc[indices_validos]['Nº lote'].unique().tolist()
            
             # 5. Aplicamos los filtros de la Sidebar (idioma, disponibilidad, etc.)
