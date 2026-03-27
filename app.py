@@ -521,20 +521,42 @@ with tab1:
 with tab2:
     q = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_80")
     if q:
+        # 1. Generar embedding de la consulta
         vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
+        
+        # 2. Buscar en el índice (pedimos 50 para tener margen tras filtrar)
         D, I = index.search(vec, 50)
+        
+        # 3. Filtrar por umbral de similitud (0.82)
         indices_validos = I[0][D[0] >= 0.82]
        
         if len(indices_validos) > 0:
+            # Obtener los códigos de lote únicos que la IA considera relevantes
             lotes_ia = df_ia_meta.iloc[indices_validos]['Nº lote'].unique().tolist()
+            
+            # 4. Aplicar filtros de la Sidebar (idioma, disponibilidad, etc.)
             df_base = filtrar(df)
-            # Filtramos y ordenamos por la relevancia de la IA
+            
+            # 5. Filtrar el dataframe por los lotes encontrados
             res_final = df_base[df_base['Nº lote'].isin(lotes_ia)].copy()
+            
+            # --- CRÍTICO: Evitar duplicados de filas para el mismo lote ---
+            # Esto evita que Streamlit falle al generar IDs repetidos en las cards
+            res_final = res_final.drop_duplicates(subset=['Nº lote'])
+            
+            # 6. Ordenar por la relevancia que dictó la IA (mantener el orden de lotes_ia)
             res_final['Nº lote'] = pd.Categorical(res_final['Nº lote'], categories=lotes_ia, ordered=True)
-            res_final = res_final.sort_values('Nº lote').dropna(subset=['Título']).head(10)
+            res_final = res_final.sort_values('Nº lote')
+            
+            # 7. Limpiar filas sin título y limitar a los 10 mejores resultados
+            res_final = res_final.dropna(subset=['Título']).head(10)
            
-            for _, r in res_final.iterrows():
-                 mostrar_card(r, q)
+            # 8. Mostrar resultados
+            if not res_final.empty:
+                for _, r in res_final.iterrows():
+                     mostrar_card(r, q)
+            else:
+                st.warning(t["no_results"])
         else:
             st.warning(t["no_results"])
 
