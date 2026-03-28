@@ -321,7 +321,7 @@ def load_resources():
     model = SentenceTransformer('intfloat/multilingual-e5-small')
     
     gc.collect()
-    return df, df_ia_meta, index, model
+    return df, metadata, index, model
 
 # Ejecución
 df, df_ia_meta, index, model = load_resources()
