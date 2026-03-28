@@ -617,7 +617,7 @@ with tab3:
 
         # 2. Extraemos los vectores de cada lote solicitado
         for lid_clean in lotes_solicitados:
-            ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
+            ref_ia = df[df['Lote'] == lid_clean]
             if not ref_ia.empty:
                 idx_ia = ref_ia.index[0]
                 v_lote = index.reconstruct(int(idx_ia))
@@ -633,7 +633,7 @@ with tab3:
             # 4. Buscamos en el índice FAISS
             D, I = index.search(v_ref, 30) 
             indices_validos = I[0][D[0] >= 0.80]
-            lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
+            lotes_sim = df.iloc[indices_validos]['Lote'].unique().tolist()
            
             # 5. Aplicamos los filtros de la Sidebar (idioma, disponibilidad, etc.)
             df_base = filtrar(df)
