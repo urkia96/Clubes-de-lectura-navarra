@@ -270,21 +270,21 @@ def load_resources():
     # 1. CARGA CATÁLOGO PRINCIPAL (Tu código exacto)
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
-    df['Nº lote'] = df['Nº lote'].astype(str).str.strip()
+    df['Lote'] = df['Lote'].astype(str).str.strip()
     
     # --- AÑADIDO: VINCULAR DISPONIBILIDAD (Solo si existe el archivo) ---
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
-        # Aseguramos que la columna se llame Nº lote para el cruce
-        if 'Lote' in df_disp.columns: df_disp = df_disp.rename(columns={'Lote': 'Nº lote'})
+        # Aseguramos que la columna se llame Lote para el cruce
+        if 'Lote' in df_disp.columns: df_disp = df_disp.rename(columns={'Lote': 'Lote'})
         
-        if 'Nº lote' in df_disp.columns:
-            df_disp['Nº lote'] = df_disp['Nº lote'].astype(str).str.strip()
+        if 'Lote' in df_disp.columns:
+            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
             # Limpiamos columnas previas si existen
             df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
             # Unión
-            df = pd.merge(df, df_disp[['Nº lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Nº lote', how='left')
+            df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
     # -------------------------------------------------------------------
 
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
@@ -311,7 +311,7 @@ def load_resources():
     # Carga de Metadatos IA (Tu código exacto)
     with open(f"{PATH_RECO}/metadatos_cl_small_v2.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip()
+    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
     
     index = faiss.read_index(f"{PATH_RECO}/metadatos_cl_small_v2.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
@@ -367,7 +367,7 @@ def guardar_voto(lote, titulo, valor, query):
 @st.fragment
 def mostrar_card(r, context):
     IMG_WIDTH = 160  
-    lote_id = str(r.get('Nº lote', '')).strip()
+    lote_id = str(r.get('Lote', '')).strip()
     
     with st.container(border=True):
         # Tres columnas: Imagen | Contenido | Botones
@@ -576,21 +576,21 @@ with tab2:
        
         if len(indices_validos) > 0:
             # Obtener los códigos de lote únicos que la IA considera relevantes
-            lotes_ia = df_ia_meta.iloc[indices_validos]['Nº lote'].unique().tolist()
+            lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
             
             # 4. Aplicar filtros de la Sidebar (idioma, disponibilidad, etc.)
             df_base = filtrar(df)
             
             # 5. Filtrar el dataframe por los lotes encontrados
-            res_final = df_base[df_base['Nº lote'].isin(lotes_ia)].copy()
+            res_final = df_base[df_base['Lote'].isin(lotes_ia)].copy()
             
             # --- CRÍTICO: Evitar duplicados de filas para el mismo lote ---
             # Esto evita que Streamlit falle al generar IDs repetidos en las cards
-            res_final = res_final.drop_duplicates(subset=['Nº lote'])
+            res_final = res_final.drop_duplicates(subset=['Lote'])
             
             # 6. Ordenar por la relevancia que dictó la IA (mantener el orden de lotes_ia)
-            res_final['Nº lote'] = pd.Categorical(res_final['Nº lote'], categories=lotes_ia, ordered=True)
-            res_final = res_final.sort_values('Nº lote')
+            res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_ia, ordered=True)
+            res_final = res_final.sort_values('Lote')
             
             # 7. Limpiar filas sin título y limitar a los 10 mejores resultados
             res_final = res_final.dropna(subset=['Título']).head(10)
@@ -618,7 +618,7 @@ with tab3:
 
         # 2. Extraemos los vectores de cada lote solicitado
         for lid_clean in lotes_solicitados:
-            ref_ia = df_ia_meta[df_ia_meta['Nº lote'] == lid_clean]
+            ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
             if not ref_ia.empty:
                 idx_ia = ref_ia.index[0]
                 v_lote = index.reconstruct(int(idx_ia))
@@ -634,7 +634,7 @@ with tab3:
             # 4. Buscamos en el índice FAISS
             D, I = index.search(v_ref, 30) 
             indices_validos = I[0][D[0] >= 0.80]
-            lotes_sim = df_ia_meta.iloc[indices_validos]['Nº lote'].unique().tolist()
+            lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
            
             # 5. Aplicamos los filtros de la Sidebar (idioma, disponibilidad, etc.)
             df_base = filtrar(df)
@@ -643,12 +643,12 @@ with tab3:
             lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
             
             # --- CRÍTICO: Evitar duplicados que causan el error de Streamlit ---
-            res_sim = df_base[df_base['Nº lote'].isin(lotes_ordenados)].copy()
-            res_sim = res_sim.drop_duplicates(subset=['Nº lote']) # Evita doble tarjeta por lote
+            res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
+            res_sim = res_sim.drop_duplicates(subset=['Lote']) # Evita doble tarjeta por lote
             
             # 7. Ordenamos por relevancia (similitud con el punto medio)
-            res_sim['Nº lote'] = pd.Categorical(res_sim['Nº lote'], categories=lotes_ordenados, ordered=True)
-            res_sim = res_sim.sort_values('Nº lote').dropna(subset=['Título']).head(10)
+            res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
+            res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
            
             # 8. ID único y corto para los botones de esta búsqueda específica
             contexto_voto = f"Sim_{hash(lid_input) % 10000}" 
