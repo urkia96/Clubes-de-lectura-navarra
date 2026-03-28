@@ -309,32 +309,32 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     @st.cache_resource
-def load_resources():
-    # 1. Definir rutas exactas (ajusta el nombre si es necesario)
-    ruta_pkl = f"{PATH_RECO}/clubes_navarra_v4_small.pkl"
-    ruta_index = f"{PATH_RECO}/clubes_navarra_v4_small.index"
+    def load_resources():
+        # 1. Definir rutas exactas (ajusta el nombre si es necesario)
+        ruta_pkl = f"{PATH_RECO}/clubes_navarra_v4_small.pkl"
+        ruta_index = f"{PATH_RECO}/clubes_navarra_v4_small.index"
+        
+        # 2. Cargar el DataFrame
+        with open(ruta_pkl, "rb") as f:
+            df_cargado = pickle.load(f)
+        
+        # 3. Cargar el Índice
+        index_cargado = faiss.read_index(ruta_index)
+        
+        # 4. Cargar el Modelo
+        model_cargado = SentenceTransformer('intfloat/multilingual-e5-small')
+        
+        # Limpieza rápida
+        if 'Lote' in df_cargado.columns:
+            df_cargado['Lote'] = df_cargado['Lote'].astype(str).str.strip()
+        
+        import gc
+        gc.collect()
+        
+        return df_cargado, index_cargado, model_cargado
     
-    # 2. Cargar el DataFrame
-    with open(ruta_pkl, "rb") as f:
-        df_cargado = pickle.load(f)
-    
-    # 3. Cargar el Índice
-    index_cargado = faiss.read_index(ruta_index)
-    
-    # 4. Cargar el Modelo
-    model_cargado = SentenceTransformer('intfloat/multilingual-e5-small')
-    
-    # Limpieza rápida
-    if 'Lote' in df_cargado.columns:
-        df_cargado['Lote'] = df_cargado['Lote'].astype(str).str.strip()
-    
-    import gc
-    gc.collect()
-    
-    return df_cargado, index_cargado, model_cargado
-
-# Ejecución global
-df, index, model = load_resources()
+    # Ejecución global
+    df, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
 
