@@ -309,24 +309,29 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     # Carga de Metadatos IA (CORREGIDO)
+    @st.cache_resource
+def load_resources():
+    # 1. Cargar el DataFrame directamente del PKL
     with open(f"{PATH_RECO}/clubes_navarra_v4_small.pkl", "rb") as f:
-        data = pickle.load(f)
+        # IMPORTANTE: Ahora 'df' es el objeto que guardamos en Colab
+        df = pickle.load(f)
     
-    metadata = data["metadata"]
+    # 2. Limpieza de la columna Lote
+    if 'Lote' in df.columns:
+        df['Lote'] = df['Lote'].astype(str).str.strip()
     
+    # 3. Carga del índice FAISS
     index = faiss.read_index(f"{PATH_RECO}/clubes_navarra_v4_small.index")
+    
+    # 4. Carga del modelo (asegúrate de que sea el 'small' si usaste ese en Colab)
     model = SentenceTransformer('intfloat/multilingual-e5-small')
     
-    #df = data["df"]
-    metadata = data["metadata"]
-    
-    df['Lote'] = df['Lote'].astype(str).str.strip()
-    
-    index = faiss.read_index(f"{PATH_RECO}/clubes_navarra_v4_small.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-small')
-    
+    # Liberar memoria
     gc.collect()
-    return df, metadata, index, model
+    
+    # Devolvemos solo 3 cosas: el DF, el índice y el modelo.
+    # El 'metadata' ya no es necesario porque está TODO dentro de 'df'.
+    return df, index, model
 
 # Ejecución
 df, df_ia_meta, index, model = load_resources()
