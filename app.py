@@ -315,7 +315,7 @@ with open(f"{PATH_RECO}/metadatos_cl_small_v3.pkl", "rb") as f:
 metadata = data["metadata"]
 
 index = faiss.read_index(f"{PATH_RECO}/metadatos_cl_small_v3.index")
-model = SentenceTransformer('intfloat/multilingual-e5-small'))
+model = SentenceTransformer('intfloat/multilingual-e5-small')
     
     df = data["df"]
     metadata = data["metadata"]
