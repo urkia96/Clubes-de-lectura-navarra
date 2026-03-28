@@ -310,31 +310,31 @@ def load_resources():
     
     # Carga de Metadatos IA (CORREGIDO)
     @st.cache_resource
-def load_resources():
-    # 1. Cargar el DataFrame directamente del PKL
-    with open(f"{PATH_RECO}/clubes_navarra_v4_small.pkl", "rb") as f:
-        # IMPORTANTE: Ahora 'df' es el objeto que guardamos en Colab
-        df = pickle.load(f)
+    def load_resources():
+        # 1. Cargar el DataFrame directamente del PKL
+        with open(f"{PATH_RECO}/clubes_navarra_v4_small.pkl", "rb") as f:
+            # IMPORTANTE: Ahora 'df' es el objeto que guardamos en Colab
+            df = pickle.load(f)
+        
+        # 2. Limpieza de la columna Lote
+        if 'Lote' in df.columns:
+            df['Lote'] = df['Lote'].astype(str).str.strip()
+        
+        # 3. Carga del índice FAISS
+        index = faiss.read_index(f"{PATH_RECO}/clubes_navarra_v4_small.index")
+        
+        # 4. Carga del modelo (asegúrate de que sea el 'small' si usaste ese en Colab)
+        model = SentenceTransformer('intfloat/multilingual-e5-small')
+        
+        # Liberar memoria
+        gc.collect()
+        
+        # Devolvemos solo 3 cosas: el DF, el índice y el modelo.
+        # El 'metadata' ya no es necesario porque está TODO dentro de 'df'.
+        return df, index, model
     
-    # 2. Limpieza de la columna Lote
-    if 'Lote' in df.columns:
-        df['Lote'] = df['Lote'].astype(str).str.strip()
-    
-    # 3. Carga del índice FAISS
-    index = faiss.read_index(f"{PATH_RECO}/clubes_navarra_v4_small.index")
-    
-    # 4. Carga del modelo (asegúrate de que sea el 'small' si usaste ese en Colab)
-    model = SentenceTransformer('intfloat/multilingual-e5-small')
-    
-    # Liberar memoria
-    gc.collect()
-    
-    # Devolvemos solo 3 cosas: el DF, el índice y el modelo.
-    # El 'metadata' ya no es necesario porque está TODO dentro de 'df'.
-    return df, index, model
-
-# Ejecución
-df, df_ia_meta, index, model = load_resources()
+    # Ejecución
+    df, df_ia_meta, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
 
