@@ -263,8 +263,8 @@ def load_resources():
     # 1. Rutas de archivos
     excel_path = f"{PATH_RECO}/metadatos_con_entidades.xlsx"
     disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
-    ruta_pkl = f"{PATH_RECO}/clubes_navarra_v4_small.pkl"
-    ruta_index = f"{PATH_RECO}/clubes_navarra_v4_small.index"
+    ruta_pkl = f"{PATH_RECO}/metadatos_cl_small.pkl"
+    ruta_index = f"{PATH_RECO}/metadatos_cl_small.index"
 
     # Verificar existencia del Excel principal
     if not os.path.exists(excel_path):
