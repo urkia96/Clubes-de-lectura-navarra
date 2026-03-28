@@ -257,48 +257,42 @@ texts = {
 t = texts[st.session_state.idioma]
 c = t["cols"]
 
-# --- 2. CARGA DE RECURSOS (Definición y Ejecución) ---
+# --- 2. CARGA DE RECURSOS (Unificado y Corregido) ---
 @st.cache_resource
 def load_resources():
+    # 1. Rutas de archivos
     excel_path = f"{PATH_RECO}/metadatos_con_entidades.xlsx"
-    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx" # Ruta disponibilidad
+    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
+    ruta_pkl = f"{PATH_RECO}/clubes_navarra_v4_small.pkl"
+    ruta_index = f"{PATH_RECO}/clubes_navarra_v4_small.index"
 
+    # Verificar existencia del Excel principal
     if not os.path.exists(excel_path):
         st.error(f"Archivo crítico no encontrado: {excel_path}")
         st.stop()
     
-    # 1. CARGA CATÁLOGO PRINCIPAL (Tu código exacto)
+    # 2. CARGA CATÁLOGO PRINCIPAL
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     df['Lote'] = df['Lote'].astype(str).str.strip()
     
-    # --- AÑADIDO: VINCULAR DISPONIBILIDAD (Solo si existe el archivo) ---
+    # 3. VINCULAR DISPONIBILIDAD
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
-        # Aseguramos que la columna se llame Lote para el cruce
-        if 'Lote' in df_disp.columns: df_disp = df_disp.rename(columns={'Lote': 'Lote'})
-        
         if 'Lote' in df_disp.columns:
             df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
-            # Limpiamos columnas previas si existen
             df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
-            # Unión
             df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
-    # -------------------------------------------------------------------
 
+    # 4. LIMPIEZA Y FORMATEO
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-    
-    # Limpieza de columnas (Tu código exacto)
     cols_check = [
-        'Idioma', 'Idioma_eus', 
-        'Público', 'Público_eus', 
-        'genero_fix', 'genero_fix_eus', 
-        'Editorial', 'Geografia_Autor', 
+        'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
+        'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor', 
         'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
         'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
     ]
-    
     for col in cols_check:
         if col in df.columns:
             df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
@@ -308,33 +302,23 @@ def load_resources():
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
-    @st.cache_resource
-    def load_resources():
-        # 1. Definir rutas exactas (ajusta el nombre si es necesario)
-        ruta_pkl = f"{PATH_RECO}/clubes_navarra_v4_small.pkl"
-        ruta_index = f"{PATH_RECO}/clubes_navarra_v4_small.index"
+    # 5. CARGA DE RECURSOS IA (FAISS y Modelo)
+    # Nota: Usamos el df del Excel como base, pero cargamos el índice y modelo
+    if not os.path.exists(ruta_index):
+        st.error(f"Índice FAISS no encontrado: {ruta_index}")
+        st.stop()
         
-        # 2. Cargar el DataFrame
-        with open(ruta_pkl, "rb") as f:
-            df_cargado = pickle.load(f)
-        
-        # 3. Cargar el Índice
-        index_cargado = faiss.read_index(ruta_index)
-        
-        # 4. Cargar el Modelo
-        model_cargado = SentenceTransformer('intfloat/multilingual-e5-small')
-        
-        # Limpieza rápida
-        if 'Lote' in df_cargado.columns:
-            df_cargado['Lote'] = df_cargado['Lote'].astype(str).str.strip()
-        
-        import gc
-        gc.collect()
-        
-        return df_cargado, index_cargado, model_cargado
+    index = faiss.read_index(ruta_index)
+    model = SentenceTransformer('intfloat/multilingual-e5-small')
     
-    # Ejecución global
-    df, index, model = load_resources()
+    import gc
+    gc.collect()
+    
+    # Retornamos todo lo necesario
+    return df, index, model
+
+# --- EJECUCIÓN (Fuera de la función, pegado a la izquierda) ---
+df, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
 
