@@ -308,10 +308,14 @@ def load_resources():
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
-    # Carga de Metadatos IA (Tu código exacto)
+    # Carga de Metadatos IA (CORREGIDO)
     with open(f"{PATH_RECO}/metadatos_cl_small_v3.pkl", "rb") as f:
-        df_ia_meta = pickle.load(f)
-    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
+        data = pickle.load(f)
+    
+    df = data["df"]
+    metadata = data["metadata"]
+    
+    df['Lote'] = df['Lote'].astype(str).str.strip()
     
     index = faiss.read_index(f"{PATH_RECO}/metadatos_cl_small_v3.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
