@@ -309,27 +309,27 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     @st.cache_resource
-def load_resources():
-    # Todo lo que hay aquí dentro tiene 4 espacios de sangría
-    with open(f"{PATH_RECO}/clubes_navarra_v4_small.pkl", "rb") as f:
-        # Cargamos el DataFrame directamente (sin buscar ["metadata"])
-        df_cargado = pickle.load(f)
-    
-    # Limpieza de la columna Lote
-    if 'Lote' in df_cargado.columns:
-        df_cargado['Lote'] = df_cargado['Lote'].astype(str).str.strip()
-    
-    # Carga del índice FAISS
-    index_cargado = faiss.read_index(f"{PATH_RECO}/clubes_navarra_v4_small.index")
-    
-    # Carga del modelo Small
-    model_cargado = SentenceTransformer('intfloat/multilingual-e5-small')
-    
-    import gc
-    gc.collect()
-    
-    # Devolvemos solo 3 cosas (df, index, model)
-    return df_cargado, index_cargado, model_cargado
+    def load_resources():
+        # Todo lo que hay aquí dentro tiene 4 espacios de sangría
+        with open(f"{PATH_RECO}/clubes_navarra_v4_small.pkl", "rb") as f:
+            # Cargamos el DataFrame directamente (sin buscar ["metadata"])
+            df_cargado = pickle.load(f)
+        
+        # Limpieza de la columna Lote
+        if 'Lote' in df_cargado.columns:
+            df_cargado['Lote'] = df_cargado['Lote'].astype(str).str.strip()
+        
+        # Carga del índice FAISS
+        index_cargado = faiss.read_index(f"{PATH_RECO}/clubes_navarra_v4_small.index")
+        
+        # Carga del modelo Small
+        model_cargado = SentenceTransformer('intfloat/multilingual-e5-small')
+        
+        import gc
+        gc.collect()
+        
+        # Devolvemos solo 3 cosas (df, index, model)
+        return df_cargado, index_cargado, model_cargado
 
 df, index, model = load_resources()
 
