@@ -260,7 +260,7 @@ c = t["cols"]
 # --- 2. CARGA DE RECURSOS (Definición y Ejecución) ---
 @st.cache_resource
 def load_resources():
-    excel_path = f"{PATH_RECO}/metadadatos_clubes_lectura.xlsx"
+    excel_path = f"{PATH_RECO}/metadatos_con_entidades.xlsx"
     disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx" # Ruta disponibilidad
 
     if not os.path.exists(excel_path):
@@ -309,11 +309,11 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     # Carga de Metadatos IA (Tu código exacto)
-    with open(f"{PATH_RECO}/metadatos_cl_small.pkl", "rb") as f:
+    with open(f"{PATH_RECO}/metadatos_cl_small_v2.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
     df_ia_meta['Nº lote'] = df_ia_meta['Nº lote'].astype(str).str.strip()
     
-    index = faiss.read_index(f"{PATH_RECO}/metadatos_cl_small.index")
+    index = faiss.read_index(f"{PATH_RECO}/metadatos_cl_small_v2.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
     
     gc.collect()
