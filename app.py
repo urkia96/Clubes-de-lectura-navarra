@@ -331,7 +331,7 @@ def load_resources():
         # Devolvemos solo 3 cosas (df, index, model)
         return df_cargado, index_cargado, model_cargado
 
-df, index, model = load_resources()
+    df, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
 
