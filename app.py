@@ -309,8 +309,13 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
     
     # Carga de Metadatos IA (CORREGIDO)
-    with open(f"{PATH_RECO}/metadatos_cl_small_v3.pkl", "rb") as f:
-        data = pickle.load(f)
+with open(f"{PATH_RECO}/metadatos_cl_small_v3.pkl", "rb") as f:
+    data = pickle.load(f)
+
+metadata = data["metadata"]
+
+index = faiss.read_index(f"{PATH_RECO}/metadatos_cl_small_v3.index")
+model = SentenceTransformer('intfloat/multilingual-e5-small'))
     
     df = data["df"]
     metadata = data["metadata"]
