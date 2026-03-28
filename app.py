@@ -585,7 +585,7 @@ with tab2:
        
         if len(indices_validos) > 0:
             # Obtener los códigos de lote únicos que la IA considera relevantes
-            lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
+            lotes_ia = list(set([metadata[i]["lote"] for i in indices_validos])))
             
             # 4. Aplicar filtros de la Sidebar (idioma, disponibilidad, etc.)
             df_base = filtrar(df)
