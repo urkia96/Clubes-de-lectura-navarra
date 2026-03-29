@@ -559,105 +559,120 @@ with tab1:
         for _, r in res.head(10).iterrows():
             mostrar_card(r, texto_buscado)
 
-# --- TAB2: Búsqueda libre con FAISS ---
+# --- TAB2: Búsqueda libre con FAISS (Versión Silenciosa y Filtrada) ---
 with tab2:
     q = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_80")
+    
     if q:
-        # 1. Generar embedding de la consulta
+        # 1. Encoding con prefijo query para e5-large (1024 dim)
         vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
         
-        # 2. Buscar en el índice (pedimos 50 para tener margen tras filtrar)
-        D, I = index.search(vec, 50)
+        # 2. Buscamos 100 para asegurar que, tras filtrar, nos queden resultados
+        D, I = index.search(vec, 100)
         
-        # 3. Filtrar por umbral de similitud (0.84)
-        indices_validos = I[0][D[0] >= 0.85]
-       
+        # 3. Umbral de corte (ajustado a 0.70 para mayor cobertura)
+        mask = D[0] >= 0.70
+        indices_validos = I[0][mask]
+        scores_validos = D[0][mask]
+
         if len(indices_validos) > 0:
-            # USAMOS df DIRECTAMENTE (ya que está sincronizado con el índice)
-            # Obtenemos los lotes correspondientes a los índices válidos
-            lotes_ia = df.iloc[indices_validos]['Lote'].unique().tolist()
-            
-            # 4. Aplicar filtros de la Sidebar
-            df_base = filtrar(df)
-            
-            # 5. Filtrar el dataframe por los lotes encontrados
-            res_final = df_base[df_base['Lote'].isin(lotes_ia)].copy()
-            
-            # --- CRÍTICO: Evitar duplicados de filas para el mismo lote ---
-            # Esto evita que Streamlit falle al generar IDs repetidos en las cards
+            # Creamos el set de resultados de la IA con su puntuación
+            res_ia = df.iloc[indices_validos].copy()
+            res_ia['search_score'] = scores_validos
+
+            # 4. Aplicar filtros de la Sidebar (Estado actual de los selectores)
+            df_filtrado_sidebar = filtrar(df) 
+
+            # 5. Cruce: Solo lo que la IA recomienda Y que pasa los filtros del usuario
+            # Usamos 'Lote' como clave de unión
+            lotes_permitidos = set(df_filtrado_sidebar['Lote'])
+            res_final = res_ia[res_ia['Lote'].isin(lotes_permitidos)].copy()
+
+            # 6. Ordenar por relevancia pura de la IA y limpiar duplicados de Lote
+            res_final = res_final.sort_values('search_score', ascending=False)
             res_final = res_final.drop_duplicates(subset=['Lote'])
-            
-            # 6. Ordenar por la relevancia que dictó la IA (mantener el orden de lotes_ia)
-            res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_ia, ordered=True)
-            res_final = res_final.sort_values('Lote')
-            
-            # 7. Limpiar filas sin título y limitar a los 10 mejores resultados
-            res_final = res_final.dropna(subset=['Título']).head(10)
-           
-            # 8. Mostrar resultados
+
+            # 7. Limpieza de nulos y límite visual de 10 cards
+            res_final = res_final.dropna(subset=['Título']).head(12)
+
+            # 8. Renderizado directo
             if not res_final.empty:
                 for _, r in res_final.iterrows():
-                     mostrar_card(r, q)
+                    mostrar_card(r, q)
             else:
+                # Solo avisamos si literalmente no hay NADA que mostrar tras filtrar
                 st.warning(t["no_results"])
         else:
             st.warning(t["no_results"])
 
 # --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
-    # Permitimos varios lotes separados por comas o espacios
     lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
    
     if lid_input:
-        # 1. Limpieza de entrada: aceptamos comas, espacios y pasamos a mayúsculas
+        # 1. Limpieza de entrada
         lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
         
         vectores_para_promediar = []
         lotes_encontrados = []
 
-        # 2. Extraemos los vectores de cada lote solicitado
+        # 2. Extraemos los vectores (embeddings) del índice
         for lid_clean in lotes_solicitados:
             ref_ia = df[df['Lote'] == lid_clean]
             if not ref_ia.empty:
-                idx_ia = ref_ia.index[0]
-                v_lote = index.reconstruct(int(idx_ia))
-                vectores_para_promediar.append(v_lote)
-                lotes_encontrados.append(lid_clean)
-            else:
-                st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
+                try:
+                    idx_ia = ref_ia.index[0]
+                    v_lote = index.reconstruct(int(idx_ia))
+                    vectores_para_promediar.append(v_lote)
+                    lotes_encontrados.append(lid_clean)
+                except Exception:
+                    continue # Si falla la reconstrucción, saltamos silenciosamente
 
         if vectores_para_promediar:
-            # 3. CÁLCULO DEL PUNTO MEDIO (Centroide de la búsqueda)
+            # 3. CÁLCULO DEL CENTROIDE (Punto medio semántico)
             v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
+            # Normalizamos el centroide para mantener la consistencia con IndexFlatIP
+            faiss.normalize_L2(v_ref)
             
-            # 4. Buscamos en el índice FAISS
-            D, I = index.search(v_ref, 30) 
-            indices_validos = I[0][D[0] >= 0.85]
-            lotes_sim = df.iloc[indices_validos]['Lote'].unique().tolist()
-           
-            # 5. Aplicamos los filtros de la Sidebar (idioma, disponibilidad, etc.)
-            df_base = filtrar(df)
+            # 4. Buscamos en el índice FAISS (pedimos más para tener margen tras filtrar)
+            D, I = index.search(v_ref, 50) 
             
-            # 6. Quitamos los lotes que el usuario ya ha introducido para no repetirlos
-            lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
-            
-            # --- CRÍTICO: Evitar duplicados que causan el error de Streamlit ---
-            res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
-            res_sim = res_sim.drop_duplicates(subset=['Lote']) # Evita doble tarjeta por lote
-            
-            # 7. Ordenamos por relevancia (similitud con el punto medio)
-            res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
-            res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
-           
-            # 8. ID único y corto para los botones de esta búsqueda específica
-            contexto_voto = f"Sim_{hash(lid_input) % 10000}" 
-           
-            if not res_sim.empty:
-                st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
-                for _, r in res_sim.iterrows():
-                    mostrar_card(r, contexto_voto)
+            # 5. Umbral flexible para multi-búsqueda (0.70 es ideal aquí)
+            umbral_sim = 0.70
+            mask = D[0] >= umbral_sim
+            indices_validos = I[0][mask]
+            scores_validos = D[0][mask]
+
+            if len(indices_validos) > 0:
+                # Creamos DataFrame temporal con scores
+                res_ia = df.iloc[indices_validos].copy()
+                res_ia['search_score'] = scores_validos
+
+                # 6. Filtrar por Sidebar y excluir los que el usuario ya escribió
+                df_filtrado_sidebar = filtrar(df)
+                lotes_permitidos = set(df_filtrado_sidebar['Lote'])
+                
+                # Solo libros que pasen el filtro Y no sean los buscados
+                res_final = res_ia[
+                    (res_ia['Lote'].isin(lotes_permitidos)) & 
+                    (~res_ia['Lote'].isin(lotes_encontrados))
+                ].copy()
+
+                # 7. Ordenar por score y eliminar duplicados de lote
+                res_final = res_final.sort_values('search_score', ascending=False)
+                res_final = res_final.drop_duplicates(subset=['Lote'])
+
+                # 8. Limite y renderizado
+                res_final = res_final.dropna(subset=['Título']).head(10)
+
+                if not res_final.empty:
+                    st.info(f"Libros similares a la combinación de: {', '.join(lotes_encontrados)}")
+                    for _, r in res_final.iterrows():
+                        mostrar_card(r, f"Sim_{hash(lid_input) % 1000}")
+                else:
+                    st.warning(t["no_results"])
             else:
-                st.warning("No hay otros lotes con suficiente similitud para esta combinación.")
+                st.warning(t["no_results"])
 
 # --- TAB4: Búsqueda aleatoria ---
 with tab4:
