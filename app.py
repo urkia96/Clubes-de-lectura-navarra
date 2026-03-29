@@ -571,7 +571,7 @@ with tab2:
         D, I = index.search(vec, 100)
         
         # 3. Umbral de corte (ajustado a 0.70 para mayor cobertura)
-        mask = D[0] >= 0.70
+        mask = D[0] >= 0.80
         indices_validos = I[0][mask]
         scores_validos = D[0][mask]
 
@@ -638,7 +638,7 @@ with tab3:
             D, I = index.search(v_ref, 50) 
             
             # 5. Umbral flexible para multi-búsqueda (0.70 es ideal aquí)
-            umbral_sim = 0.70
+            umbral_sim = 0.80
             mask = D[0] >= umbral_sim
             indices_validos = I[0][mask]
             scores_validos = D[0][mask]
