@@ -261,10 +261,10 @@ c = t["cols"]
 @st.cache_resource
 def load_resources():
     # 1. Rutas de archivos
-    excel_path = f"{PATH_RECO}/metadatos_entidades_OA (1).xlsx"
+    excel_path = f"{PATH_RECO}/metadatos_entidades_OA.xlsx
     disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
-    ruta_pkl = f"{PATH_RECO}/clubes_lectura_small_v.8.pkl"
-    ruta_index = f"{PATH_RECO}/clubes_lectura_small_v8.index"
+    ruta_pkl = f"{PATH_RECO}/clubes_lectura_small_v.9.pkl"
+    ruta_index = f"{PATH_RECO}/clubes_lectura_small_v9.index"
 
     # Verificar existencia del Excel principal
     if not os.path.exists(excel_path):
