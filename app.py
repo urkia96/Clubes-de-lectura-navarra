@@ -571,7 +571,7 @@ with tab2:
         D, I = index.search(vec, 100)
         
         # 3. Umbral de corte (ajustado a 0.70 para mayor cobertura)
-        mask = D[0] >= 085
+        mask = D[0] >= 0.85
         indices_validos = I[0][mask]
         scores_validos = D[0][mask]
 
