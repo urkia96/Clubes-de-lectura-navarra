@@ -263,83 +263,71 @@ c = t["cols"]
 # --- 2. CARGA DE RECURSOS (Versión Robusta para GitHub) ---
 @st.cache_resource
 def load_resources():
-    # Usamos os.path.join para asegurar compatibilidad de rutas en Linux (GitHub)
+    PATH_RECO = "recomendador" # Asegúrate de que esta variable esté accesible
     excel_path = os.path.join(PATH_RECO, "metadatos_entidades_OA.xlsx")
     disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo.xlsx")
 
+    # 1. CARGA PRINCIPAL
     if not os.path.exists(excel_path):
-        st.error(f"❌ Archivo crítico no encontrado: {excel_path}")
+        st.error(f"No se encuentra el archivo principal en: {excel_path}")
         st.stop()
-   
-    # 1. CARGA CATÁLOGO PRINCIPAL
+    
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
-    df['Lote'] = df['Lote'].astype(str).str.strip()
-   
-    # --- VINCULAR DISPONIBILIDAD ---
+    # Limpieza crítica del ID de unión
+    df['Lote'] = df['Lote'].astype(str).str.strip().str.upper()
+
+    # 2. CARGA DISPONIBILIDAD
     if os.path.exists(disp_path):
         try:
             df_disp = pd.read_excel(disp_path)
             df_disp.columns = df_disp.columns.str.strip()
             
-            # Forzamos que existan las columnas necesarias en el Excel de disponibilidad
             if 'Lote' in df_disp.columns:
-                df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
+                df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip().str.upper()
                 
-                # Si por algún motivo las columnas no existen en el Excel, las creamos vacías
-                for col_needed in ['Fechas_Reservadas', 'URL_Ficha']:
-                    if col_needed not in df_disp.columns:
-                        df_disp[col_needed] = ""
+                # Mantenemos solo lo que necesitamos para no ensuciar el DF
+                cols_interes = [c for c in ['Lote', 'Fechas_Reservadas', 'URL_Ficha'] if c in df_disp.columns]
+                df_disp = df_disp[cols_interes]
 
-                # Limpiamos si ya existían en el DF original para evitar duplicados (Fechas_Reservadas_x, etc.)
-                df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
-                
-                # Unión limpia
-                df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
+                # Unión Izquierda: Mantiene TODOS los libros del excel principal
+                df = pd.merge(df, df_disp, on='Lote', how='left')
         except Exception as e:
-            st.warning(f"⚠️ Se detectó el archivo de disponibilidad pero hubo un error al procesarlo: {e}")
-    
-    # --- GARANTÍA DE COLUMNAS (Crucial para evitar KeyError) ---
-    # Si después de intentar el merge la columna sigue sin existir, la creamos vacía.
+            st.error(f"Error al unir disponibilidad: {e}")
+
+    # 3. ASEGURAR COLUMNAS (Para que filtrar() no de error)
     if 'Fechas_Reservadas' not in df.columns:
         df['Fechas_Reservadas'] = ""
     if 'URL_Ficha' not in df.columns:
         df['URL_Ficha'] = ""
-    # -----------------------------------------------------------
 
+    # 4. LIMPIEZA DE DATOS (Tu lógica original)
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-   
-    # Limpieza de columnas estándar
+    
     cols_check = [
-        'Idioma', 'Idioma_eus',
-        'Público', 'Público_eus',
-        'genero_fix', 'genero_fix_eus',
-        'Editorial', 'Geografia_Autor',
+        'Idioma', 'Idioma_eus', 'Público', 'Público_eus', 
+        'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
         'Genero_Principal_IA', 'Genero_Principal_IA_eus',
         'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
     ]
-   
+    
     for col in cols_check:
         if col in df.columns:
             df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
         else:
             df[col] = "Desconocido"
-           
+
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-   
-    # Carga de Metadatos IA y Modelo
-    try:
-        with open(os.path.join(PATH_RECO, "clubes_lectura_small_v23.pkl"), "rb") as f:
-            df_ia_meta = pickle.load(f)
-        df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
-        
-        index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_v23.index"))
-        model = SentenceTransformer('intfloat/multilingual-e5-small')
-    except Exception as e:
-        st.error(f"❌ Error cargando archivos de IA: {e}")
-        st.stop()
-   
+
+    # 5. CARGA IA
+    with open(os.path.join(PATH_RECO, "clubes_lectura_small_v23.pkl"), "rb") as f:
+        df_ia_meta = pickle.load(f)
+    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip().str.upper()
+    
+    index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_v23.index"))
+    model = SentenceTransformer('intfloat/multilingual-e5-small')
+
     gc.collect()
     return df, df_ia_meta, index, model
 
