@@ -314,7 +314,7 @@ def load_resources():
     # Carga de Metadatos IA (Tu código exacto)
     with open(f"{PATH_RECO}/clubes_lectura_small_v23.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
+    df_ia_meta['Nº lote'] = df_ia_meta['Lote'].astype(str).str.strip()
     
     index = faiss.read_index(f"{PATH_RECO}/clubes_lectura_small_v23.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
