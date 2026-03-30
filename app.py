@@ -627,7 +627,6 @@ with tab2:
         vec = model.encode([query_text], normalize_embeddings=True).astype('float32')
         
         # 2. Búsqueda en Modelo B (Resumen pesado)
-        # Pedimos 40 para tener un margen de intersección saludable
         D_b, I_b = idx_b.search(vec, 40)
         lotes_b = meta_b.iloc[I_b[0]]['Lote'].astype(str).str.strip().tolist()
         
@@ -639,7 +638,7 @@ with tab2:
         set_b = set(lotes_b)
         set_c = set(lotes_c)
         
-        # Los que ambos modelos aprueban (manteniendo el orden del Modelo C como base)
+        # Los que ambos modelos aprueban
         lotes_comunes = [l for l in lotes_c if l in set_b]
         
         # Estrategia de seguridad: Si hay poca coincidencia (< 5), rellenamos con los top del C
@@ -649,28 +648,25 @@ with tab2:
             lotes_finales = lotes_comunes
             
         # 5. Aplicar filtros de la barra lateral al catálogo real (df)
-        df_filtrado = filtrar(df) # Asumo que tu función filtrar(df) ya está definida
+        df_filtrado = filtrar(df) 
         
         # 6. Filtrar el df base por los lotes seleccionados por la IA
         res_final = df_filtrado[df_filtrado['Lote'].isin(lotes_finales)].copy()
         res_final = res_final.drop_duplicates(subset=['Lote'])
         
         if not res_final.empty:
-            # 7. Reordenar para respetar la relevancia de la IA (el orden de lotes_finales)
+            # 7. Reordenar para respetar la relevancia de la IA
             lotes_ordenados = [l for l in lotes_finales if l in res_final['Lote'].values]
             res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_ordenados, ordered=True)
             res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(12)
-                
-                # 6. ID de contexto seguro para los botones de voto
-                contexto_ia = f"IA_{hash(q) % 10000}"
-                
-                for _, r in res_final.iterrows():
-                     mostrar_card(r, contexto_ia)
-            else:
-                st.warning(t["no_results"])
+            
+            # 8. ID de contexto seguro para los botones de voto (AQUÍ ESTABA EL ERROR)
+            contexto_ia = f"IA_{hash(q) % 10000}"
+            
+            for _, r in res_final.iterrows():
+                mostrar_card(r, contexto_ia)
         else:
             st.warning(t["no_results"])
-
 # --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
     # Permitimos varios lotes separados por comas o espacios
