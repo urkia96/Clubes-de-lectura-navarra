@@ -260,7 +260,6 @@ t = texts[st.session_state.idioma]
 c = t["cols"]
 
 
-# --- 2. CARGA DE RECURSOS (Versión Robusta para GitHub) ---
 # --- 2. CARGA DE RECURSOS (Versión Restaurada y Segura) ---
 @st.cache_resource
 def load_resources():
