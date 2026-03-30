@@ -260,70 +260,89 @@ t = texts[st.session_state.idioma]
 c = t["cols"]
 
 
-# --- 2. CARGA DE RECURSOS (Definición y Ejecución) ---
+# --- 2. CARGA DE RECURSOS (Versión Robusta para GitHub) ---
 @st.cache_resource
 def load_resources():
-    excel_path = f"{PATH_RECO}/metadatos_entidades_OA.xlsx"
-    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
+    # Usamos os.path.join para asegurar compatibilidad de rutas en Linux (GitHub)
+    excel_path = os.path.join(PATH_RECO, "metadatos_entidades_OA.xlsx")
+    disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo.xlsx")
 
     if not os.path.exists(excel_path):
-        st.error(f"Archivo crítico no encontrado: {excel_path}")
+        st.error(f"❌ Archivo crítico no encontrado: {excel_path}")
         st.stop()
-    
-    # 1. CARGA CATÁLOGO PRINCIPAL (Tu código exacto)
+   
+    # 1. CARGA CATÁLOGO PRINCIPAL
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     df['Lote'] = df['Lote'].astype(str).str.strip()
-    
-    # --- AÑADIDO: VINCULAR DISPONIBILIDAD (Solo si existe el archivo) ---
+   
+    # --- VINCULAR DISPONIBILIDAD ---
     if os.path.exists(disp_path):
-        df_disp = pd.read_excel(disp_path)
-        df_disp.columns = df_disp.columns.str.strip()
-        # Aseguramos que la columna se llame Lote para el cruce
-        if 'Lote' in df_disp.columns: df_disp = df_disp.rename(columns={'Lote': 'Lote'})
-        
-        if 'Lote' in df_disp.columns:
-            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
-            # Limpiamos columnas previas si existen
-            df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
-            # Unión
-            df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
-    # -------------------------------------------------------------------
+        try:
+            df_disp = pd.read_excel(disp_path)
+            df_disp.columns = df_disp.columns.str.strip()
+            
+            # Forzamos que existan las columnas necesarias en el Excel de disponibilidad
+            if 'Lote' in df_disp.columns:
+                df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
+                
+                # Si por algún motivo las columnas no existen en el Excel, las creamos vacías
+                for col_needed in ['Fechas_Reservadas', 'URL_Ficha']:
+                    if col_needed not in df_disp.columns:
+                        df_disp[col_needed] = ""
+
+                # Limpiamos si ya existían en el DF original para evitar duplicados (Fechas_Reservadas_x, etc.)
+                df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
+                
+                # Unión limpia
+                df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
+        except Exception as e:
+            st.warning(f"⚠️ Se detectó el archivo de disponibilidad pero hubo un error al procesarlo: {e}")
+    
+    # --- GARANTÍA DE COLUMNAS (Crucial para evitar KeyError) ---
+    # Si después de intentar el merge la columna sigue sin existir, la creamos vacía.
+    if 'Fechas_Reservadas' not in df.columns:
+        df['Fechas_Reservadas'] = ""
+    if 'URL_Ficha' not in df.columns:
+        df['URL_Ficha'] = ""
+    # -----------------------------------------------------------
 
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-    
-    # Limpieza de columnas (Tu código exacto)
+   
+    # Limpieza de columnas estándar
     cols_check = [
-        'Idioma', 'Idioma_eus', 
-        'Público', 'Público_eus', 
-        'genero_fix', 'genero_fix_eus', 
-        'Editorial', 'Geografia_Autor', 
-        'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
+        'Idioma', 'Idioma_eus',
+        'Público', 'Público_eus',
+        'genero_fix', 'genero_fix_eus',
+        'Editorial', 'Geografia_Autor',
+        'Genero_Principal_IA', 'Genero_Principal_IA_eus',
         'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
     ]
-    
+   
     for col in cols_check:
         if col in df.columns:
             df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
         else:
             df[col] = "Desconocido"
-            
+           
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-    
-    # Carga de Metadatos IA (Tu código exacto)
-    with open(f"{PATH_RECO}/clubes_lectura_small_v23.pkl", "rb") as f:
-        df_ia_meta = pickle.load(f)
-    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
-    
-    index = faiss.read_index(f"{PATH_RECO}/clubes_lectura_small_v23.index")
-    model = SentenceTransformer('intfloat/multilingual-e5-small')
-    
+   
+    # Carga de Metadatos IA y Modelo
+    try:
+        with open(os.path.join(PATH_RECO, "clubes_lectura_small_v23.pkl"), "rb") as f:
+            df_ia_meta = pickle.load(f)
+        df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
+        
+        index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_v23.index"))
+        model = SentenceTransformer('intfloat/multilingual-e5-small')
+    except Exception as e:
+        st.error(f"❌ Error cargando archivos de IA: {e}")
+        st.stop()
+   
     gc.collect()
     return df, df_ia_meta, index, model
 
-# Ejecución
-df, df_ia_meta, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
 
