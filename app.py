@@ -279,7 +279,7 @@ def load_resources():
     if os.path.exists(disp_path):
         df_disp = pd.read_excel(disp_path)
         df_disp.columns = df_disp.columns.str.strip()
-        # Aseguramos que la columna se llame Nº lote para el cruce
+        # Aseguramos que la columna se llame Lote para el cruce
         if 'Lote' in df_disp.columns: df_disp = df_disp.rename(columns={'Lote': 'Lote'})
         
         if 'Lote' in df_disp.columns:
@@ -314,7 +314,7 @@ def load_resources():
     # Carga de Metadatos IA (Tu código exacto)
     with open(f"{PATH_RECO}/clubes_lectura_small_v23.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
-    df_ia_meta['Nº lote'] = df_ia_meta['Lote'].astype(str).str.strip()
+    df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
     
     index = faiss.read_index(f"{PATH_RECO}/clubes_lectura_small_v23.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
