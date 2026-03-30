@@ -261,6 +261,7 @@ c = t["cols"]
 
 
 # --- 2. CARGA DE RECURSOS (Versión Restaurada y Segura) ---
+# --- 2. CARGA DE RECURSOS (Definición y Ejecución) ---
 @st.cache_resource
 def load_resources():
     excel_path = f"{PATH_RECO}/metadatos_entidades_OA.xlsx"
@@ -269,61 +270,61 @@ def load_resources():
     if not os.path.exists(excel_path):
         st.error(f"Archivo crítico no encontrado: {excel_path}")
         st.stop()
-   
-    # 1. Carga catálogo principal
+    
+    # 1. CARGA CATÁLOGO PRINCIPAL (Tu código exacto)
     df = pd.read_excel(excel_path)
     df.columns = df.columns.str.strip()
     df['Lote'] = df['Lote'].astype(str).str.strip()
-   
-    # 2. Carga disponibilidad (Solo si existe)
+    
+    # --- AÑADIDO: VINCULAR DISPONIBILIDAD (Solo si existe el archivo) ---
     if os.path.exists(disp_path):
-        try:
-            df_disp = pd.read_excel(disp_path)
-            df_disp.columns = df_disp.columns.str.strip()
-            if 'Lote' in df_disp.columns:
-                df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
-                # Quitamos columnas si ya existen para evitar duplicados .x .y
-                df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
-                # Unión
-                df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
-        except:
-            pass # Si falla el merge, seguimos adelante
-            
-    # --- EL FIX PARA EL KEYERROR ---
-    # Si después de todo la columna no está, la creamos vacía para que la APP no explote
-    if 'Fechas_Reservadas' not in df.columns:
-        df['Fechas_Reservadas'] = ""
-    # -------------------------------
+        df_disp = pd.read_excel(disp_path)
+        df_disp.columns = df_disp.columns.str.strip()
+        # Aseguramos que la columna se llame Lote para el cruce
+        if 'Lote' in df_disp.columns: df_disp = df_disp.rename(columns={'Lote': 'Lote'})
+        
+        if 'Lote' in df_disp.columns:
+            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
+            # Limpiamos columnas previas si existen
+            df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
+            # Unión
+            df = pd.merge(df, df_disp[['Lote', 'Fechas_Reservadas', 'URL_Ficha']], on='Lote', how='left')
+    # -------------------------------------------------------------------
 
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
-   
-    # Limpieza de columnas estándar (Tu código exacto)
+    
+    # Limpieza de columnas (Tu código exacto)
     cols_check = [
-        'Idioma', 'Idioma_eus', 'Público', 'Público_eus',
-        'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
-        'Genero_Principal_IA', 'Genero_Principal_IA_eus',
+        'Idioma', 'Idioma_eus', 
+        'Público', 'Público_eus', 
+        'genero_fix', 'genero_fix_eus', 
+        'Editorial', 'Geografia_Autor', 
+        'Genero_Principal_IA', 'Genero_Principal_IA_eus', 
         'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
     ]
-   
+    
     for col in cols_check:
         if col in df.columns:
             df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
         else:
             df[col] = "Desconocido"
-           
+            
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
-   
-    # Carga de Metadatos IA (Mantenemos nombres originales)
+    
+    # Carga de Metadatos IA (Tu código exacto)
     with open(f"{PATH_RECO}/clubes_lectura_small_v23.pkl", "rb") as f:
         df_ia_meta = pickle.load(f)
     df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
-   
+    
     index = faiss.read_index(f"{PATH_RECO}/clubes_lectura_small_v23.index")
     model = SentenceTransformer('intfloat/multilingual-e5-small')
-   
+    
     gc.collect()
     return df, df_ia_meta, index, model
+
+# Ejecución
+df, df_ia_meta, index, model = load_resources()
 
 
 # --- 3. FUNCIONES AUXILIARES ---
