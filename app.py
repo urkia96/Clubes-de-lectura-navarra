@@ -264,7 +264,7 @@ c = t["cols"]
 @st.cache_resource
 def load_resources():
     excel_path = f"{PATH_RECO}/metadatos_entidades_OA.xlsx"
-    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx" # Ruta disponibilidad
+    disp_path = f"{PATH_RECO}/disponibilidad_catalogo_completo.xlsx"
 
     if not os.path.exists(excel_path):
         st.error(f"Archivo crítico no encontrado: {excel_path}")
