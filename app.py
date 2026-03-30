@@ -325,18 +325,18 @@ def load_resources():
     # Nota: Asegúrate de que los nombres de los archivos coincidan con los que subas
     try:
         # Carga Modelo B
-        with open(os.path.join(PATH_RECO, "modelo_B.pkl"), "rb") as f:
+        with open(os.path.join(PATH_RECO, "metadatos_promptss_infloat_ponderado_genero.pkl"), "rb") as f:
             meta_b = pickle.load(f)
         meta_b.rename(columns={meta_b.columns[0]: 'Lote'}, inplace=True)
         meta_b['Lote'] = meta_b['Lote'].astype(str).str.strip()
-        idx_b = faiss.read_index(os.path.join(PATH_RECO, "modelo_B.index"))
+        idx_b = faiss.read_index(os.path.join(PATH_RECO, "biblioteca_prompts_infloat_ponderado_genero.index"))
 
         # Carga Modelo C
-        with open(os.path.join(PATH_RECO, "modelo_C.pkl"), "rb") as f:
+        with open(os.path.join(PATH_RECO, "metadatos_cl_large (1).pkl"), "rb") as f:
             meta_c = pickle.load(f)
         meta_c.rename(columns={meta_c.columns[0]: 'Lote'}, inplace=True)
         meta_c['Lote'] = meta_c['Lote'].astype(str).str.strip()
-        idx_c = faiss.read_index(os.path.join(PATH_RECO, "modelo_C.index"))
+        idx_c = faiss.read_index(os.path.join(PATH_RECO, "metadatos_cl_large (1).index"))
 
         # El modelo de SentenceTransformer es compartido por ambos (Large)
         model = SentenceTransformer('intfloat/multilingual-e5-large')
@@ -618,36 +618,48 @@ with tab1:
         else:
             st.warning(t["no_results"])
 
-# --- TAB2: Búsqueda libre con FAISS ---
+# --- TAB2: Búsqueda libre con Consenso (B + C) ---
 with tab2:
     q = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_80")
     if q:
-        # 1. Codificación y búsqueda
-        vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
-        D, I = index.search(vec, 50)
-        indices_validos = I[0][D[0] >= 0.80]
+        # 1. Generar vector de búsqueda único (compartido por ambos modelos)
+        query_text = f"query: {q}"
+        vec = model.encode([query_text], normalize_embeddings=True).astype('float32')
         
-        if len(indices_validos) > 0:
-            # 2. Obtener lotes únicos manteniendo el orden de relevancia
-            lotes_ia_sucios = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
-            lotes_ia = []
-            for x in lotes_ia_sucios:
-                if x not in lotes_ia and x != "nan":
-                    lotes_ia.append(x)
+        # 2. Búsqueda en Modelo B (Resumen pesado)
+        # Pedimos 40 para tener un margen de intersección saludable
+        D_b, I_b = idx_b.search(vec, 40)
+        lotes_b = meta_b.iloc[I_b[0]]['Lote'].astype(str).str.strip().tolist()
+        
+        # 3. Búsqueda en Modelo C (Equilibrado)
+        D_c, I_c = idx_c.search(vec, 40)
+        lotes_c = meta_c.iloc[I_c[0]]['Lote'].astype(str).str.strip().tolist()
+        
+        # 4. Lógica de Intersección (Doble Consenso)
+        set_b = set(lotes_b)
+        set_c = set(lotes_c)
+        
+        # Los que ambos modelos aprueban (manteniendo el orden del Modelo C como base)
+        lotes_comunes = [l for l in lotes_c if l in set_b]
+        
+        # Estrategia de seguridad: Si hay poca coincidencia (< 5), rellenamos con los top del C
+        if len(lotes_comunes) < 5:
+            lotes_finales = lotes_comunes + [l for l in lotes_c if l not in lotes_comunes][:10]
+        else:
+            lotes_finales = lotes_comunes
             
-            # 3. Aplicar filtros de la barra lateral
-            df_base = filtrar(df)
-            
-            # 4. Filtrar y limpiar duplicados en el DataFrame resultante
-            res_final = df_base[df_base['Lote'].isin(lotes_ia)].copy()
-            res_final = res_final.drop_duplicates(subset=['Lote'])
-            
-            # 5. Reordenar según la relevancia de la IA (Solo con lotes que pasaron el filtro)
-            lotes_que_existen = [l for l in lotes_ia if l in res_final['Lote'].values]
-            
-            if not res_final.empty:
-                res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
-                res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(10)
+        # 5. Aplicar filtros de la barra lateral al catálogo real (df)
+        df_filtrado = filtrar(df) # Asumo que tu función filtrar(df) ya está definida
+        
+        # 6. Filtrar el df base por los lotes seleccionados por la IA
+        res_final = df_filtrado[df_filtrado['Lote'].isin(lotes_finales)].copy()
+        res_final = res_final.drop_duplicates(subset=['Lote'])
+        
+        if not res_final.empty:
+            # 7. Reordenar para respetar la relevancia de la IA (el orden de lotes_finales)
+            lotes_ordenados = [l for l in lotes_finales if l in res_final['Lote'].values]
+            res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_ordenados, ordered=True)
+            res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(12)
                 
                 # 6. ID de contexto seguro para los botones de voto
                 contexto_ia = f"IA_{hash(q) % 10000}"
