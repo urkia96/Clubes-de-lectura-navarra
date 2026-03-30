@@ -25,36 +25,39 @@ if "auth" not in st.session_state:
 
 def conectar_sheets():
     try:
-        # --- PRIORIDAD 1: Hugging Face / Variables de Entorno (Settings > Secrets) ---
-        if "GCP_SERVICE_ACCOUNT" in os.environ and "GSHEET_URL" in os.environ:
-            creds_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
-            sheet_url = os.environ["GSHEET_URL"]
-
-        # --- PRIORIDAD 2: Streamlit Cloud secrets (Si usaras share.streamlit.io) ---
-        elif "gcp_service_account" in st.secrets:
-            creds_info = st.secrets["gcp_service_account"]
-            # En Streamlit secrets a veces se usa minúscula o mayúscula, 
-            # aseguramos capturar la URL:
+        # Priorizamos st.secrets (Estándar en Streamlit Cloud / Local .toml)
+        if "gcp_service_account" in st.secrets:
+            creds_info = dict(st.secrets["gcp_service_account"])
             sheet_url = st.secrets.get("GSHEET_URL") or st.secrets.get("gsheet_url")
-
+        
+        # Backup para Variables de Entorno (como en HF o entornos CI/CD)
+        elif "GCP_SERVICE_ACCOUNT" in os.environ:
+            creds_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
+            sheet_url = os.environ.get("GSHEET_URL")
+        
         else:
-            st.error("❌ No se encontraron las credenciales en os.environ ni en st.secrets")
+            st.error("❌ No se configuraron las credenciales (secrets.toml o env vars)")
             return None
 
-        # Configuración de las credenciales de Google
+        # Configuración de las credenciales
         creds = Credentials.from_service_account_info(
             creds_info,
             scopes=["https://www.googleapis.com/auth/spreadsheets"]
         )
 
         gc_client = gspread.authorize(creds)
+        
+        if not sheet_url:
+            st.error("❌ Falta la URL de la hoja de cálculo (GSHEET_URL)")
+            return None
+            
         sheet = gc_client.open_by_url(sheet_url).sheet1
-
         return sheet
 
     except Exception as e:
         st.error(f"❌ Error conectando a Sheets: {e}")
         return None
+
 
 
 def hash_password(password):
