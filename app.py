@@ -269,57 +269,75 @@ def load_resources():
         st.error(f"Archivo crítico no encontrado: {excel_path}")
         st.stop()
    
-    # 1. CARGA CATÁLOGO PRINCIPAL
+    # 1. CARGA CATÁLOGO PRINCIPAL (Sin tocar nombres originales)
     df = pd.read_excel(excel_path)
-    # Forzamos nombre a la primera columna por posición
-    df.rename(columns={df.columns[0]: 'Lote'}, inplace=True)
+    df.columns = df.columns.str.strip()
+    
+    # Aseguramos que la columna de unión se llame 'Lote' (por si acaso)
+    if 'Lote' not in df.columns:
+        df.rename(columns={df.columns[0]: 'Lote'}, inplace=True)
+    
     df['Lote'] = df['Lote'].astype(str).str.strip()
    
-    # 2. VINCULAR DISPONIBILIDAD POR POSICIÓN
+    # 2. CARGA DISPONIBILIDAD (Como tabla independiente para el cruce)
     if os.path.exists(disp_path):
         try:
-            # Cargamos el excel de disponibilidad
             df_disp = pd.read_excel(disp_path)
+            df_disp.columns = df_disp.columns.str.strip()
             
-            # Creamos un nuevo DataFrame limpio basado SOLO en posiciones
-            # Col 0 -> Lote, Col 1 -> Fechas_Reservadas, Col 2 -> URL_Ficha
-            new_cols = {df_disp.columns[0]: 'Lote'}
+            # Forzamos nombres por POSICIÓN solo en esta tabla temporal
+            # Col 0 -> Lote, Col 1 -> Fechas_Reservadas
+            temp_disp = pd.DataFrame()
+            temp_disp['Lote'] = df_disp.iloc[:, 0].astype(str).str.strip()
             
-            if len(df_disp.columns) > 1:
-                new_cols[df_disp.columns[1]] = 'Fechas_Reservadas'
-            if len(df_disp.columns) > 2:
-                new_cols[df_disp.columns[2]] = 'URL_Ficha'
-            
-            df_disp = df_disp.rename(columns=new_cols)
-            df_disp['Lote'] = df_disp['Lote'].astype(str).str.strip()
+            if df_disp.shape[1] > 1:
+                temp_disp['Fechas_Reservadas'] = df_disp.iloc[:, 1].fillna("").astype(str)
+            else:
+                temp_disp['Fechas_Reservadas'] = ""
 
-            # Eliminamos columnas viejas en el DF principal para evitar duplicados .x .y
-            df = df.drop(columns=[c for c in ['Fechas_Reservadas', 'URL_Ficha'] if c in df.columns], errors='ignore')
+            # Eliminamos basura previa en el DF principal para evitar el error .x .y
+            df = df.drop(columns=['Fechas_Reservadas'], errors='ignore')
             
-            # Unión por la columna 'Lote' que acabamos de forzar en ambos
-            cols_to_merge = [c for c in ['Lote', 'Fechas_Reservadas', 'URL_Ficha'] if c in df_disp.columns]
-            df = pd.merge(df, df_disp[cols_to_merge], on='Lote', how='left')
+            # UNIÓN: Pegamos la disponibilidad al catálogo
+            df = pd.merge(df, temp_disp[['Lote', 'Fechas_Reservadas']], on='Lote', how='left')
             
         except Exception as e:
-            st.warning(f"⚠️ Error procesando columnas por posición: {e}")
+            st.warning(f"⚠️ No se pudo procesar la disponibilidad: {e}")
 
-    # --- GARANTÍA DE SUPERVIVENCIA ---
+    # --- GARANTÍA DE COLUMNAS ---
     if 'Fechas_Reservadas' not in df.columns:
         df['Fechas_Reservadas'] = ""
-    
-    # Rellenamos los vacíos del merge para que la función de fechas no reciba NaNs
-    df['Fechas_Reservadas'] = df['Fechas_Reservadas'].fillna("").astype(str)
-    # ---------------------------------
+    df['Fechas_Reservadas'] = df['Fechas_Reservadas'].fillna("")
+    # ----------------------------
 
-    # Limpieza de metadatos (Páginas, Idioma, etc.)
+    # 3. PROCESAMIENTO DE METADATOS (Aquí es donde se crea titulo_norm)
+    # Importante: No mover este bloque de aquí
     df['Páginas'] = pd.to_numeric(df['Páginas'], errors='coerce').fillna(0).astype(int)
+   
+    cols_check = [
+        'Idioma', 'Idioma_eus', 'Público', 'Público_eus',
+        'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
+        'Genero_Principal_IA', 'Genero_Principal_IA_eus',
+        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
+    ]
+   
+    for col in cols_check:
+        if col in df.columns:
+            df[col] = df[col].astype(str).replace(['nan', 'None', '<NA>', ''], "Desconocido")
+        else:
+            df[col] = "Desconocido"
     
-    # ... (Aquí sigue tu bloque de cols_check e IA como lo tenías)
-    
-    # 3. CARGA IA (Asegurando también el nombre de la col 0 en el PKL)
+    # ESTAS LÍNEAS SON LAS QUE TE DABAN EL ERROR:
+    df['titulo_norm'] = df['Título'].apply(normalizar_texto)
+    df['autor_norm'] = df['Autor'].apply(normalizar_texto)
+   
+    # 4. CARGA IA
     with open(os.path.join(PATH_RECO, "clubes_lectura_small_v23.pkl"), "rb") as f:
         df_ia_meta = pickle.load(f)
-    df_ia_meta.rename(columns={df_ia_meta.columns[0]: 'Lote'}, inplace=True)
+    
+    # Aseguramos el nombre 'Lote' en el PKL también
+    if 'Lote' not in df_ia_meta.columns:
+        df_ia_meta.rename(columns={df_ia_meta.columns[0]: 'Lote'}, inplace=True)
     df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
    
     index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_v23.index"))
@@ -327,7 +345,6 @@ def load_resources():
    
     gc.collect()
     return df, df_ia_meta, index, model
-
 # Ejecución
 df, df_ia_meta, index, model = load_resources()
 
