@@ -403,7 +403,20 @@ def guardar_voto(lote, titulo, valor, query):
 
 # 4. Mostrar tarjeta
 @st.fragment
-def mostrar_card(r, context):
+def mostrar_card(r_ia, context): # Cambiamos el nombre a r_ia para diferenciar
+    # --- LA LÍNEA MÁGICA: Sincronización con el Excel ---
+    lote_id = str(r_ia.get('Lote', '')).strip()
+    
+    # Buscamos la fila correspondiente en el df principal (el del Excel)
+    fila_excel = df[df['Lote'] == lote_id]
+    
+    if not fila_excel.empty:
+        # Si existe en el Excel, usamos los datos del Excel (r)
+        r = fila_excel.iloc[0]
+    else:
+        # Si por algo no estuviera en el Excel, usamos lo que traiga la IA
+        r = r_ia
+        
     IMG_WIDTH = 160  
     lote_id = str(r.get('Lote', '')).strip()
     
