@@ -325,21 +325,21 @@ def load_resources():
     # Nota: Asegúrate de que los nombres de los archivos coincidan con los que subas
     try:
         # Carga Modelo B
-        with open(os.path.join(PATH_RECO, "metadatos_promptss_infloat_ponderado_genero.pkl"), "rb") as f:
+        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.pkl"), "rb") as f:
             meta_b = pickle.load(f)
         meta_b.rename(columns={meta_b.columns[0]: 'Lote'}, inplace=True)
         meta_b['Lote'] = meta_b['Lote'].astype(str).str.strip()
-        idx_b = faiss.read_index(os.path.join(PATH_RECO, "biblioteca_prompts_infloat_ponderado_genero.index"))
+        idx_b = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.index"))
 
         # Carga Modelo C
-        with open(os.path.join(PATH_RECO, "metadatos_cl_large (1).pkl"), "rb") as f:
+        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad.pkl"), "rb") as f:
             meta_c = pickle.load(f)
         meta_c.rename(columns={meta_c.columns[0]: 'Lote'}, inplace=True)
         meta_c['Lote'] = meta_c['Lote'].astype(str).str.strip()
-        idx_c = faiss.read_index(os.path.join(PATH_RECO, "metadatos_cl_large (1).index"))
+        idx_c = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad.index))
 
         # El modelo de SentenceTransformer es compartido por ambos (Large)
-        model = SentenceTransformer('intfloat/multilingual-e5-large')
+        model = SentenceTransformer('intfloat/multilingual-e5-small')
         
     except Exception as e:
         st.error(f"❌ Error al cargar los archivos de IA (B o C): {e}")
