@@ -324,10 +324,10 @@ def load_resources():
     # 4. CARGA DE LOS 4 MODELOS (A, B, C, D)
     ai_models = []
     model_files = [
-        ("clubes_lectura_small_trad_v3.pkl", "clubes_lectura_small_trad_v3.index"),
-        ("clubes_lectura_small_trad.pkl", "clubes_lectura_small_trad.index"),
-        ("clubes_lectura_small_trad_v2.pkl", "clubes_lectura_small_trad_v2.index"),
-        ("clubes_lectura_small_trad_v4.pkl", "clubes_lectura_small_trad_v4.index")
+        ("clubes_lectura_modelo1.pkl", "clubes_lectura_modelo1.index"),
+        ("clubes_lectura_modelo2.pkl", "clubes_lectura_modelo2.index"),
+        ("clubes_lectura_modelo3.index", "clubes_lectura_modelo3.index"),
+        ("clubes_lectura_modelo4.index", "clubes_lectura_modelo4.index")
     ]
 
     try:
