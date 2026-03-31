@@ -262,7 +262,7 @@ c = t["cols"]
 #carga de recursos
 @st.cache_resource
 def load_resources():
-    excel_path = os.path.join(PATH_RECO, "metadatos_entidades_OA.xlsx")
+    excel_path = os.path.join(PATH_RECO, "metadatos_entidades_OA_resumenes_trad.xlsx")
     disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo.xlsx")
 
     if not os.path.exists(excel_path):
