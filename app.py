@@ -325,11 +325,11 @@ def load_resources():
     # Nota: Asegúrate de que los nombres de los archivos coincidan con los que subas
     try:
         # Carga Modelo B
-        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.pkl"), "rb") as f:
+        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v3.pkl"), "rb") as f:
             meta_b = pickle.load(f)
         meta_b.rename(columns={meta_b.columns[0]: 'Lote'}, inplace=True)
         meta_b['Lote'] = meta_b['Lote'].astype(str).str.strip()
-        idx_b = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.index"))
+        idx_b = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v3.index"))
 
         # Carga Modelo C
         with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad.pkl"), "rb") as f:
