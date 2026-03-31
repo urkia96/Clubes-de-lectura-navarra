@@ -677,7 +677,7 @@ with tab2:
             if not res_final.empty:
                 # 5. Reordenar para respetar el ranking de consenso
                 res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_finales, ordered=True)
-                res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(20)
+                res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(10)
                
                 # 6. ID de contexto para votos
                 contexto_ia = f"IA_CUAD_{hash(q) % 10000}"
@@ -736,7 +736,7 @@ with tab3:
            
             # 4. BUSQUEDA POR CONSENSO EN LOS 4 MODELOS
             votos_similares = {}
-            UMBRAL_SIM_TAB3 = 0.70 # Un poco más exigente para "similares"
+            UMBRAL_SIM_TAB3 = 0.75 # Un poco más exigente para "similares"
 
             for ai in ai_models:
                 D, I = ai["index"].search(v_ref, 50) # Buscamos top 50 en cada modelo
@@ -764,7 +764,7 @@ with tab3:
                
                 # 7. Ordenar por el ranking de la IA
                 res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
-                res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(12)
+                res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
                
                 # 8. ID de contexto para votos
                 contexto_voto = f"Sim_{hash(lid_input) % 10000}"
