@@ -321,22 +321,36 @@ def load_resources():
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
    
-    # 4. CARGA IA DUPLICADA (MODELO B + MODELO C)
+    # 4. CARGA IA DUPLICADA (MODELO A + MODELO B + MODELO C + MODELO D)
     # Nota: Asegúrate de que los nombres de los archivos coincidan con los que subas
     try:
-        # Carga Modelo B
+        # Carga Modelo A
         with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v3.pkl"), "rb") as f:
+            meta_a = pickle.load(f)
+        meta_a.rename(columns={meta_a.columns[0]: 'Lote'}, inplace=True)
+        meta_a['Lote'] = meta_a['Lote'].astype(str).str.strip()
+        idx_a = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v3.index"))
+
+        # Carga Modelo B
+        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad.pkl"), "rb") as f:
             meta_b = pickle.load(f)
         meta_b.rename(columns={meta_b.columns[0]: 'Lote'}, inplace=True)
         meta_b['Lote'] = meta_b['Lote'].astype(str).str.strip()
-        idx_b = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v3.index"))
+        idx_b = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad.index"))
 
         # Carga Modelo C
-        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad.pkl"), "rb") as f:
+        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.pkl"), "rb") as f:
             meta_c = pickle.load(f)
         meta_c.rename(columns={meta_c.columns[0]: 'Lote'}, inplace=True)
         meta_c['Lote'] = meta_c['Lote'].astype(str).str.strip()
-        idx_c = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad.index"))
+        idx_c = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.index"))
+
+        # Carga Modelo D
+        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v4.pkl"), "rb") as f:
+            meta_d = pickle.load(f)
+        meta_d.rename(columns={meta_c.columns[0]: 'Lote'}, inplace=True)
+        meta_d['Lote'] = meta_d['Lote'].astype(str).str.strip()
+        idx_d = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v4.index"))
 
         # El modelo de SentenceTransformer es compartido por ambos (Large)
         model = SentenceTransformer('intfloat/multilingual-e5-small')
@@ -618,55 +632,80 @@ with tab1:
         else:
             st.warning(t["no_results"])
 
-# --- TAB2: Búsqueda libre con Consenso (B + C) ---
+# --- TAB2: Búsqueda libre con Consenso Cuádruple (A + B + C + D) ---
 with tab2:
-    q = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_80")
+    q = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_cuadruple")
+    
     if q:
-        # 1. Generar vector de búsqueda único (compartido por ambos modelos)
+        # 1. Generar vector de búsqueda único
         query_text = f"query: {q}"
         vec = model.encode([query_text], normalize_embeddings=True).astype('float32')
-        
-        # 2. Búsqueda en Modelo B (Resumen pesado)
-        D_b, I_b = idx_b.search(vec, 40)
-        lotes_b = meta_b.iloc[I_b[0]]['Lote'].astype(str).str.strip().tolist()
-        
-        # 3. Búsqueda en Modelo C (Equilibrado)
-        D_c, I_c = idx_c.search(vec, 40)
-        lotes_c = meta_c.iloc[I_c[0]]['Lote'].astype(str).str.strip().tolist()
-        
-        # 4. Lógica de Intersección (Doble Consenso)
-        set_b = set(lotes_b)
-        set_c = set(lotes_c)
-        
-        # Los que ambos modelos aprueban
-        lotes_comunes = [l for l in lotes_c if l in set_b]
-        
-        # Estrategia de seguridad: Si hay poca coincidencia (< 5), rellenamos con los top del C
-        if len(lotes_comunes) < 5:
-            lotes_finales = lotes_comunes + [l for l in lotes_c if l not in lotes_comunes][:10]
+       
+        # Estructura para recolectar votos y puntuaciones
+        # { 'LoteID': {'votos': int, 'max_score': float} }
+        votos_lotes = {}
+        UMBRAL_SIMILITUD = 0.65 
+
+        # Lista de tus pares cargados en load_resources()
+        # Se asume que ai_models = [ {'meta': meta_a, 'index': idx_a}, ... ]
+        for ai in ai_models:
+            # Buscamos los 100 más relevantes en cada uno de los 4 modelos
+            D, I = ai["index"].search(vec, 100)
+            
+            for score, idx_faiss in zip(D[0], I[0]):
+                # Verificamos el umbral (ajusta si tu FAISS devuelve distancia L2 o Inner Product)
+                # Si es Coseno/Inner Product: score >= 0.65
+                # Si es L2 (distancia): el umbral se calcula distinto, pero asumimos similitud 0-1
+                if score >= UMBRAL_SIMILITUD:
+                    lote_id = str(ai["meta"].iloc[idx_faiss]['Lote']).strip()
+                    
+                    if lote_id not in votos_lotes:
+                        votos_lotes[lote_id] = {'votos': 0, 'max_score': 0.0}
+                    
+                    votos_lotes[lote_id]['votos'] += 1
+                    votos_lotes[lote_id]['max_score'] = max(votos_lotes[lote_id]['max_score'], score)
+
+        # 2. Crear Ranking por Consenso
+        if votos_lotes:
+            ranking = pd.DataFrame.from_dict(votos_lotes, orient='index').reset_index()
+            ranking.columns = ['Lote', 'votos', 'max_score']
+            
+            # Ordenamos: 1º por número de modelos que coinciden, 2º por puntuación de similitud
+            ranking = ranking.sort_values(by=['votos', 'max_score'], ascending=False)
+            lotes_finales = ranking['Lote'].tolist()
+
+            # 3. Aplicar filtros de la barra lateral al catálogo real (df)
+            df_filtrado = filtrar(df)
+           
+            # 4. Filtrar el df base por los lotes seleccionados por el consenso
+            res_final = df_filtrado[df_filtrado['Lote'].isin(lotes_finales)].copy()
+            res_final = res_final.drop_duplicates(subset=['Lote'])
+           
+            if not res_final.empty:
+                # 5. Reordenar para respetar el ranking de consenso
+                res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_finales, ordered=True)
+                res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(20)
+               
+                # 6. ID de contexto para votos
+                contexto_ia = f"IA_CUAD_{hash(q) % 10000}"
+                
+                st.info(f"Mostrando resultados con mayor consenso entre los 4 modelos de análisis.")
+
+                for _, r in res_final.iterrows():
+                    # Opcional: Mostrar una pequeña etiqueta con el nivel de consenso
+                    info_voto = ranking[ranking['Lote'] == r['Lote']].iloc[0]
+                    votos_num = int(info_voto['votos'])
+                    
+                    # Mostrar card con una mención al consenso si es alto
+                    with st.container():
+                        if votos_num >= 3:
+                            st.caption(f"✨ Alto Consenso: {votos_num}/4 modelos coinciden")
+                        mostrar_card(r, contexto_ia)
+            else:
+                st.warning(t["no_results"])
         else:
-            lotes_finales = lotes_comunes
+            st.warning("No se encontraron coincidencias que superen el umbral del 65% en ningún modelo.")
             
-        # 5. Aplicar filtros de la barra lateral al catálogo real (df)
-        df_filtrado = filtrar(df) 
-        
-        # 6. Filtrar el df base por los lotes seleccionados por la IA
-        res_final = df_filtrado[df_filtrado['Lote'].isin(lotes_finales)].copy()
-        res_final = res_final.drop_duplicates(subset=['Lote'])
-        
-        if not res_final.empty:
-            # 7. Reordenar para respetar la relevancia de la IA
-            lotes_ordenados = [l for l in lotes_finales if l in res_final['Lote'].values]
-            res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_ordenados, ordered=True)
-            res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(10)
-            
-            # 8. ID de contexto seguro para los botones de voto (AQUÍ ESTABA EL ERROR)
-            contexto_ia = f"IA_{hash(q) % 10000}"
-            
-            for _, r in res_final.iterrows():
-                mostrar_card(r, contexto_ia)
-        else:
-            st.warning(t["no_results"])
 # --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
     # Permitimos varios lotes separados por comas o espacios
