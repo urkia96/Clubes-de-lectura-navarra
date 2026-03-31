@@ -695,7 +695,6 @@ with tab2:
                 # 6. ID de contexto para votos
                 contexto_ia = f"IA_CUAD_{hash(q) % 10000}"
                 
-                st.info(f"Mostrando resultados con mayor consenso entre los 4 modelos de análisis.")
 
                 for _, r in res_final.iterrows():
                     # Opcional: Mostrar una pequeña etiqueta con el nivel de consenso
@@ -705,7 +704,6 @@ with tab2:
                     # Mostrar card con una mención al consenso si es alto
                     with st.container():
                         if votos_num >= 3:
-                            st.caption(f"✨ Alto Consenso: {votos_num}/4 modelos coinciden")
                         mostrar_card(r, contexto_ia)
             else:
                 st.warning(t["no_results"])
