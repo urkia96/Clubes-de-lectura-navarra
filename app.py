@@ -637,17 +637,17 @@ with tab2:
         # Estructura para recolectar votos y puntuaciones
         # { 'LoteID': {'votos': int, 'max_score': float} }
         votos_lotes = {}
-        UMBRAL_SIMILITUD = 0.65 
+        UMBRAL_SIMILITUD = 0.75 
 
         # Lista de tus pares cargados en load_resources()
         # Se asume que ai_models = [ {'meta': meta_a, 'index': idx_a}, ... ]
         for ai in ai_models:
             # Buscamos los 100 más relevantes en cada uno de los 4 modelos
-            D, I = ai["index"].search(vec, 100)
+            D, I = ai["index"].search(vec, 30)
             
             for score, idx_faiss in zip(D[0], I[0]):
                 # Verificamos el umbral (ajusta si tu FAISS devuelve distancia L2 o Inner Product)
-                # Si es Coseno/Inner Product: score >= 0.65
+                # Si es Coseno/Inner Product: score >= 0.75
                 # Si es L2 (distancia): el umbral se calcula distinto, pero asumimos similitud 0-1
                 if score >= UMBRAL_SIMILITUD:
                     lote_id = str(ai["meta"].iloc[idx_faiss]['Lote']).strip()
