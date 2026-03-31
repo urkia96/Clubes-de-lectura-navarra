@@ -706,61 +706,88 @@ with tab2:
         else:
             st.warning("No se encontraron coincidencias que superen el umbral del 65% en ningún modelo.")
             
-# --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
+# --- TAB3: Lotes similares (Punto Medio / Multi-lote con Consenso) ---
 with tab3:
     # Permitimos varios lotes separados por comas o espacios
     lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
    
     if lid_input:
-        # 1. Limpieza de entrada: aceptamos comas, espacios y pasamos a mayúsculas
+        # 1. Limpieza de entrada
         lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
-        
+       
         vectores_para_promediar = []
         lotes_encontrados = []
 
-        # 2. Extraemos los vectores de cada lote solicitado
+        # 2. Extraemos los vectores usando el primer modelo como referencia de IDs
+        # (Asumimos que todos los modelos tienen los mismos lotes en el mismo orden de index)
+        meta_ref = ai_models[0]["meta"]
+        idx_ref = ai_models[0]["index"]
+
         for lid_clean in lotes_solicitados:
-            ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
+            ref_ia = meta_ref[meta_ref['Lote'] == lid_clean]
             if not ref_ia.empty:
-                idx_ia = ref_ia.index[0]
-                v_lote = index.reconstruct(int(idx_ia))
-                vectores_para_promediar.append(v_lote)
-                lotes_encontrados.append(lid_clean)
+                idx_posicional = ref_ia.index[0]
+                # Reconstruimos el vector (el "ADN" del libro)
+                try:
+                    v_lote = idx_ref.reconstruct(int(idx_posicional))
+                    vectores_para_promediar.append(v_lote)
+                    lotes_encontrados.append(lid_clean)
+                except Exception as e:
+                    st.error(f"Error al reconstruir vector de {lid_clean}: {e}")
             else:
-                st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
+                st.warning(f"El lote {lid_clean} no se encuentra en la base de datos de la IA.")
 
         if vectores_para_promediar:
-            # 3. CÁLCULO DEL PUNTO MEDIO (Centroide de la búsqueda)
+            # 3. CÁLCULO DEL PUNTO MEDIO (Centroide de los libros introducidos)
             v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
-            
-            # 4. Buscamos en el índice FAISS
-            D, I = index.search(v_ref, 30) 
-            indices_validos = I[0][D[0] >= 0.80]
-            lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
            
-            # 5. Aplicamos los filtros de la Sidebar (idioma, disponibilidad, etc.)
-            df_base = filtrar(df)
-            
-            # 6. Quitamos los lotes que el usuario ya ha introducido para no repetirlos
-            lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
-            
-            # --- CRÍTICO: Evitar duplicados que causan el error de Streamlit ---
-            res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
-            res_sim = res_sim.drop_duplicates(subset=['Lote']) # Evita doble tarjeta por lote
-            
-            # 7. Ordenamos por relevancia (similitud con el punto medio)
-            res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
-            res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
-           
-            # 8. ID único y corto para los botones de esta búsqueda específica
-            contexto_voto = f"Sim_{hash(lid_input) % 10000}" 
-           
-            if not res_sim.empty:
-                st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
-                for _, r in res_sim.iterrows():
-                    mostrar_card(r, contexto_voto)
+            # 4. BUSQUEDA POR CONSENSO EN LOS 4 MODELOS
+            votos_similares = {}
+            UMBRAL_SIM_TAB3 = 0.70 # Un poco más exigente para "similares"
+
+            for ai in ai_models:
+                D, I = ai["index"].search(v_ref, 50) # Buscamos top 50 en cada modelo
+                for score, idx_faiss in zip(D[0], I[0]):
+                    if score >= UMBRAL_SIM_TAB3:
+                        lote_id = str(ai["meta"].iloc[idx_faiss]['Lote']).strip()
+                        if lote_id not in lotes_encontrados: # No recomendar lo que ya escribió el usuario
+                            if lote_id not in votos_similares:
+                                votos_similares[lote_id] = {'votos': 0, 'score': 0.0}
+                            votos_similares[lote_id]['votos'] += 1
+                            votos_similares[lote_id]['score'] = max(votos_similares[lote_id]['score'], score)
+
+            # 5. CREAR RANKING
+            if votos_similares:
+                ranking_sim = pd.DataFrame.from_dict(votos_similares, orient='index').reset_index()
+                ranking_sim.columns = ['Lote', 'votos', 'max_score']
+                ranking_sim = ranking_sim.sort_values(by=['votos', 'max_score'], ascending=False)
+                
+                lotes_ordenados = ranking_sim['Lote'].tolist()
+
+                # 6. Aplicamos filtros de la Sidebar y limpieza
+                df_base = filtrar(df)
+                res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
+                res_sim = res_sim.drop_duplicates(subset=['Lote'])
+               
+                # 7. Ordenar por el ranking de la IA
+                res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
+                res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(12)
+               
+                # 8. ID de contexto para votos
+                contexto_voto = f"Sim_{hash(lid_input) % 10000}"
+               
+                if not res_sim.empty:
+                    st.info(f"Libros que comparten temática con: {', '.join(lotes_encontrados)}")
+                    for _, r in res_sim.iterrows():
+                        v_info = ranking_sim[ranking_sim['Lote'] == r['Lote']].iloc[0]
+                        if v_info['votos'] >= 3:
+                            st.caption(f"🔥 Muy similar (Consenso {int(v_info['votos'])}/4)")
+                        mostrar_card(r, contexto_voto)
+                else:
+                    st.warning("No hay otros lotes con suficiente similitud para esta combinación.")
             else:
-                st.warning("No hay otros lotes con suficiente similitud para esta combinación.")
+                st.warning("No se encontraron libros similares con el umbral de coincidencia actual.")
+
 
 # --- TAB4: Búsqueda aleatoria ---
 with tab4:
