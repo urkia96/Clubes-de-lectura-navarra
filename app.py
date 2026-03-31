@@ -658,7 +658,7 @@ with tab2:
             # 7. Reordenar para respetar la relevancia de la IA
             lotes_ordenados = [l for l in lotes_finales if l in res_final['Lote'].values]
             res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_ordenados, ordered=True)
-            res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(12)
+            res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(10)
             
             # 8. ID de contexto seguro para los botones de voto (AQUÍ ESTABA EL ERROR)
             contexto_ia = f"IA_{hash(q) % 10000}"
