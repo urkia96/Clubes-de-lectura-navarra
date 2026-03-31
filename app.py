@@ -321,49 +321,42 @@ def load_resources():
     df['titulo_norm'] = df['Título'].apply(normalizar_texto)
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
    
-    # 4. CARGA IA DUPLICADA (MODELO A + MODELO B + MODELO C + MODELO D)
-    # Nota: Asegúrate de que los nombres de los archivos coincidan con los que subas
+    # 4. CARGA DE LOS 4 MODELOS (A, B, C, D)
+    ai_models = []
+    model_files = [
+        ("clubes_lectura_small_trad_v3.pkl", "clubes_lectura_small_trad_v3.index"),
+        ("clubes_lectura_small_trad.pkl", "clubes_lectura_small_trad.index"),
+        ("clubes_lectura_small_trad_v2.pkl", "clubes_lectura_small_trad_v2.index"),
+        ("clubes_lectura_small_trad_v4.pkl", "clubes_lectura_small_trad_v4.index")
+    ]
+
     try:
-        # Carga Modelo A
-        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v3.pkl"), "rb") as f:
-            meta_a = pickle.load(f)
-        meta_a.rename(columns={meta_a.columns[0]: 'Lote'}, inplace=True)
-        meta_a['Lote'] = meta_a['Lote'].astype(str).str.strip()
-        idx_a = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v3.index"))
+        for pkl_f, idx_f in model_files:
+            # Cargar PKL
+            with open(os.path.join(PATH_RECO, pkl_f), "rb") as f:
+                m = pickle.load(f)
+            m.rename(columns={m.columns[0]: 'Lote'}, inplace=True)
+            m['Lote'] = m['Lote'].astype(str).str.strip()
+            
+            # Cargar INDEX
+            idx = faiss.read_index(os.path.join(PATH_RECO, idx_f))
+            
+            # Guardar en la lista maestra
+            ai_models.append({"meta": m, "index": idx})
 
-        # Carga Modelo B
-        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad.pkl"), "rb") as f:
-            meta_b = pickle.load(f)
-        meta_b.rename(columns={meta_b.columns[0]: 'Lote'}, inplace=True)
-        meta_b['Lote'] = meta_b['Lote'].astype(str).str.strip()
-        idx_b = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad.index"))
-
-        # Carga Modelo C
-        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.pkl"), "rb") as f:
-            meta_c = pickle.load(f)
-        meta_c.rename(columns={meta_c.columns[0]: 'Lote'}, inplace=True)
-        meta_c['Lote'] = meta_c['Lote'].astype(str).str.strip()
-        idx_c = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v2.index"))
-
-        # Carga Modelo D
-        with open(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v4.pkl"), "rb") as f:
-            meta_d = pickle.load(f)
-        meta_d.rename(columns={meta_c.columns[0]: 'Lote'}, inplace=True)
-        meta_d['Lote'] = meta_d['Lote'].astype(str).str.strip()
-        idx_d = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad_v4.index"))
-
-        # El modelo de SentenceTransformer es compartido por ambos (Large)
         model = SentenceTransformer('intfloat/multilingual-e5-small')
-        
+       
     except Exception as e:
-        st.error(f"❌ Error al cargar los archivos de IA (B o C): {e}")
+        st.error(f"❌ Error al cargar los archivos de IA: {e}")
         st.stop()
    
     gc.collect()
-    return df, meta_b, idx_b, meta_c, idx_c, model
+    # DEVOLVEMOS: el df principal, la lista de modelos y el encoder
+    return df, ai_models, model
 
-# Ejecución (Actualizada la recepción de variables)
-df, meta_b, idx_b, meta_c, idx_c, model = load_resources()
+# --- EJECUCIÓN ---
+df, ai_models, model = load_resources()
+
 
 
 
