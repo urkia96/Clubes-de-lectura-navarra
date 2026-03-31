@@ -704,7 +704,7 @@ with tab2:
                     # Mostrar card con una mención al consenso si es alto
                     with st.container():
                         if votos_num >= 3:
-                        mostrar_card(r, contexto_ia)
+                            mostrar_card(r, contexto_ia)
             else:
                 st.warning(t["no_results"])
         else:
