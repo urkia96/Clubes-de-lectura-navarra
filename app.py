@@ -336,7 +336,7 @@ def load_resources():
             meta_c = pickle.load(f)
         meta_c.rename(columns={meta_c.columns[0]: 'Lote'}, inplace=True)
         meta_c['Lote'] = meta_c['Lote'].astype(str).str.strip()
-        idx_c = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad.index))
+        idx_c = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_trad.index"))
 
         # El modelo de SentenceTransformer es compartido por ambos (Large)
         model = SentenceTransformer('intfloat/multilingual-e5-small')
