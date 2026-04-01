@@ -332,7 +332,7 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
    
     # 4. CARGA IA
-    with open(os.path.join(PATH_RECO, "clubes_lectura_small_v23.pkl"), "rb") as f:
+    with open(os.path.join(PATH_RECO, "clubes_lectura__modelo2.pkl"), "rb") as f:
         df_ia_meta = pickle.load(f)
     
     # Aseguramos el nombre 'Lote' en el PKL también
@@ -340,7 +340,7 @@ def load_resources():
         df_ia_meta.rename(columns={df_ia_meta.columns[0]: 'Lote'}, inplace=True)
     df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
    
-    index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_v23.index"))
+    index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura__modelo2.index"))
     model = SentenceTransformer('intfloat/multilingual-e5-small')
    
     gc.collect()
