@@ -325,7 +325,7 @@ def load_resources():
     ai_models = []
     model_files = [
         ("clubes_lectura_modelo1.pkl", "clubes_lectura_modelo1.index"),
-        ("clubes_lectura__modelo2.pkl", "clubes_lectura_modelo2.index"),
+        ("clubes_lectura__modelo2.pkl", "clubes_lectura__modelo2.index"),
         ("clubes_lectura_modelo3.index", "clubes_lectura_modelo3.index"),
         ("clubes_lectura_modelo4.index", "clubes_lectura_modelo4.index")
     ]
