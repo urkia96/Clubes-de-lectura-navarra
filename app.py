@@ -358,6 +358,49 @@ df, df_ia_meta, index, model = load_resources()
 
 
 # --- 3. FUNCIONES AUXILIARES ---
+def guardar_favorito(lote_id, titulo):
+    usuario = st.session_state.get("usuario_actual", "Anónimo")
+    sheet = conectar_sheets()
+    if not sheet: return False
+    
+    try:
+        spreadsheet = sheet.spreadsheet
+        try:
+            ws_favs = spreadsheet.worksheet("favoritos")
+        except:
+            ws_favs = spreadsheet.add_worksheet(title="favoritos", rows="1000", cols="3")
+            ws_favs.append_row(["usuario", "lote", "titulo"])
+
+        # Verificar si ya existe para no duplicar en el Sheets
+        existentes = ws_favs.get_all_records()
+        ya_guardado = any(str(f['usuario']) == str(usuario) and str(f['lote']) == str(lote_id) for f in existentes)
+        
+        if not ya_guardado:
+            ws_favs.append_row([str(usuario), str(lote_id), str(titulo)])
+            st.toast(f"⭐ {titulo} guardado", icon="📚")
+            return True
+        else:
+            st.info("Este libro ya está en tu lista.")
+            return False
+    except Exception as e:
+        st.error(f"Error al guardar favorito: {e}")
+        return False
+
+@st.cache_data(ttl=60) # Cache de 1 minuto para no saturar la API de Google
+def obtener_mis_libros(usuario):
+    sheet = conectar_sheets()
+    if not sheet: return []
+    try:
+        ws_favs = sheet.spreadsheet.worksheet("favoritos")
+        datos = ws_favs.get_all_records()
+        mis_lotes = [str(f['lote']) for f in datos if str(f['usuario']) == str(usuario)]
+        return mis_lotes
+    except:
+        return []
+
+
+
+
 
 def aplicar_busqueda_hibrida(df_input, query, campos_busqueda):
     if not query:
@@ -503,29 +546,28 @@ def mostrar_card(r, context):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
 
 
-        # --- COLUMNA 3: BOTONES DE VOTO ---
+        # --- COLUMNA 3: BOTONES (Votos + Favorito) ---
         with col_vote:
-            # Creamos la misma clave única que usará la función guardar_voto
-            # (usuario + lote + contexto de búsqueda)
             usuario_vota = st.session_state.get("usuario_actual", "Anónimo")
             voto_key = f"voted_{usuario_vota}_{lote_id}_{context}"
             
-            # Verificamos si ya existe el registro de voto en la sesión actual
+            # 1. Pulgares (Votos)
             if st.session_state.get(voto_key):
-                # Si ya votó, mostramos un indicador visual en lugar de botones
                 st.markdown("### ✅")
-                st.caption("Registrado")
             else:
-                # Si no ha votado, mostramos los botones normales
                 if st.button("👍", key=f"up_{lote_id}_{context}"):
                     if guardar_voto(lote_id, r.get('Título'), 1, context):
-                        # Al usar st.rerun(), la página se refresca, detecta el 
-                        # nuevo estado y cambia los botones por el "✅ Registrado"
                         st.rerun()
-
                 if st.button("👎", key=f"down_{lote_id}_{context}"):
                     if guardar_voto(lote_id, r.get('Título'), 0, context):
                         st.rerun()
+
+            # --- ESTO ES LO NUEVO ---
+            st.markdown("---") # Una línea divisoria pequeña
+            
+            # Botón de favorito con forma de estrella
+            if st.button("⭐", key=f"fav_{lote_id}_{context}", help="Guardar en mis favoritos"):
+                guardar_favorito(lote_id, r.get('Título'))
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
