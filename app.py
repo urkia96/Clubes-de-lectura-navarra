@@ -642,11 +642,34 @@ if 'df' in locals() and df is not None:
                 opciones_sub = [str(s) for s in raw_subs if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]]
                 f_ia_sub = st.multiselect(t["f_ia_sub"], sorted(list(set(opciones_sub))))
 
-        st.markdown("---")
-        # 3. Conceptos Clave (Placeholder dinámico)
-        st.write(f"**{t['f_keywords']}**")
-        # Aquí usamos el key para que persista aunque la función se defina después
-        st.multiselect("Filtra por concepto:", [], key="f_kw_seleccionadas", help="Selecciona términos específicos")
+        # --- 3. CONCEPTOS CLAVE (DINÁMICOS Y PEGADOS) ---
+        st.markdown(f"""
+            <div style='margin-top: -10px; margin-bottom: 5px;'>
+                <b>{t['f_keywords']}</b>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Extraemos las palabras reales de la columna de Keywords (Keywords_ES o Keywords_EUS)
+        # Filtramos un poco por los géneros seleccionados para que las keywords sean útiles
+        df_para_kw = df.copy()
+        if f_ia_gen: 
+            df_para_kw = df_para_kw[df_para_kw[c['ia_gen']].isin(f_ia_gen)]
+        
+        # Procesamos la columna de texto para sacar las palabras individuales
+        todas_kw = df_para_kw[c['keywords']].astype(str).str.split(',').explode().str.strip()
+        opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+        
+        # Tomamos las 40 más comunes para no saturar el menú
+        lista_final_kw = sorted(opciones_kw.head(40).index.tolist())
+
+        # El selector ahora sí tiene las opciones cargadas en la variable lista_final_kw
+        st.multiselect(
+            "Filtra por concepto:", 
+            lista_final_kw, 
+            key="f_kw_seleccionadas", 
+            label_visibility="collapsed",
+            help="Términos más frecuentes en este género"
+        )
 
     # C. FILTROS DE DISPONIBILIDAD
     with st.sidebar.expander(t["exp_disp"], expanded=False):
