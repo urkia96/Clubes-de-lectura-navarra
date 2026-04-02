@@ -576,25 +576,35 @@ def mostrar_card(r, context):
             usuario_vota = st.session_state.get("usuario_actual", "Anónimo")
             lotes_en_mis_favs = obtener_mis_libros(usuario_vota) # Lista de IDs guardados
             
-            # 1. Pulgares de voto (mantener igual)
-            # ... (tu código de botones up/down)
-            
+            # 1. SISTEMA DE VOTACIÓN (PULGARES)
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("👍", key=f"up_{lote_id}_{context}", help="Es relevante para esta búsqueda"):
+                    votar(lote_id, "up")
+                    st.toast(f"¡Voto registrado para {lote_id}!", icon="✅")
+            with c2:
+                if st.button("👎", key=f"down_{lote_id}_{context}", help="No es lo que buscaba"):
+                    votar(lote_id, "down")
+                    st.toast("Gracias por tu feedback", icon="👋")
+
             st.markdown("---") 
         
-            # 2. Lógica de la Estrella (Favorito/Eliminar)
+            # 2. LÓGICA DE LA ESTRELLA / FAVORITO
             es_favorito = lote_id in lotes_en_mis_favs
             
             if es_favorito:
-                # Si ya es favorito, mostramos estrella roja (o icono de quitar)
-                if st.button("❤️", key=f"fav_{lote_id}_{context}", help="Quitar de favoritos"):
+                # Si ya es favorito, mostramos corazón rojo para quitar
+                if st.button("❤️", key=f"fav_{lote_id}_{context}", help="Quitar de mi lista"):
                     if eliminar_favorito(lote_id):
-                        st.cache_data.clear() # Limpiamos cache para refrescar la lista
+                        st.cache_data.clear() 
                         st.rerun()
             else:
-                # Si NO es favorito, estrella normal
-                if st.button("⭐", key=f"fav_{lote_id}_{context}", help="Guardar en favoritos"):
-                    if guardar_favorito(lote_id, r.get('Título')):
-                        st.cache_data.clear() # Limpiamos cache
+                # Si NO es favorito, estrella dorada para guardar
+                if st.button("⭐", key=f"fav_{lote_id}_{context}", help="Guardar en mi lista"):
+                    # Usamos .get por seguridad si la columna Título falla
+                    titulo_libro = r.get('Título', 'Sin título')
+                    if guardar_favorito(lote_id, titulo_libro):
+                        st.cache_data.clear() 
                         st.rerun()
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
