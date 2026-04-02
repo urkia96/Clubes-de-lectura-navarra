@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import faiss
@@ -191,6 +192,7 @@ texts = {
         "f_local": "🏠 Autores locales", 
         "f_ia_gen": "📂 Género", 
         "f_ia_sub": "🏷️ Subgénero",
+        "f_keywords": "🔍 Conceptos clave",
         "tab1": "📖 Búsqueda por autor/título", 
         "tab2": "✨ Búsqueda libre", 
         "tab3": "🔍 Lotes similares", 
@@ -206,12 +208,14 @@ texts = {
         "ask": "¿Te gusta esta recomendación?",
         "boton_txt": "¡Sorpréndeme!", 
         "no_results": "Sin resultados con esos filtros.",
+        "excluir_subs": ["Teatro", "Poesía", "Infantil", "Juvenil"],
         "cols": {
             "idioma": "Idioma",
             "publico": "Público",
             "genero_aut": "genero_fix",
             "ia_gen": "Genero_Principal_IA",
-            "ia_sub": "Subgeneros_Limpios_IA"
+            "ia_sub": "Subgenero_ES",
+            "keywords": "Keywords_ES"
         }
     },
     "Euskera": {
@@ -231,6 +235,7 @@ texts = {
         "f_local": "🏠 Bertako autoreak", 
         "f_ia_gen": "📂 Generoa", 
         "f_ia_sub": "🏷️ Azpigeneroa",
+        "f_keywords": "🔍 Kontzeptu nagusiak",
         "tab1": "📖 Izenburu / Idazle bilaketa", 
         "tab2": "✨ Bilaketa librea", 
         "tab3": "🔍 Lote antzekoak", 
@@ -246,12 +251,14 @@ texts = {
         "ask": "Gogoko duzu?",
         "boton_txt": "Harritu nazazu!", 
         "no_results": "Ez da emaitzarik aurkitu iragazki hauekin.",
+        "excluir_subs": ["Antzerkia", "Olerkiak", "Haur literatura", "Gazte literatura"],
         "cols": {
             "idioma": "Idioma_eus",
             "publico": "Público_eus",
             "genero_aut": "genero_fix_eus",
             "ia_gen": "Genero_Principal_IA_eus",
-            "ia_sub": "Subgeneros_Limpios_IA_eus"
+            "ia_sub": "Azpigeneroa_EUS",
+            "keywords": "Keywords_EUS"
         }
     }
 }
@@ -262,7 +269,7 @@ c = t["cols"]
 
 @st.cache_resource
 def load_resources():
-    excel_path = os.path.join(PATH_RECO, "metadatos_entidades_OA.xlsx")
+    excel_path = os.path.join(PATH_RECO, "Etiquetas_Normalizadas_Final.xlsx")
     disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo.xlsx")
 
     if not os.path.exists(excel_path):
@@ -318,7 +325,8 @@ def load_resources():
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus',
         'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
         'Genero_Principal_IA', 'Genero_Principal_IA_eus',
-        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
+        'Subgenero_ES', 'Azpigeneroa_EUS',
+        'Keywords_ES', 'Keywords_EUS'
     ]
    
     for col in cols_check:
@@ -332,7 +340,7 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
    
     # 4. CARGA IA
-    with open(os.path.join(PATH_RECO, "clubes_lectura__modelo2.pkl"), "rb") as f:
+    with open(os.path.join(PATH_RECO, "clubes_lectura_small_modelo1_keywords.pkl"), "rb") as f:
         df_ia_meta = pickle.load(f)
     
     # Aseguramos el nombre 'Lote' en el PKL también
@@ -340,7 +348,7 @@ def load_resources():
         df_ia_meta.rename(columns={df_ia_meta.columns[0]: 'Lote'}, inplace=True)
     df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
    
-    index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura__modelo2.index"))
+    index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_modelo1_keywords.index"))
     model = SentenceTransformer('intfloat/multilingual-e5-small')
    
     gc.collect()
@@ -451,6 +459,11 @@ def mostrar_card(r, context):
             if pd.notnull(subgeneros_ia) and subgeneros_ia != "Desconocido":
                 st.write(f"**{genero_ia}**: {subgeneros_ia}")
 
+            # ---SECCIÓN DE KEYWORDS ---
+            keywords_val = r.get(c['keywords'])
+            if pd.notnull(keywords_val) and keywords_val != "Desconocido":
+                st.write(f"**Keywords:** {keywords_val}")
+
             # Resumen con expander
             with st.expander(t["resumen_btn"], expanded=False):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
@@ -490,53 +503,37 @@ if st.sidebar.button("🚪 Cerrar Sesión"):
 
 st.sidebar.markdown("---")
 
-# --- VERIFICACIÓN DE SEGURIDAD PARA RENDERIZAR FILTROS ---
+# --- VERIFICACIÓN DE SEGURIDAD ---
 if 'df' in locals() and df is not None:
+
+    # ==========================================
+    # 1º RENDERIZAMOS LOS FILTROS (Para crear las variables)
+    # ==========================================
+
     # 5.1 FILTROS GENERALES
     with st.sidebar.expander(t["exp_gral"], expanded=False):
-        # Idioma
         f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()))
-        # Público
         f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()))
-        # Género Autor
         f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()))
-        # Editorial
         opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
         f_editorial = st.multiselect(t["f_editorial"], opciones_ed)
-        
         f_local = st.checkbox(t["f_local"])
         f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
-    # 5.2 FILTROS DE CONTENIDO (IA)
-    with st.sidebar.expander(t["exp_cont"], expanded=False):
-        opciones_ia_gen = sorted([g for g in df[c['ia_gen']].dropna().unique() if g != "Desconocido"])
-        f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
-        
-        f_ia_sub = []
-        if f_ia_gen:
-            subs = set()
-            df[df[c['ia_gen']].isin(f_ia_gen)][c['ia_sub']].str.split(',').dropna().apply(
-                lambda x: subs.update([s.strip() for s in x])
-            )
-            f_ia_sub = st.multiselect(t["f_ia_sub"], sorted([s for s in list(subs) if s != "Desconocido"]))
-
-    # 5.3 FILTROS DE DISPONIBILIDAD (ACTUALIZADO Y TRADUCIDO)
+    # 5.3 FILTROS DE DISPONIBILIDAD (Lo subimos para que f_rango exista ya)
     with st.sidebar.expander(t["exp_disp"], expanded=False):
-        # Mensaje informativo con la fecha manual
         st.info(t["f_actualizacion"])
-        
-        # Selector de rango de fechas
         label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
         f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
-       
-        # Checkbox con traducción desde el diccionario
         f_solo_disponibles = st.checkbox(t["f_solo_disp"])
 
-    # --- FUNCIÓN FILTRAR ---
+    # ==========================================
+    # 2º DEFINIMOS LA FUNCIÓN FILTRAR
+    # ==========================================
     def filtrar(dataframe):
         temp = dataframe.copy()
         
-        # 1. Filtros básicos
+        # Filtros básicos
         if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
         if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
         if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
@@ -544,9 +541,8 @@ if 'df' in locals() and df is not None:
         if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
         if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
         
-        # 2. Filtro de Disponibilidad (Checkbox o Rango)
+        # Filtro de Disponibilidad
         if len(f_rango) == 2:
-            # Usamos la función de apoyo que pusimos arriba
             mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
             temp = temp[mask]
         elif f_solo_disponibles:
@@ -556,18 +552,76 @@ if 'df' in locals() and df is not None:
                 (temp['Fechas_Reservadas'].astype(str).str.lower() == "nan")
             ]
         
-        # 3. Filtros de IA
+        # Filtros de IA
         if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
         if f_ia_sub: 
             temp = temp[temp[c['ia_sub']].apply(
                 lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False
             )]
-            
+
+        # Filtro de Keywords (Seguridad con session_state)
+        if "f_kw_seleccionadas" in st.session_state and st.session_state.f_kw_seleccionadas:
+            temp = temp[temp[c['keywords']].apply(
+                lambda x: any(kw in str(x) for kw in st.session_state.f_kw_seleccionadas) if pd.notnull(x) else False
+            )]
         return temp
+
+    # ==========================================
+    # 3º FILTROS DE CONTENIDO (Incluye Conceptos Clave)
+    # ==========================================
+    with st.sidebar.expander(t["exp_cont"], expanded=False):
+        # A. Género
+        opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
+        f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
+        
+        # B. Subgénero
+        f_ia_sub = []
+        if f_ia_gen:
+            generos_prohibidos = t.get("excluir_subs", [])
+            if not any(g in generos_prohibidos for g in f_ia_gen):
+                df_temp_sub = df[df[c['ia_gen']].isin(f_ia_gen)]
+                raw_subs = df_temp_sub[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
+                opciones_sub = [str(s) for s in raw_subs if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]]
+                opciones_sub = sorted(list(set(opciones_sub)))
+                if opciones_sub:
+                    f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
+
+        st.markdown("---")
+        
+        # C. Conceptos Clave (Dinámicos)
+        st.write(f"**{t['f_keywords']}**")
+        df_contexto = filtrar(df) # Ahora ya existe f_rango, no dará error
+        
+        if not df_contexto.empty:
+            todas_kw = df_contexto[c['keywords']].astype(str).str.split(',').explode().str.strip()
+            conteo_kw = todas_kw.value_counts()
+            conteo_kw = conteo_kw.drop(["Desconocido", "nan", "None", ""], errors='ignore')
+            top_25_kw = conteo_kw.head(25).index.tolist()
+            
+            if top_25_kw:
+                st.multiselect(
+                    "Filtra por concepto:",
+                    sorted(top_25_kw),
+                    key="f_kw_seleccionadas", # Guardamos en session_state para la función filtrar
+                    help="Palabras más frecuentes según tus filtros actuales"
+                )
+            else:
+                st.caption("No hay suficientes conceptos.")
+        else:
+            st.caption("Aplica filtros para ver conceptos clave.")
 
 else:
     st.sidebar.warning("Esperando a la base de datos...")
     st.stop()
+  
+    # 5.3 FILTROS DE DISPONIBILIDAD
+    with st.sidebar.expander(t["exp_disp"], expanded=False):
+        st.info(t["f_actualizacion"])
+        label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
+        f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
+        f_solo_disponibles = st.checkbox(t["f_solo_disp"])
+
+    
     
 # --- 6. INTERFAZ ---
 col_logo, col_tit = st.columns([1,6])
