@@ -518,22 +518,35 @@ if 'df' in locals() and df is not None:
         f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
     # 5.2 FILTROS DE CONTENIDO
+    # 5.2 FILTROS DE CONTENIDO
     with st.sidebar.expander(t["exp_cont"], expanded=False):
-        opciones_ia_gen = sorted([g for g in df[c['ia_gen']].dropna().unique() if g != "Desconocido"])
+        opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
         f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
         
         f_ia_sub = []
         
         if f_ia_gen:
-            # Comprobamos si alguno de los géneros seleccionados está en la lista de exclusión del idioma actual
-            generos_prohibidos = t["excluir_subs"]
+            # Lista de exclusión del diccionario según idioma
+            generos_prohibidos = t.get("excluir_subs", [])
             
-            # Si el usuario NO ha seleccionado ninguno de los géneros prohibidos, mostramos subgéneros
+            # Solo mostramos subgéneros si NO se ha seleccionado ningún género prohibido
             if not any(g in generos_prohibidos for g in f_ia_gen):
                 df_temp = df[df[c['ia_gen']].isin(f_ia_gen)]
                 
-                lista_subs = df_temp[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
-                opciones_sub = sorted([s for s in lista_subs if s not in ["Desconocido", "nan", "None", ""]])
+                # --- OPERACIÓN SEGURA PARA SUBGÉNEROS ---
+                # 1. Convertimos a string y separamos por comas
+                # 2. .explode() separa las listas en filas individuales
+                # 3. .str.strip() quita espacios
+                raw_subs = df_temp[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
+                
+                # 4. Limpieza final: filtramos basura y aseguramos que TODO sea string antes de sorted
+                opciones_sub = [
+                    str(s) for s in raw_subs 
+                    if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]
+                ]
+                
+                # 5. Ordenamos (ahora ya no fallará porque todos son strings)
+                opciones_sub = sorted(list(set(opciones_sub)))
                 
                 if opciones_sub:
                     f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
