@@ -554,34 +554,34 @@ if 'df' in locals() and df is not None:
         f_local = st.checkbox(t["f_local"])
         f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
-    # 5.2 FILTROS DE CONTENIDO (Géneros e IA)
+    # 5.2 FILTROS DE CONTENIDO (Géneros, Subgéneros y Keywords integrados)
     with st.sidebar.expander(t["exp_cont"], expanded=False):
+        # --- A. GÉNERO IA ---
         opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
         f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
+        
         f_ia_sub = []
+        # --- B. SUBGÉNERO IA (Dinámico) ---
         if f_ia_gen:
             generos_prohibidos = t.get("excluir_subs", [])
             if not any(g in generos_prohibidos for g in f_ia_gen):
-                df_temp = df[df[c['ia_gen']].isin(f_ia_gen)]
-                raw_subs = df_temp[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
+                df_temp_sub = df[df[c['ia_gen']].isin(f_ia_gen)]
+                raw_subs = df_temp_sub[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
                 opciones_sub = [str(s) for s in raw_subs if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]]
                 opciones_sub = sorted(list(set(opciones_sub)))
                 if opciones_sub:
                     f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
 
-    # 5.3 FILTROS DE DISPONIBILIDAD
-    with st.sidebar.expander(t["exp_disp"], expanded=False):
-        st.info(t["f_actualizacion"])
-        label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
-        f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
-        f_solo_disponibles = st.checkbox(t["f_solo_disp"])
-
-    # 5.4 FILTRO DINÁMICO DE KEYWORDS (TOP 25)
-    f_kw_seleccionadas = []
-    with st.sidebar.expander(t["f_keywords"], expanded=False):
-        # Aquí ya podemos llamar a filtrar(df) porque la definimos arriba
+        st.markdown("---") # Separador visual dentro del expander
+        
+        # --- C. CONCEPTOS CLAVE (Dinámicos según lo elegido arriba) ---
+        st.write(f"**{t['f_keywords']}**") # Título pequeño
+        
+        # Calculamos el contexto actual para las keywords
+        # Usamos los filtros que el usuario ya haya marcado
         df_contexto = filtrar(df) 
         
+        f_kw_seleccionadas = []
         if not df_contexto.empty:
             todas_kw = df_contexto[c['keywords']].astype(str).str.split(',').explode().str.strip()
             conteo_kw = todas_kw.value_counts()
@@ -590,18 +590,23 @@ if 'df' in locals() and df is not None:
             
             if top_25_kw:
                 f_kw_seleccionadas = st.multiselect(
-                    t["f_keywords"], 
+                    "Selecciona conceptos clave:", # Label interno
                     sorted(top_25_kw),
+                    key="multiselect_keywords",
                     help="Palabras más frecuentes según tus filtros actuales"
                 )
             else:
-                st.caption("No hay palabras clave suficientes.")
+                st.caption("No hay suficientes conceptos para estos filtros.")
         else:
             st.caption("Aplica filtros para ver conceptos clave.")
+    # 5.3 FILTROS DE DISPONIBILIDAD
+    with st.sidebar.expander(t["exp_disp"], expanded=False):
+        st.info(t["f_actualizacion"])
+        label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
+        f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
+        f_solo_disponibles = st.checkbox(t["f_solo_disp"])
 
-else:
-    st.sidebar.warning("Esperando a la base de datos...")
-    st.stop()
+    
     
 # --- 6. INTERFAZ ---
 col_logo, col_tit = st.columns([1,6])
