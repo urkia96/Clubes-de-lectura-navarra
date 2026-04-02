@@ -182,6 +182,7 @@ texts = {
         "exp_gral": "⚙️ Filtros generales", 
         "exp_cont": "📖 Filtros de contenido",
         "exp_disp": "📅 Disponibilidad", # <--- NUEVA
+        "mis_favs_tit": "📚 Mis Libros Guardados",
         "f_actualizacion": "Última actualización: 25/03/2026", # <--- NUEVA
         "f_solo_disp": "Solo disponibles ahora", # <--- NUEV
         "f_idioma": "🌍 Idioma", 
@@ -225,6 +226,7 @@ texts = {
         "exp_gral": "⚙️ Iragazki orokorrak", 
         "exp_cont": "📖 Edukiaren iragazkiak",
         "exp_disp": "📅 Erabilgarritasuna", # <--- NUEVA
+        "mis_favs_tit": "📚 Gordetako Liburuak",
         "f_actualizacion": "Azken eguneratzea: 2026/03/25", # <--- NUEVA
         "f_solo_disp": "Libre daudenak bakarrik", # <--- NUEVA
         "f_idioma": "🌍 Hizkuntza", 
@@ -570,7 +572,12 @@ def mostrar_card(r, context):
                 guardar_favorito(lote_id, r.get('Título'))
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
+
+#Botón favoritos
 st.sidebar.title(t["sidebar_tit"])
+if st.sidebar.button("⭐ Mis Favoritos", use_container_width=True):
+    st.session_state.ver_favoritos = True
+    st.rerun()
 
 # Botón de Cerrar Sesión
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -700,29 +707,50 @@ else:
     
     
 # --- 6. INTERFAZ ---
+
+# Definimos 't' primero para que todas las etiquetas funcionen
+t = texts[st.session_state.idioma]
+
 col_logo, col_tit = st.columns([1,6])
 with col_logo:
-    if os.path.exists(URL_LOGO): st.image(URL_LOGO, width=150)
+    if os.path.exists(URL_LOGO): 
+        st.image(URL_LOGO, width=150)
 with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-# Favoritos
+# --- SECCIÓN DE FAVORITOS ---
 if st.session_state.get("ver_favoritos"):
-    if st.button("⬅️ Volver al buscador" if st.session_state.idioma == "Castellano" else "⬅️ Itzuli bilatzailera"):
+    # Botón para volver
+    texto_volver = "⬅️ Volver al buscador" if st.session_state.idioma == "Castellano" else "⬅️ Itzuli bilatzailera"
+    if st.button(texto_volver):
         st.session_state.ver_favoritos = False
         st.rerun()
         
-    st.header(titulo_mis_libros)
-    usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-    lotes_favoritos = obtener_mis_libros(usuario_act)
-    df_favs_display = df[df['Lote'].isin(lotes_favoritos)].drop_duplicates(subset=['Lote'])
+    # AQUÍ ESTÁ LA CLAVE: 
+    # Llamamos directamente a la clave del diccionario que añadiste antes
+    st.header(t["mis_favs_tit"])
     
-    for _, r in df_favs_display.iterrows():
-        mostrar_card(r, "MIS_FAVS")
+    usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+    
+    with st.spinner("Cargando favoritos..." if st.session_state.idioma == "Castellano" else "Gogokoenak kargatzen..."):
+        lotes_favoritos = obtener_mis_libros(usuario_act)
+        
+    if lotes_favoritos:
+        # Filtrar el dataframe para mostrar solo los guardados
+        df_favs_display = df[df['Lote'].isin(lotes_favoritos)].drop_duplicates(subset=['Lote'])
+        
+        for _, r in df_favs_display.iterrows():
+            mostrar_card(r, "MIS_FAVS")
+    else:
+        # Mensaje por si la lista está vacía
+        mensaje_vacio = "No tienes libros guardados." if st.session_state.idioma == "Castellano" else "Ez duzu libururik gorde."
+        st.info(mensaje_vacio)
+
     st.stop() # Detenemos la ejecución para que no se vean los tabs debajo
 
 
+# --- BUSCADOR NORMAL (TABS) ---
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
 
