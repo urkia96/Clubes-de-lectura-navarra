@@ -12,6 +12,7 @@ import json
 import gc
 import numpy as np
 import hashlib
+import re
 
 
 # --- 0. CONFIGURACIÓN DE PÁGINA ---
@@ -358,6 +359,40 @@ df, df_ia_meta, index, model = load_resources()
 
 # --- 3. FUNCIONES AUXILIARES ---
 
+def aplicar_busqueda_hibrida(df_input, query, campos_busqueda):
+    if not query:
+        return df_input, query
+
+    # Detectar operadores: "frase exacta" o -exclusion
+    tiene_exacta = bool(re.findall(r'"([^"]*)"', query))
+    tiene_exclusion = bool(re.findall(r'-(\S+)', query))
+
+    df_resultado = df_input.copy()
+
+    if tiene_exacta or tiene_exclusion:
+        # --- LÓGICA BOOLEANA ---
+        # 1. Frases exactas: "historia de navarra"
+        frases = re.findall(r'"([^"]*)"', query)
+        for f in frases:
+            f_norm = normalizar_texto(f)
+            # Buscamos en los campos combinados (Título, Autor, Resumen, Keywords)
+            mask = df_resultado.apply(lambda r: any(f_norm in normalizar_texto(str(r[col])) for col in campos_busqueda), axis=1)
+            df_resultado = df_resultado[mask]
+
+        # 2. Exclusiones: -reyes
+        exclusiones = re.findall(r'-(\S+)', query)
+        for e in exclusiones:
+            e_norm = normalizar_texto(e)
+            mask = df_resultado.apply(lambda r: any(e_norm in normalizar_texto(str(r[col])) for col in campos_busqueda), axis=1)
+            df_resultado = df_resultado[~mask] # Invertimos la máscara para excluir
+
+        # Limpiamos la query para el Transformer (quitamos los operadores)
+        query_para_ia = re.sub(r'"[^"]*"|-\S+', '', query).strip()
+        return df_resultado, query_para_ia
+    
+    return df_resultado, query
+
+
 def guardar_voto(lote, titulo, valor, query):
     usuario = st.session_state.get("usuario_actual", "Anónimo")
     # Creamos una clave única para este voto en esta sesión
@@ -666,44 +701,45 @@ with tab1:
         else:
             st.warning(t["no_results"])
 
-# --- TAB2: Búsqueda libre con FAISS ---
+# --- TAB2: Búsqueda libre HÍBRIDA ---
 with tab2:
-    q = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_80")
-    if q:
-        # 1. Codificación y búsqueda
-        vec = model.encode([f"query: {q}"], normalize_embeddings=True).astype('float32')
-        D, I = index.search(vec, 50)
-        indices_validos = I[0][D[0] >= 0.80]
+    q_original = st.text_input(t["input_query"], placeholder=t["placeholder"], key="txt_libre_80")
+    
+    if q_original:
+        # 1. Filtros base de la barra lateral
+        df_base = filtrar(df)
         
-        if len(indices_validos) > 0:
-            # 2. Obtener lotes únicos manteniendo el orden de relevancia
-            lotes_ia_sucios = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
-            lotes_ia = []
-            for x in lotes_ia_sucios:
-                if x not in lotes_ia and x != "nan":
-                    lotes_ia.append(x)
+        # 2. Aplicar lógica de Booleanos (Comillas y Menos)
+        # Definimos en qué columnas buscar el texto literal
+        columnas_texto = ['Título', 'Autor', 'Resumen_navarra', c['keywords']]
+        df_filtrado_bool, q_limpia = aplicar_busqueda_hibrida(df_base, q_original, columnas_texto)
+
+        # 3. Búsqueda Semántica (IA) 
+        # Solo si queda texto libre o si no había booleanos
+        if q_limpia:
+            vec = model.encode([f"query: {q_limpia}"], normalize_embeddings=True).astype('float32')
+            D, I = index.search(vec, 50)
+            indices_validos = I[0][D[0] >= 0.75] # Bajamos un pelín el umbral para ser más flexibles
             
-            # 3. Aplicar filtros de la barra lateral
-            df_base = filtrar(df)
+            lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
+            # Mantenemos solo los que pasaron el filtro booleano
+            res_final = df_filtrado_bool[df_filtrado_bool['Lote'].isin(lotes_ia)].copy()
             
-            # 4. Filtrar y limpiar duplicados en el DataFrame resultante
-            res_final = df_base[df_base['Lote'].isin(lotes_ia)].copy()
-            res_final = res_final.drop_duplicates(subset=['Lote'])
-            
-            # 5. Reordenar según la relevancia de la IA (Solo con lotes que pasaron el filtro)
+            # Reordenar por relevancia de la IA
             lotes_que_existen = [l for l in lotes_ia if l in res_final['Lote'].values]
-            
-            if not res_final.empty:
-                res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
-                res_final = res_final.sort_values('Lote').dropna(subset=['Título']).head(10)
-                
-                # 6. ID de contexto seguro para los botones de voto
-                contexto_ia = f"IA_{hash(q) % 10000}"
-                
-                for _, r in res_final.iterrows():
-                     mostrar_card(r, contexto_ia)
-            else:
-                st.warning(t["no_results"])
+            res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
+            res_final = res_final.sort_values('Lote')
+        else:
+            # Si solo usó booleanos (ej: -reyes), mostramos el resultado del filtro directo
+            res_final = df_filtrado_bool
+
+        # 4. Renderizar resultados
+        res_final = res_final.drop_duplicates(subset=['Lote']).head(15)
+        
+        if not res_final.empty:
+            contexto_hibrido = f"HIBRID_{hash(q_original) % 10000}"
+            for _, r in res_final.iterrows():
+                mostrar_card(r, contexto_hibrido)
         else:
             st.warning(t["no_results"])
 
