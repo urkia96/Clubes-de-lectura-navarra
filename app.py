@@ -271,7 +271,7 @@ c = t["cols"]
 
 @st.cache_resource
 def load_resources():
-    excel_path = os.path.join(PATH_RECO, "Etiquetas_Normalizadas_Final.xlsx")
+    excel_path = os.path.join(PATH_RECO, "Etiquetas_Normalizadas_Final (1).xlsx")
     disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo.xlsx")
 
     if not os.path.exists(excel_path):
