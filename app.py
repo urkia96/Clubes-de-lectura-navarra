@@ -600,31 +600,23 @@ def mostrar_card(r, context):
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
 
-# 1. Botón de Cerrar Sesión (Ahora arriba)
-# Usamos una lógica simple para el texto bilingüe
+# 1. BOTONES DE ACCIÓN RÁPIDA
 texto_salir = "Cerrar Sesión" if st.session_state.idioma == "Castellano" else "Saioa itxi"
 if st.sidebar.button(f"🚪 {texto_salir}", use_container_width=True):
     st.session_state.auth = False
-    st.session_state.ver_favoritos = False  # Resetear para que no entre directo al volver a loguear
+    st.session_state.ver_favoritos = False
     st.rerun()
 
-# 2. Botón de Favoritos (Debajo de Cerrar Sesión)
-# Usamos la clave que definimos en el diccionario 't'
 if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
     st.session_state.ver_favoritos = True
     st.rerun()
 
 st.sidebar.markdown("---")
 
-# --- VERIFICACIÓN DE SEGURIDAD ---
 if 'df' in locals() and df is not None:
-    # Aquí continúan tus filtros (General, Contenido, Disponibilidad...)
+    # --- ORDEN VISUAL SOLICITADO ---
 
-    # ==========================================
-    # 1º RENDERIZAMOS LOS FILTROS (Para crear las variables)
-    # ==========================================
-
-    # 5.1 FILTROS GENERALES
+    # A. FILTROS GENERALES
     with st.sidebar.expander(t["exp_gral"], expanded=False):
         f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()))
         f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()))
@@ -634,61 +626,13 @@ if 'df' in locals() and df is not None:
         f_local = st.checkbox(t["f_local"])
         f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
-    # 5.3 FILTROS DE DISPONIBILIDAD (Lo subimos para que f_rango exista ya)
-    with st.sidebar.expander(t["exp_disp"], expanded=False):
-        st.info(t["f_actualizacion"])
-        label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
-        f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
-        f_solo_disponibles = st.checkbox(t["f_solo_disp"])
-
-    # ==========================================
-    # 2º DEFINIMOS LA FUNCIÓN FILTRAR
-    # ==========================================
-    def filtrar(dataframe):
-        temp = dataframe.copy()
-        
-        # Filtros básicos
-        if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
-        if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
-        if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
-        if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
-        if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
-        if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
-        
-        # Filtro de Disponibilidad
-        if len(f_rango) == 2:
-            mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
-            temp = temp[mask]
-        elif f_solo_disponibles:
-            temp = temp[
-                (temp['Fechas_Reservadas'].isna()) |
-                (temp['Fechas_Reservadas'].astype(str).str.strip() == "") |
-                (temp['Fechas_Reservadas'].astype(str).str.lower() == "nan")
-            ]
-        
-        # Filtros de IA
-        if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
-        if f_ia_sub: 
-            temp = temp[temp[c['ia_sub']].apply(
-                lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False
-            )]
-
-        # Filtro de Keywords (Seguridad con session_state)
-        if "f_kw_seleccionadas" in st.session_state and st.session_state.f_kw_seleccionadas:
-            temp = temp[temp[c['keywords']].apply(
-                lambda x: any(kw in str(x) for kw in st.session_state.f_kw_seleccionadas) if pd.notnull(x) else False
-            )]
-        return temp
-
-    # ==========================================
-    # 3º FILTROS DE CONTENIDO (Incluye Conceptos Clave)
-    # ==========================================
+    # B. FILTROS DE CONTENIDO
     with st.sidebar.expander(t["exp_cont"], expanded=False):
-        # A. Género
+        # 1. Género
         opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
         f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
         
-        # B. Subgénero
+        # 2. Subgénero
         f_ia_sub = []
         if f_ia_gen:
             generos_prohibidos = t.get("excluir_subs", [])
@@ -696,45 +640,55 @@ if 'df' in locals() and df is not None:
                 df_temp_sub = df[df[c['ia_gen']].isin(f_ia_gen)]
                 raw_subs = df_temp_sub[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
                 opciones_sub = [str(s) for s in raw_subs if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]]
-                opciones_sub = sorted(list(set(opciones_sub)))
-                if opciones_sub:
-                    f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
+                f_ia_sub = st.multiselect(t["f_ia_sub"], sorted(list(set(opciones_sub))))
 
         st.markdown("---")
-        
-        # C. Conceptos Clave (Dinámicos)
+        # 3. Conceptos Clave (Placeholder dinámico)
         st.write(f"**{t['f_keywords']}**")
-        df_contexto = filtrar(df) # Ahora ya existe f_rango, no dará error
-        
-        if not df_contexto.empty:
-            todas_kw = df_contexto[c['keywords']].astype(str).str.split(',').explode().str.strip()
-            conteo_kw = todas_kw.value_counts()
-            conteo_kw = conteo_kw.drop(["Desconocido", "nan", "None", ""], errors='ignore')
-            top_25_kw = conteo_kw.head(25).index.tolist()
-            
-            if top_25_kw:
-                st.multiselect(
-                    "Filtra por concepto:",
-                    sorted(top_25_kw),
-                    key="f_kw_seleccionadas", # Guardamos en session_state para la función filtrar
-                    help="Palabras más frecuentes según tus filtros actuales"
-                )
-            else:
-                st.caption("No hay suficientes conceptos.")
-        else:
-            st.caption("Aplica filtros para ver conceptos clave.")
+        # Aquí usamos el key para que persista aunque la función se defina después
+        st.multiselect("Filtra por concepto:", [], key="f_kw_seleccionadas", help="Selecciona términos específicos")
 
-else:
-    st.sidebar.warning("Esperando a la base de datos...")
-    st.stop()
-  
-    # 5.3 FILTROS DE DISPONIBILIDAD
+    # C. FILTROS DE DISPONIBILIDAD
     with st.sidebar.expander(t["exp_disp"], expanded=False):
         st.info(t["f_actualizacion"])
         label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
         f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
         f_solo_disponibles = st.checkbox(t["f_solo_disp"])
 
+    # --- LÓGICA DE FILTRADO (Definida después de los widgets) ---
+    def filtrar(dataframe):
+        temp = dataframe.copy()
+        
+        # Filtros Generales
+        if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
+        if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
+        if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
+        if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
+        if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
+        if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
+        
+        # Filtros Contenido
+        if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
+        if f_ia_sub: 
+            temp = temp[temp[c['ia_sub']].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
+        
+        # Filtros Disponibilidad
+        if len(f_rango) == 2:
+            mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
+            temp = temp[mask]
+        elif f_solo_disponibles:
+            temp = temp[(temp['Fechas_Reservadas'].isna()) | (temp['Fechas_Reservadas'].astype(str).str.strip() == "")]
+
+        # Keywords (vía session_state)
+        kw_sel = st.session_state.get("f_kw_seleccionadas")
+        if kw_sel:
+            temp = temp[temp[c['keywords']].apply(lambda x: any(kw in str(x) for kw in kw_sel) if pd.notnull(x) else False)]
+            
+        return temp
+
+else:
+    st.sidebar.warning("Esperando a la base de datos...")
+    st.stop()
     
     
 # --- 6. INTERFAZ ---
