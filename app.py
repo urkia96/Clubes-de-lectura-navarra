@@ -572,22 +572,27 @@ def mostrar_card(r, context):
                 guardar_favorito(lote_id, r.get('Título'))
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
-
-#Botón favoritos
 st.sidebar.title(t["sidebar_tit"])
-if st.sidebar.button("⭐ Mis Favoritos", use_container_width=True):
-    st.session_state.ver_favoritos = True
+
+# 1. Botón de Cerrar Sesión (Ahora arriba)
+# Usamos una lógica simple para el texto bilingüe
+texto_salir = "Cerrar Sesión" if st.session_state.idioma == "Castellano" else "Saioa itxi"
+if st.sidebar.button(f"🚪 {texto_salir}", use_container_width=True):
+    st.session_state.auth = False
+    st.session_state.ver_favoritos = False  # Resetear para que no entre directo al volver a loguear
     st.rerun()
 
-# Botón de Cerrar Sesión
-if st.sidebar.button("🚪 Cerrar Sesión"):
-    st.session_state.auth = False
+# 2. Botón de Favoritos (Debajo de Cerrar Sesión)
+# Usamos la clave que definimos en el diccionario 't'
+if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
+    st.session_state.ver_favoritos = True
     st.rerun()
 
 st.sidebar.markdown("---")
 
 # --- VERIFICACIÓN DE SEGURIDAD ---
 if 'df' in locals() and df is not None:
+    # Aquí continúan tus filtros (General, Contenido, Disponibilidad...)
 
     # ==========================================
     # 1º RENDERIZAMOS LOS FILTROS (Para crear las variables)
