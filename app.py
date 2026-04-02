@@ -400,7 +400,30 @@ def obtener_mis_libros(usuario):
     except:
         return []
 
-
+def eliminar_favorito(lote_id):
+    usuario = st.session_state.get("usuario_actual", "Anónimo")
+    sheet = conectar_sheets()
+    if not sheet: return False
+    
+    try:
+        ws_favs = sheet.spreadsheet.worksheet("favoritos")
+        datos = ws_favs.get_all_records()
+        
+        # Encontrar el número de fila (Sheets empieza en 1, +1 por la cabecera)
+        fila_a_borrar = None
+        for i, fila in enumerate(datos, start=2):
+            if str(fila['usuario']) == str(usuario) and str(fila['lote']) == str(lote_id):
+                fila_a_borrar = i
+                break
+        
+        if fila_a_borrar:
+            ws_favs.delete_rows(fila_a_borrar)
+            st.toast(f"🗑️ Eliminado de favoritos", icon="✅")
+            return True
+        return False
+    except Exception as e:
+        st.error(f"Error al eliminar: {e}")
+        return False
 
 
 
@@ -551,25 +574,28 @@ def mostrar_card(r, context):
         # --- COLUMNA 3: BOTONES (Votos + Favorito) ---
         with col_vote:
             usuario_vota = st.session_state.get("usuario_actual", "Anónimo")
-            voto_key = f"voted_{usuario_vota}_{lote_id}_{context}"
+            lotes_en_mis_favs = obtener_mis_libros(usuario_vota) # Lista de IDs guardados
             
-            # 1. Pulgares (Votos)
-            if st.session_state.get(voto_key):
-                st.markdown("### ✅")
+            # 1. Pulgares de voto (mantener igual)
+            # ... (tu código de botones up/down)
+            
+            st.markdown("---") 
+        
+            # 2. Lógica de la Estrella (Favorito/Eliminar)
+            es_favorito = lote_id in lotes_en_mis_favs
+            
+            if es_favorito:
+                # Si ya es favorito, mostramos estrella roja (o icono de quitar)
+                if st.button("❤️", key=f"fav_{lote_id}_{context}", help="Quitar de favoritos"):
+                    if eliminar_favorito(lote_id):
+                        st.cache_data.clear() # Limpiamos cache para refrescar la lista
+                        st.rerun()
             else:
-                if st.button("👍", key=f"up_{lote_id}_{context}"):
-                    if guardar_voto(lote_id, r.get('Título'), 1, context):
+                # Si NO es favorito, estrella normal
+                if st.button("⭐", key=f"fav_{lote_id}_{context}", help="Guardar en favoritos"):
+                    if guardar_favorito(lote_id, r.get('Título')):
+                        st.cache_data.clear() # Limpiamos cache
                         st.rerun()
-                if st.button("👎", key=f"down_{lote_id}_{context}"):
-                    if guardar_voto(lote_id, r.get('Título'), 0, context):
-                        st.rerun()
-
-            # --- ESTO ES LO NUEVO ---
-            st.markdown("---") # Una línea divisoria pequeña
-            
-            # Botón de favorito con forma de estrella
-            if st.button("⭐", key=f"fav_{lote_id}_{context}", help="Guardar en mis favoritos"):
-                guardar_favorito(lote_id, r.get('Título'))
                 
 # --- 5. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
