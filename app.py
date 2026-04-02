@@ -504,97 +504,8 @@ st.sidebar.markdown("---")
 
 # --- VERIFICACIÓN DE SEGURIDAD PARA RENDERIZAR FILTROS ---
 if 'df' in locals() and df is not None:
-    # 5.1 FILTROS GENERALES
-    with st.sidebar.expander(t["exp_gral"], expanded=False):
-        # Idioma
-        f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()))
-        # Público
-        f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()))
-        # Género Autor
-        f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()))
-        # Editorial
-        opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
-        f_editorial = st.multiselect(t["f_editorial"], opciones_ed)
-        
-        f_local = st.checkbox(t["f_local"])
-        f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
-    # 5.2 FILTROS DE CONTENIDO
-    # 5.2 FILTROS DE CONTENIDO
-    with st.sidebar.expander(t["exp_cont"], expanded=False):
-        opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
-        f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
-        
-        f_ia_sub = []
-        
-        if f_ia_gen:
-            # Lista de exclusión del diccionario según idioma
-            generos_prohibidos = t.get("excluir_subs", [])
-            
-            # Solo mostramos subgéneros si NO se ha seleccionado ningún género prohibido
-            if not any(g in generos_prohibidos for g in f_ia_gen):
-                df_temp = df[df[c['ia_gen']].isin(f_ia_gen)]
-                
-                # --- OPERACIÓN SEGURA PARA SUBGÉNEROS ---
-                # 1. Convertimos a string y separamos por comas
-                # 2. .explode() separa las listas en filas individuales
-                # 3. .str.strip() quita espacios
-                raw_subs = df_temp[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
-                
-                # 4. Limpieza final: filtramos basura y aseguramos que TODO sea string antes de sorted
-                opciones_sub = [
-                    str(s) for s in raw_subs 
-                    if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]
-                ]
-                
-                # 5. Ordenamos (ahora ya no fallará porque todos son strings)
-                opciones_sub = sorted(list(set(opciones_sub)))
-                
-                if opciones_sub:
-                    f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
-    # 5.3 FILTRO DINÁMICO DE KEYWORDS (TOP 25)
-    f_kw_seleccionadas = []
-    with st.sidebar.expander(t["f_keywords"], expanded=False):
-        # Tomamos el DF que ya tiene los filtros de idioma, público, etc. aplicados arriba
-        # Para que las keywords sean relevantes al contexto actual:
-        df_contexto = filtrar(df) 
-        
-        if not df_contexto.empty:
-            # 1. Extraer todas las keywords, separar por comas y limpiar espacios
-            # Usamos .explode() para convertir la lista de cada fila en filas individuales
-            todas_kw = df_contexto[c['keywords']].astype(str).str.split(',').explode().str.strip()
-            
-            # 2. Contar ocurrencias y quitar valores basura
-            conteo_kw = todas_kw.value_counts()
-            conteo_kw = conteo_kw.drop(["Desconocido", "nan", "None", ""], errors='ignore')
-            
-            # 3. Tomar las 25 más frecuentes
-            top_25_kw = conteo_kw.head(25).index.tolist()
-            
-            if top_25_kw:
-                f_kw_seleccionadas = st.multiselect(
-                    t["f_keywords"], 
-                    sorted(top_25_kw),
-                    help="Palabras más frecuentes según tus filtros actuales"
-                )
-            else:
-                st.caption("No hay palabras clave suficientes.")
-        else:
-            st.caption("Aplica filtros para ver conceptos clave.")
-
-    # 5.3 FILTROS DE DISPONIBILIDAD (ACTUALIZADO Y TRADUCIDO)
-    with st.sidebar.expander(t["exp_disp"], expanded=False):
-        # Mensaje informativo con la fecha manual
-        st.info(t["f_actualizacion"])
-        
-        # Selector de rango de fechas
-        label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
-        f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
-       
-        # Checkbox con traducción desde el diccionario
-        f_solo_disponibles = st.checkbox(t["f_solo_disp"])
-
-    # --- FUNCIÓN FILTRAR ---
+    # --- 1º DEFINIMOS LA FUNCIÓN FILTRAR (Para que esté disponible abajo) ---
     def filtrar(dataframe):
         temp = dataframe.copy()
         
@@ -606,9 +517,8 @@ if 'df' in locals() and df is not None:
         if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
         if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
         
-        # 2. Filtro de Disponibilidad (Checkbox o Rango)
+        # 2. Filtro de Disponibilidad
         if len(f_rango) == 2:
-            # Usamos la función de apoyo que pusimos arriba
             mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
             temp = temp[mask]
         elif f_solo_disponibles:
@@ -625,13 +535,69 @@ if 'df' in locals() and df is not None:
                 lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False
             )]
 
-        # 4. Filtro de Keywords seleccionadas (Top 25)
-        if f_kw_seleccionadas:
-            # Filtramos filas que contengan AL MENOS UNA de las keywords seleccionadas
+        # 4. Filtro de Keywords seleccionadas (Seguridad: verificamos si existe la variable)
+        if 'f_kw_seleccionadas' in locals() and f_kw_seleccionadas:
             temp = temp[temp[c['keywords']].apply(
                 lambda x: any(kw in str(x) for kw in f_kw_seleccionadas) if pd.notnull(x) else False
             )]
         return temp
+
+    # --- 2º RENDERIZAMOS LOS WIDGETS ---
+
+    # 5.1 FILTROS GENERALES
+    with st.sidebar.expander(t["exp_gral"], expanded=False):
+        f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()))
+        f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()))
+        f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()))
+        opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
+        f_editorial = st.multiselect(t["f_editorial"], opciones_ed)
+        f_local = st.checkbox(t["f_local"])
+        f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
+
+    # 5.2 FILTROS DE CONTENIDO (Géneros e IA)
+    with st.sidebar.expander(t["exp_cont"], expanded=False):
+        opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
+        f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
+        f_ia_sub = []
+        if f_ia_gen:
+            generos_prohibidos = t.get("excluir_subs", [])
+            if not any(g in generos_prohibidos for g in f_ia_gen):
+                df_temp = df[df[c['ia_gen']].isin(f_ia_gen)]
+                raw_subs = df_temp[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
+                opciones_sub = [str(s) for s in raw_subs if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]]
+                opciones_sub = sorted(list(set(opciones_sub)))
+                if opciones_sub:
+                    f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
+
+    # 5.3 FILTROS DE DISPONIBILIDAD
+    with st.sidebar.expander(t["exp_disp"], expanded=False):
+        st.info(t["f_actualizacion"])
+        label_rango = "Rango de lectura" if st.session_state.idioma == "Castellano" else "Irakurketa tartea"
+        f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
+        f_solo_disponibles = st.checkbox(t["f_solo_disp"])
+
+    # 5.4 FILTRO DINÁMICO DE KEYWORDS (TOP 25)
+    f_kw_seleccionadas = []
+    with st.sidebar.expander(t["f_keywords"], expanded=False):
+        # Aquí ya podemos llamar a filtrar(df) porque la definimos arriba
+        df_contexto = filtrar(df) 
+        
+        if not df_contexto.empty:
+            todas_kw = df_contexto[c['keywords']].astype(str).str.split(',').explode().str.strip()
+            conteo_kw = todas_kw.value_counts()
+            conteo_kw = conteo_kw.drop(["Desconocido", "nan", "None", ""], errors='ignore')
+            top_25_kw = conteo_kw.head(25).index.tolist()
+            
+            if top_25_kw:
+                f_kw_seleccionadas = st.multiselect(
+                    t["f_keywords"], 
+                    sorted(top_25_kw),
+                    help="Palabras más frecuentes según tus filtros actuales"
+                )
+            else:
+                st.caption("No hay palabras clave suficientes.")
+        else:
+            st.caption("Aplica filtros para ver conceptos clave.")
 
 else:
     st.sidebar.warning("Esperando a la base de datos...")
