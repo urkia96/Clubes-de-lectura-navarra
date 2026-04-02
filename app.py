@@ -206,6 +206,7 @@ texts = {
         "ask": "¿Te gusta esta recomendación?",
         "boton_txt": "¡Sorpréndeme!", 
         "no_results": "Sin resultados con esos filtros.",
+        "excluir_subs": ["Teatro", "Poesía", "Infantil", "Juvenil"],
         "cols": {
             "idioma": "Idioma",
             "publico": "Público",
@@ -247,6 +248,7 @@ texts = {
         "ask": "Gogoko duzu?",
         "boton_txt": "Harritu nazazu!", 
         "no_results": "Ez da emaitzarik aurkitu iragazki hauekin.",
+        "excluir_subs": ["Antzerkia", "Olerkiak", "Haur literatura", "Gazte literatura"],
         "cols": {
             "idioma": "Idioma_eus",
             "publico": "Público_eus",
@@ -515,24 +517,26 @@ if 'df' in locals() and df is not None:
         f_local = st.checkbox(t["f_local"])
         f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
-    # 5.2 FILTROS DE CONTENIDO (IA)
+    # 5.2 FILTROS DE CONTENIDO
     with st.sidebar.expander(t["exp_cont"], expanded=False):
         opciones_ia_gen = sorted([g for g in df[c['ia_gen']].dropna().unique() if g != "Desconocido"])
         f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
         
         f_ia_sub = []
+        
         if f_ia_gen:
-            # Filtramos el DF por los géneros principales seleccionados
-            df_filtrado_gen = df[df[c['ia_gen']].isin(f_ia_gen)]
+            # Comprobamos si alguno de los géneros seleccionados está en la lista de exclusión del idioma actual
+            generos_prohibidos = t["excluir_subs"]
             
-            # Obtenemos los subgéneros únicos de esas filas
-            # Usamos split(',') por si acaso hay varios separados por comas
-            subs = set()
-            df_filtrado_gen[c['ia_sub']].str.split(',').dropna().apply(
-                lambda x: subs.update([s.strip() for s in x if s.strip() != "Desconocido"])
-            )
-            
-            f_ia_sub = st.multiselect(t["f_ia_sub"], sorted(list(subs)))
+            # Si el usuario NO ha seleccionado ninguno de los géneros prohibidos, mostramos subgéneros
+            if not any(g in generos_prohibidos for g in f_ia_gen):
+                df_temp = df[df[c['ia_gen']].isin(f_ia_gen)]
+                
+                lista_subs = df_temp[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
+                opciones_sub = sorted([s for s in lista_subs if s not in ["Desconocido", "nan", "None", ""]])
+                
+                if opciones_sub:
+                    f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
 
     # 5.3 FILTROS DE DISPONIBILIDAD (ACTUALIZADO Y TRADUCIDO)
     with st.sidebar.expander(t["exp_disp"], expanded=False):
