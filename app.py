@@ -707,6 +707,22 @@ with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
+# Favoritos
+if st.session_state.get("ver_favoritos"):
+    if st.button("⬅️ Volver al buscador" if st.session_state.idioma == "Castellano" else "⬅️ Itzuli bilatzailera"):
+        st.session_state.ver_favoritos = False
+        st.rerun()
+        
+    st.header(titulo_mis_libros)
+    usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+    lotes_favoritos = obtener_mis_libros(usuario_act)
+    df_favs_display = df[df['Lote'].isin(lotes_favoritos)].drop_duplicates(subset=['Lote'])
+    
+    for _, r in df_favs_display.iterrows():
+        mostrar_card(r, "MIS_FAVS")
+    st.stop() # Detenemos la ejecución para que no se vean los tabs debajo
+
+
 tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
 
