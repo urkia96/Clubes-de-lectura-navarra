@@ -211,7 +211,8 @@ texts = {
             "publico": "Público",
             "genero_aut": "genero_fix",
             "ia_gen": "Genero_Principal_IA",
-            "ia_sub": "Subgeneros_Limpios_IA"
+            "ia_sub": "Subgeneros_Limpios_IA",
+            "keywords": "Keywords_ES"
         }
     },
     "Euskera": {
@@ -251,7 +252,8 @@ texts = {
             "publico": "Público_eus",
             "genero_aut": "genero_fix_eus",
             "ia_gen": "Genero_Principal_IA_eus",
-            "ia_sub": "Subgeneros_Limpios_IA_eus"
+            "ia_sub": "Subgeneros_Limpios_IA_eus",
+            "keywords": "Keywords_EUS"
         }
     }
 }
@@ -318,7 +320,8 @@ def load_resources():
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus',
         'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
         'Genero_Principal_IA', 'Genero_Principal_IA_eus',
-        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus'
+        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus',
+        'Keywords_ES', 'Keywords_EUS'
     ]
    
     for col in cols_check:
@@ -450,6 +453,11 @@ def mostrar_card(r, context):
             
             if pd.notnull(subgeneros_ia) and subgeneros_ia != "Desconocido":
                 st.write(f"**{genero_ia}**: {subgeneros_ia}")
+
+            # ---SECCIÓN DE KEYWORDS ---
+            keywords_val = r.get(c['keywords'])
+            if pd.notnull(keywords_val) and keywords_val != "Desconocido":
+                st.write(f"**Keywords:** {keywords_val}")
 
             # Resumen con expander
             with st.expander(t["resumen_btn"], expanded=False):
