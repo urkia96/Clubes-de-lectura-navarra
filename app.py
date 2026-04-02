@@ -211,7 +211,7 @@ texts = {
             "publico": "Público",
             "genero_aut": "genero_fix",
             "ia_gen": "Genero_Principal_IA",
-            "ia_sub": "Subgeneros_Limpios_IA",
+            "ia_sub": "Subgenero_ES",
             "keywords": "Keywords_ES"
         }
     },
@@ -252,7 +252,7 @@ texts = {
             "publico": "Público_eus",
             "genero_aut": "genero_fix_eus",
             "ia_gen": "Genero_Principal_IA_eus",
-            "ia_sub": "Subgeneros_Limpios_IA_eus",
+            "ia_sub": "Subgenero_EUS",
             "keywords": "Keywords_EUS"
         }
     }
@@ -320,7 +320,7 @@ def load_resources():
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus',
         'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
         'Genero_Principal_IA', 'Genero_Principal_IA_eus',
-        'Subgeneros_Limpios_IA', 'Subgeneros_Limpios_IA_eus',
+        'Subgenero_ES', 'Subgenero_EUS',
         'Keywords_ES', 'Keywords_EUS'
     ]
    
@@ -522,11 +522,17 @@ if 'df' in locals() and df is not None:
         
         f_ia_sub = []
         if f_ia_gen:
+            # Filtramos el DF por los géneros principales seleccionados
+            df_filtrado_gen = df[df[c['ia_gen']].isin(f_ia_gen)]
+            
+            # Obtenemos los subgéneros únicos de esas filas
+            # Usamos split(',') por si acaso hay varios separados por comas
             subs = set()
-            df[df[c['ia_gen']].isin(f_ia_gen)][c['ia_sub']].str.split(',').dropna().apply(
-                lambda x: subs.update([s.strip() for s in x])
+            df_filtrado_gen[c['ia_sub']].str.split(',').dropna().apply(
+                lambda x: subs.update([s.strip() for s in x if s.strip() != "Desconocido"])
             )
-            f_ia_sub = st.multiselect(t["f_ia_sub"], sorted([s for s in list(subs) if s != "Desconocido"]))
+            
+            f_ia_sub = st.multiselect(t["f_ia_sub"], sorted(list(subs)))
 
     # 5.3 FILTROS DE DISPONIBILIDAD (ACTUALIZADO Y TRADUCIDO)
     with st.sidebar.expander(t["exp_disp"], expanded=False):
