@@ -252,7 +252,7 @@ texts = {
             "publico": "Público_eus",
             "genero_aut": "genero_fix_eus",
             "ia_gen": "Genero_Principal_IA_eus",
-            "ia_sub": "Subgenero_EUS",
+            "ia_sub": "Azpigeneroa_EUS",
             "keywords": "Keywords_EUS"
         }
     }
@@ -320,7 +320,7 @@ def load_resources():
         'Idioma', 'Idioma_eus', 'Público', 'Público_eus',
         'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
         'Genero_Principal_IA', 'Genero_Principal_IA_eus',
-        'Subgenero_ES', 'Subgenero_EUS',
+        'Subgenero_ES', 'Azpigeneroa_EUS',
         'Keywords_ES', 'Keywords_EUS'
     ]
    
