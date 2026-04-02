@@ -190,7 +190,8 @@ texts = {
         "f_genero_aut": "👤 Género Autor/a", 
         "f_editorial": "📚 Editorial", 
         "f_paginas": "📄 Número de páginas",
-        "f_local": "🏠 Autores locales", 
+        "f_local": "🏠 Autores locales",
+        "f_lf": "👓 Lectura Fácil",
         "f_ia_gen": "📂 Género", 
         "f_ia_sub": "🏷️ Subgénero",
         "f_keywords": "🔍 Conceptos clave",
@@ -234,7 +235,8 @@ texts = {
         "f_genero_aut": "👤 Egilearen generoa", 
         "f_editorial": "📚 Argitaletxea", 
         "f_paginas": "📄 Orrialde kopurua",
-        "f_local": "🏠 Bertako autoreak", 
+        "f_local": "🏠 Bertako autoreak",
+        "f_lf": "👓 Irakurketa Erraza",
         "f_ia_gen": "📂 Generoa", 
         "f_ia_sub": "🏷️ Azpigeneroa",
         "f_keywords": "🔍 Kontzeptu nagusiak",
@@ -634,6 +636,7 @@ if 'df' in locals() and df is not None:
         opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
         f_editorial = st.multiselect(t["f_editorial"], opciones_ed)
         f_local = st.checkbox(t["f_local"])
+        f_lf = st.checkbox(t["f_lf"])
         f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
 
     # B. FILTROS DE CONTENIDO
@@ -697,6 +700,10 @@ if 'df' in locals() and df is not None:
         if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
         if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
         if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
+        if f_lf:
+            if 'Materias' in temp.columns:
+                # Buscamos el texto "Lectura Fácil" ignorando mayúsculas/minúsculas
+                temp = temp[temp['Materias'].str.contains("Lectura Fácil", case=False, na=False)]
         if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
         if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
         
