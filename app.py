@@ -191,6 +191,7 @@ texts = {
         "f_local": "🏠 Autores locales", 
         "f_ia_gen": "📂 Género", 
         "f_ia_sub": "🏷️ Subgénero",
+        "f_keywords": "🔍 Conceptos clave",
         "tab1": "📖 Búsqueda por autor/título", 
         "tab2": "✨ Búsqueda libre", 
         "tab3": "🔍 Lotes similares", 
@@ -233,6 +234,7 @@ texts = {
         "f_local": "🏠 Bertako autoreak", 
         "f_ia_gen": "📂 Generoa", 
         "f_ia_sub": "🏷️ Azpigeneroa",
+        "f_keywords": "🔍 Kontzeptu nagusiak",
         "tab1": "📖 Izenburu / Idazle bilaketa", 
         "tab2": "✨ Bilaketa librea", 
         "tab3": "🔍 Lote antzekoak", 
@@ -550,6 +552,35 @@ if 'df' in locals() and df is not None:
                 
                 if opciones_sub:
                     f_ia_sub = st.multiselect(t["f_ia_sub"], opciones_sub)
+    # 5.3 FILTRO DINÁMICO DE KEYWORDS (TOP 25)
+    f_kw_seleccionadas = []
+    with st.sidebar.expander(t["f_keywords"], expanded=False):
+        # Tomamos el DF que ya tiene los filtros de idioma, público, etc. aplicados arriba
+        # Para que las keywords sean relevantes al contexto actual:
+        df_contexto = filtrar(df) 
+        
+        if not df_contexto.empty:
+            # 1. Extraer todas las keywords, separar por comas y limpiar espacios
+            # Usamos .explode() para convertir la lista de cada fila en filas individuales
+            todas_kw = df_contexto[c['keywords']].astype(str).str.split(',').explode().str.strip()
+            
+            # 2. Contar ocurrencias y quitar valores basura
+            conteo_kw = todas_kw.value_counts()
+            conteo_kw = conteo_kw.drop(["Desconocido", "nan", "None", ""], errors='ignore')
+            
+            # 3. Tomar las 25 más frecuentes
+            top_25_kw = conteo_kw.head(25).index.tolist()
+            
+            if top_25_kw:
+                f_kw_seleccionadas = st.multiselect(
+                    t["f_keywords"], 
+                    sorted(top_25_kw),
+                    help="Palabras más frecuentes según tus filtros actuales"
+                )
+            else:
+                st.caption("No hay palabras clave suficientes.")
+        else:
+            st.caption("Aplica filtros para ver conceptos clave.")
 
     # 5.3 FILTROS DE DISPONIBILIDAD (ACTUALIZADO Y TRADUCIDO)
     with st.sidebar.expander(t["exp_disp"], expanded=False):
@@ -593,7 +624,13 @@ if 'df' in locals() and df is not None:
             temp = temp[temp[c['ia_sub']].apply(
                 lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False
             )]
-            
+
+        # 4. Filtro de Keywords seleccionadas (Top 25)
+        if f_kw_seleccionadas:
+            # Filtramos filas que contengan AL MENOS UNA de las keywords seleccionadas
+            temp = temp[temp[c['keywords']].apply(
+                lambda x: any(kw in str(x) for kw in f_kw_seleccionadas) if pd.notnull(x) else False
+            )]
         return temp
 
 else:
