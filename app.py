@@ -689,7 +689,7 @@ def filtrar(dataframe):
         temp = temp[(temp['Fechas_Reservadas'].isna()) | (temp['Fechas_Reservadas'].astype(str).str.strip() == "")]
 
     # Filtro por Keywords (Conceptos Clave)
-     kw_sel = st.session_state.get("f_kw_seleccionadas")
+    kw_sel = st.session_state.get("f_kw_seleccionadas")
     if kw_sel:
         temp = temp[temp[c['keywords']].apply(lambda x: any(kw in str(x) for kw in kw_sel) if pd.notnull(x) else False)]
     return temp
