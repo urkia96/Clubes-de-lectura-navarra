@@ -961,8 +961,8 @@ with tab2:
         lotes_en_mis_favs = obtener_mis_libros(usuario_act)
         # -----------------------------------------------
        
-         if not res_final.empty:
-        st.session_state.df_final_actual = res_final
+        if not res_final.empty:
+            st.session_state.df_final_actual = res_final
         
         # Renderizar tarjetas
         for i, (_, r) in enumerate(res_final.head(15).iterrows(), start=1):
