@@ -733,14 +733,14 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
 
     # --- CONCEPTOS CLAVE DINÁMICOS ---
     st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
-    
+   
     # Decidimos qué datos usar para las keywords
     # Si existe una búsqueda previa, usamos esos libros. Si no, todo el catálogo.
     fuente_palabras = st.session_state.get("df_final_actual", df)
-    
+   
     todas_kw = fuente_palabras[c['keywords']].astype(str).str.split(',').explode().str.strip()
     opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", ""], errors='ignore').head(25).index.tolist()
-    
+   
     st.multiselect("Filtrar por concepto:", sorted(opciones_kw), key="f_kw_seleccionadas", label_visibility="collapsed")
 
 with st.sidebar.expander(t["exp_disp"], expanded=False):
