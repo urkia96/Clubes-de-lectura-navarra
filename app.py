@@ -13,6 +13,7 @@ import gc
 import numpy as np
 import hashlib
 import re
+from streamlit_gsheets import GSheetsConnection
 
 
 # --- 0. CONFIGURACIÓN DE PÁGINA ---
@@ -395,22 +396,25 @@ def guardar_voto(lote, titulo, valor, tipo_busqueda, terminos, filtros, posicion
 
 
 def votar_lote(lote, puntuacion):
-    """Guarda un voto en una hoja nueva llamada 'votos' dentro de tu Google Sheets"""
+    """Guarda la recomendación (estrellas) usando la conexión general"""
+    sheet_control = conectar_sheets() # Usamos tu función de siempre
+    if not sheet_control: return False
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        # Obtenemos la fecha actual
+        spreadsheet = sheet_control.spreadsheet
+        try:
+            ws_votos = spreadsheet.worksheet("votos")
+        except:
+            # Si no existe la pestaña, la crea con sus cabeceras
+            ws_votos = spreadsheet.add_worksheet(title="votos", rows="1000", cols="3")
+            ws_votos.append_row(["Lote", "Puntuacion", "Fecha"])
+
+        # Añadimos la fila
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # Preparamos los datos
-        nueva_fila = pd.DataFrame([[lote, puntuacion, fecha]], columns=['Lote', 'Puntuacion', 'Fecha'])
-        
-        # Leemos lo que hay para no borrar nada (append)
-        df_votos_existentes = conn.read(worksheet="votos")
-        df_final = pd.concat([df_votos_existentes, nueva_fila], ignore_index=True)
-        
-        # Guardamos en la pestaña "votos"
-        conn.update(worksheet="votos", data=df_final)
+        ws_votos.append_row([str(lote), int(puntuacion), fecha])
+        return True
     except Exception as e:
-        st.error(f"Error al guardar el voto: {e}")
+        st.error(f"Error al guardar recomendación: {e}")
+        return False
 
 def obtener_ranking():
     """Lee todos los votos y calcula la media por cada lote"""
