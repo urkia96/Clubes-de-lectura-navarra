@@ -924,7 +924,7 @@ if st.session_state.get("ver_favoritos"):
     st.stop() 
 
 # --- BUSCADOR NORMAL (TABS) ---
-tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]]))
+tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
 
 # --- TAB1: Búsqueda por título/autor ---
