@@ -881,17 +881,14 @@ with tab2:
            
 # --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
-    # Permitimos varios lotes separados por comas o espacios
     lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
-  
+ 
     if lid_input:
-        # 1. Limpieza de entrada
         lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
        
         vectores_para_promediar = []
         lotes_encontrados = []
 
-        # 2. Extraemos los vectores de cada lote solicitado
         for lid_clean in lotes_solicitados:
             ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
             if not ref_ia.empty:
@@ -910,8 +907,8 @@ with tab3:
             D, I = index.search(v_ref, 30)
             indices_validos = I[0][D[0] >= 0.80]
             lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
-          
-            # 5. Aplicamos los filtros de la Sidebar
+         
+            # 5. Aplicamos los filtros de la Sidebar (¡Ojo! filtra el DF original)
             df_base = filtrar(df)
            
             # 6. Quitamos los lotes que el usuario ya ha introducido
@@ -923,25 +920,32 @@ with tab3:
            
             res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
             res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
-          
+         
+            # 💡 PASO CLAVE 1: Actualizamos el estado para que la Sidebar reaccione
+            if not res_sim.empty:
+                # Si los resultados actuales son distintos a los guardados, actualizamos
+                if "df_final_actual" not in st.session_state or not st.session_state.df_final_actual.equals(res_sim):
+                    st.session_state.df_final_actual = res_sim
+                    # Forzamos un rerun para que la Sidebar se actualice inmediatamente con las nuevas Keywords
+                    st.rerun()
+
             # 8. ID único para los botones
             contexto_voto = f"Sim_{hash(lid_input) % 10000}"
-          
-            # --- NUEVO: OBTENER FAVORITOS ANTES DE RENDERIZAR ---
+         
+            # --- OBTENER FAVORITOS ANTES DE RENDERIZAR ---
             usuario_act = st.session_state.get("usuario_actual", "Anónimo")
             lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-            # ---------------------------------------------------
 
             if not res_sim.empty:
                 st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
-                # Usamos enumerate con start=1 para que la primera posición sea 1
+                
+                # 💡 PASO CLAVE 2: Renderizar las tarjetas
                 for i, (_, r) in enumerate(res_sim.iterrows(), start=1):
-                    # Importante: añadimos posicion=i al final
                     mostrar_card(
                         r,
                         contexto_voto,
                         lotes_en_mis_favs,
-                        idx=f"SIM_{i}",  # Usamos un prefijo para que el ID sea único
+                        idx=f"SIM_{i}", 
                         posicion=i
                     )
             else:
