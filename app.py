@@ -645,42 +645,95 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                         st.rerun()
            
 
-# --- 5. LÓGICA DE FILTRADO ---
- # --- LÓGICA DE FILTRADO (Definida después de los widgets) ---
-    def filtrar(dataframe):
-        temp = dataframe.copy()
-       
-        # Filtros Generales
-        if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
-        if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
-        if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
-        if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
-        if f_lf:
-            if 'Materias' in temp.columns:
-                # Buscamos el texto "Lectura Fácil" ignorando mayúsculas/minúsculas
-                temp = temp[temp['Materias'].str.contains("Lectura Fácil", case=False, na=False)]
-        if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
-        if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
-       
-        # Filtros Contenido
-        if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
-        if f_ia_sub:
-            temp = temp[temp[c['ia_sub']].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
-       
-        # Filtros Disponibilidad
-        if len(f_rango) == 2:
-            mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
-            temp = temp[mask]
-        elif f_solo_disponibles:
-            temp = temp[(temp['Fechas_Reservadas'].isna()) | (temp['Fechas_Reservadas'].astype(str).str.strip() == "")]
 
-        # Keywords (vía session_state)
-        kw_sel = st.session_state.get("f_kw_seleccionadas")
-        if kw_sel:
-            temp = temp[temp[c['keywords']].apply(lambda x: any(kw in str(x) for kw in kw_sel) if pd.notnull(x) else False)]
-           
-        return temp
+# --- 4. LÓGICA DE FILTRADO (Definida antes de la Sidebar para evitar NameError) ---
+def filtrar(dataframe):
+    temp = dataframe.copy()
+    
+    # Filtros Generales
+    if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
+    if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
+    if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
+    if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
+    if f_lf:
+        if 'Materias' in temp.columns:
+            temp = temp[temp['Materias'].str.contains("Lectura Fácil", case=False, na=False)]
+    if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
+    if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
+    
+    # Filtros Contenido
+    if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
+    if f_ia_sub:
+        temp = temp[temp[c['ia_sub']].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
+    
+    # Filtros Disponibilidad
+    if len(f_rango) == 2:
+        mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
+        temp = temp[mask]
+    elif f_solo_disponibles:
+        temp = temp[(temp['Fechas_Reservadas'].isna()) | (temp['Fechas_Reservadas'].astype(str).str.strip() == "")]
 
+    # Filtro por Keywords (Conceptos Clave)
+    kw_sel = st.session_state.get("f_kw_seleccionadas")
+    if kw_sel:
+        temp = temp[temp[c['keywords']].apply(lambda x: any(kw in str(x) for kw in kw_sel) if pd.notnull(x) else False)]
+        
+    return temp
+
+# --- 5. PANEL DE CONTROL (SIDEBAR) ---
+st.sidebar.title(t["sidebar_tit"])
+
+# Botones rápidos
+if st.sidebar.button(f"🚪 {t.get('cerrar_sesion', 'Cerrar Sesión')}", use_container_width=True):
+    st.session_state.auth = False
+    st.rerun()
+
+if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
+    st.session_state.ver_favoritos = True
+    st.rerun()
+
+st.sidebar.markdown("---")
+
+# Declaración de widgets de la Sidebar
+with st.sidebar.expander(t["exp_gral"], expanded=False):
+    f_idioma = st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()))
+    f_publico = st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()))
+    f_gen_aut = st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()))
+    opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
+    f_editorial = st.multiselect(t["f_editorial"], opciones_ed)
+    f_local = st.checkbox(t["f_local"])
+    f_lf = st.checkbox(t["f_lf"])
+    f_paginas = st.slider(t["f_paginas"], 50, 1500, 1500)
+
+with st.sidebar.expander(t["exp_cont"], expanded=True):
+    opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
+    f_ia_gen = st.multiselect(t["f_ia_gen"], opciones_ia_gen)
+    
+    f_ia_sub = []
+    if f_ia_gen:
+        df_temp_sub = df[df[c['ia_gen']].isin(f_ia_gen)]
+        raw_subs = df_temp_sub[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
+        opciones_sub = [str(s) for s in raw_subs if str(s).strip() not in ["Desconocido", "nan", "None", ""]]
+        f_ia_sub = st.multiselect(t["f_ia_sub"], sorted(list(set(opciones_sub))))
+
+    # --- KEYWORDS DINÁMICAS ---
+    st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
+    
+    # Si hay una búsqueda activa, sacamos keywords de ahí. Si no, del DF filtrado por la sidebar.
+    if 'df_final_actual' in st.session_state and not st.session_state.df_final_actual.empty:
+        df_para_kw = st.session_state.df_final_actual
+    else:
+        df_para_kw = filtrar(df) 
+    
+    todas_kw = df_para_kw[c['keywords']].astype(str).str.split(',').explode().str.strip()
+    opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+    lista_final_kw = sorted(opciones_kw.head(25).index.tolist())
+    
+    st.multiselect("Filtrar resultados por:", lista_final_kw, key="f_kw_seleccionadas", label_visibility="collapsed")
+
+with st.sidebar.expander(t["exp_disp"], expanded=False):
+    f_rango = st.date_input("Rango de fechas", value=[])
+    f_solo_disponibles = st.checkbox(t["f_solo_disp"])
         
 
                
@@ -891,19 +944,14 @@ with tab2:
         lotes_en_mis_favs = obtener_mis_libros(usuario_act)
         # -----------------------------------------------
        
-        if not res_final.empty:
-            # Usamos enumerate(..., start=1) para que el primer libro sea la posición 1 y no la 0
-            for i, (_, r) in enumerate(res_final.iterrows(), start=1):
-                # Añadimos el parámetro posicion=i al final
-                mostrar_card(
-                    r,
-                    q_original,
-                    lotes_en_mis_favs,
-                    idx=f"T2_{i}",
-                    posicion=i
-                )
-        else:
-            st.warning(t["no_results"])
+         if not res_final.empty:
+        st.session_state.df_final_actual = res_final
+        
+        # Renderizar tarjetas
+        for i, (_, r) in enumerate(res_final.head(15).iterrows(), start=1):
+            mostrar_card(r, q_original, lotes_en_mis_favs, idx=f"T2_{i}", posicion=i)
+    else:
+        st.warning(t["no_results"])
            
 # --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
 with tab3:
