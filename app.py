@@ -693,29 +693,29 @@ if 'df' in locals() and df is not None:
                 f_ia_sub = st.multiselect(t["f_ia_sub"], sorted(list(set(opciones_sub))))
 
         # --- 3. CONCEPTOS CLAVE (DINÁMICOS Y REACTIVOS) ---
-st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
-
-# Creamos una lista de opciones que se actualizará según lo que haya en 'df_final'
-# Si no hay búsqueda activa, usamos el df base filtrado por género
-if 'df_final_actual' in st.session_state and not st.session_state.df_final_actual.empty:
-    df_para_kw = st.session_state.df_final_actual
-else:
-    # Si no hay resultados de búsqueda, usamos el df filtrado por la sidebar (idioma, etc)
-    df_para_kw = filtrar(df) 
-
-# Extraemos las palabras reales presentes en los libros que el usuario está viendo
-todas_kw = df_para_kw[c['keywords']].astype(str).str.split(',').explode().str.strip()
-opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
-
-# Tomamos las más comunes de los libros filtrados
-lista_final_kw = sorted(opciones_kw.head(30).index.tolist())
-
-st.multiselect(
-    "Filtra por concepto:",
-    lista_final_kw,
-    key="f_kw_seleccionadas",
-    label_visibility="collapsed"
-)
+    st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
+    
+    # Creamos una lista de opciones que se actualizará según lo que haya en 'df_final'
+    # Si no hay búsqueda activa, usamos el df base filtrado por género
+    if 'df_final_actual' in st.session_state and not st.session_state.df_final_actual.empty:
+        df_para_kw = st.session_state.df_final_actual
+    else:
+        # Si no hay resultados de búsqueda, usamos el df filtrado por la sidebar (idioma, etc)
+        df_para_kw = filtrar(df) 
+    
+    # Extraemos las palabras reales presentes en los libros que el usuario está viendo
+    todas_kw = df_para_kw[c['keywords']].astype(str).str.split(',').explode().str.strip()
+    opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+    
+    # Tomamos las más comunes de los libros filtrados
+    lista_final_kw = sorted(opciones_kw.head(30).index.tolist())
+    
+    st.multiselect(
+        "Filtra por concepto:",
+        lista_final_kw,
+        key="f_kw_seleccionadas",
+        label_visibility="collapsed"
+    )
 
     # C. FILTROS DE DISPONIBILIDAD
     with st.sidebar.expander(t["exp_disp"], expanded=False):
