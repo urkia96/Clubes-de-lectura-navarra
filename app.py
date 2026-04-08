@@ -658,7 +658,7 @@ def filtrar(dataframe):
     if f_pub: temp = temp[temp[c['publico']].isin(st.session_state.f_pub)]
     
     f_gen = st.session_state.get("f_gen_aut_w")
-    if f_gen: temp = temp[temp[c['genero_aut']].isinst.session_state.(f_gen)]
+    if f_gen: temp = temp[temp[c['genero_aut']].isinst.session_state.f_gen)]
     
     if st.session_state.get("f_local_w"): 
         temp = temp[temp['Geografia_Autor'] == "Local"]
