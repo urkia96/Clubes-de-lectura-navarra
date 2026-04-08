@@ -616,54 +616,40 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
 
 
-        # --- COLUMNA 3: BOTONES (Estrellas + Favoritos) ---
+         # --- COLUMNA 3: BOTONES (Relevancia, Recomendación y Favoritos) ---
         with col_vote:
             usuario_act = st.session_state.get("usuario_actual", "Anónimo")
             
-            # 1. PREGUNTA DE RELEVANCIA Y ESTRELLAS
-            st.write("**¿Es relevante?**") # Recuperamos la pregunta
+            # --- SECCIÓN 1: RELEVANCIA ---
+            st.markdown("<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>1. ¿Es relevante?</p>", unsafe_allow_html=True)
+            # Aquí puedes mantener un feedback simple (pulgares) o dejarlo para el log técnico
+            # Si prefieres que el log de relevancia sea automático con la estrella, podemos saltar al punto 2.
+            # Pero para seguir tu esquema de 3 líneas:
+            voto_rel = st.feedback("thumbs", key=f"rel_{lote_id}_{idx}")
             
-            # El widget de estrellas
+            st.markdown("---")
+            
+            # --- SECCIÓN 2: RECOMENDACIÓN (ESTRELLAS) ---
+            st.markdown("<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>2. ¿Lo recomendarías?</p>", unsafe_allow_html=True)
             voto_estrellas = st.feedback("stars", key=f"rating_{lote_id}_{context}_{idx}")
         
             if voto_estrellas is not None:
                 puntuacion_final = voto_estrellas + 1
                 
-                # --- PREPARAR METADATOS PARA EL LOG ---
+                # Metadatos para el log
                 tipo_busqueda = st.session_state.get("tab_actual", "Búsqueda")
-                
-                # Recopilar filtros activos desde st.session_state
-                filtros_lista = []
-                for f in ['f_idioma_w', 'f_publico_w', 'f_gen_aut_w', 'f_editorial_w', 'f_ia_gen_w', 'f_ia_sub_w']:
-                    val = st.session_state.get(f)
-                    if val: 
-                        filtros_lista.extend(val if isinstance(val, list) else [val])
-                
-                if st.session_state.get('f_local_w'): filtros_lista.append("Autor Local")
-                if st.session_state.get('f_lf_w'): filtros_lista.append("Lectura Fácil")
-                
-                kw_sel = st.session_state.get("f_kw_seleccionadas")
-                if kw_sel: filtros_lista.extend(kw_sel)
-                
-                filtros_str = ", ".join(filtros_lista) if filtros_lista else "Sin filtros"
+                filtros_lista = [st.session_state.get(f) for f in ['f_idioma_w', 'f_publico_w', 'f_gen_aut_w'] if st.session_state.get(f)]
+                filtros_str = ", ".join(map(str, filtros_lista)) if filtros_lista else "Sin filtros"
         
-                # Lógica del texto (query o contexto)
-                prefijos_tecnicos = ["TAB1", "Sim", "Serendipia", "MIS_FAVS", "HIBRID"]
-                if context and not any(p in str(context) for p in prefijos_tecnicos):
-                    texto_para_sheet = f"query: '{context}'"
-                else:
-                    texto_para_sheet = str(context) if context else "Sin términos"
-        
-                # --- GUARDADO EN GSHEETS ---
-                # Llamamos a votar_lote (para el ranking) 
-                # y a guardar_voto (para tu log detallado de relevancia)
+                # Guardamos en ambas tablas (Ranking y Log de Relevancia)
                 votar_lote(lote_id, puntuacion_final)
-                
-                if guardar_voto(lote_id, titulo_actual, puntuacion_final, tipo_busqueda, texto_para_sheet, filtros_str, posicion):
-                    st.toast(f"¡Valoración de {puntuacion_final} ⭐ registrada!", icon="🌟")
+                guardar_voto(lote_id, titulo_actual, puntuacion_final, tipo_busqueda, str(context), filtros_str, posicion)
+                st.toast(f"¡Gracias por tu recomendación!", icon="🌟")
         
-            # --- 2. SECCIÓN DE FAVORITOS (Corazón) ---
-            st.write("---")
+            st.markdown("---")
+            
+            # --- SECCIÓN 3: FAVORITOS ---
+            st.markdown("<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>3. Mis favoritos</p>", unsafe_allow_html=True)
             es_favorito = lote_id in lotes_en_mis_favs
             
             if es_favorito:
@@ -676,6 +662,7 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                     if guardar_favorito(lote_id, titulo_actual):
                         st.cache_data.clear()
                         st.rerun()
+
 
 
 
