@@ -419,8 +419,8 @@ def votar_lote(lote, puntuacion):
 def obtener_ranking():
     """Lee todos los votos y calcula la media por cada lote"""
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df_votos = conn.read(worksheet="votos")
+        conn = sheet_control.spreadsheet)
+        df_votos = spreadsheet.worksheet("votos")
         
         if df_votos.empty:
             return pd.DataFrame()
