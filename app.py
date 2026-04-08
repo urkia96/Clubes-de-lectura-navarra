@@ -180,7 +180,7 @@ texts = {
         "exp_cont": "📖 Filtros de contenido",
         "exp_disp": "📅 Disponibilidad", # <--- NUEVA
         "mis_favs_tit": "📚 Mis Libros Guardados",
-        "f_actualizacion": "Última actualización: 25/03/2026", # <--- NUEVA
+        "f_actualizacion": "Última actualización: 08/04/2026", # <--- NUEVA
         "f_solo_disp": "Solo disponibles ahora", # <--- NUEV
         "f_idioma": "🌍 Idioma",
         "f_publico": "👥 Público",
