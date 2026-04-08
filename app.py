@@ -848,7 +848,6 @@ with st.sidebar.expander(t["exp_disp"], expanded=False):
    
 # --- 6. INTERFAZ ---
 
-# Definimos 't' primero para que todas las etiquetas funcionen
 t = texts[st.session_state.idioma]
 
 col_logo, col_tit = st.columns([1,6])
@@ -859,37 +858,58 @@ with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-# --- SECCIÓN DE FAVORITOS ---
-if st.session_state.get("ver_favoritos"):
-    # Botón para volver
+# --- SECCIÓN A: TOP VALORADOS (NUEVA) ---
+if st.session_state.get("ver_ranking"):
     texto_volver = "⬅️ Volver al buscador" if st.session_state.idioma == "Castellano" else "⬅️ Itzuli bilatzailera"
-    if st.button(texto_volver):
+    if st.button(texto_volver, key="volver_rank"):
+        st.session_state.ver_ranking = False
+        st.rerun()
+       
+    st.header("🏆 Top Clubes (Comunidad)")
+    st.write("Los lotes mejor valorados por los clubes de lectura de Navarra.")
+   
+    with st.spinner("Calculando ranking..."):
+        df_rank = obtener_ranking()
+        lotes_favoritos = obtener_mis_libros(st.session_state.get("usuario_actual", "Anónimo"))
+       
+    if not df_rank.empty:
+        # Cruzamos con el DF original para tener toda la info y fotos
+        top_df = df_rank.head(10).merge(df, on='Lote').drop_duplicates(subset=['Lote'])
+       
+        for i, (_, r) in enumerate(top_df.iterrows()):
+            # Mostramos la medalla y la media antes de la tarjeta
+            st.markdown(f"### #{i+1} - ⭐ {r['Media']:.1f}")
+            mostrar_card(r, "RANKING", lotes_favoritos, idx=f"rank_{i}")
+    else:
+        st.info("Aún no hay valoraciones.")
+    
+    st.stop() # Bloqueamos para que no se vea el buscador debajo
+
+# --- SECCIÓN B: FAVORITOS (TUYA) ---
+if st.session_state.get("ver_favoritos"):
+    texto_volver = "⬅️ Volver al buscador" if st.session_state.idioma == "Castellano" else "⬅️ Itzuli bilatzailera"
+    if st.button(texto_volver, key="volver_fav"):
         st.session_state.ver_favoritos = False
         st.rerun()
        
     st.header(t["mis_favs_tit"])
-   
     usuario_act = st.session_state.get("usuario_actual", "Anónimo")
    
-    with st.spinner("Cargando favoritos..." if st.session_state.idioma == "Castellano" else "Gogokoenak kargatzen..."):
+    with st.spinner("Cargando favoritos..."):
         lotes_favoritos = obtener_mis_libros(usuario_act)
        
     if lotes_favoritos:
-        # Filtrar el dataframe para mostrar solo los guardados
         df_favs_display = df[df['Lote'].isin(lotes_favoritos)].drop_duplicates(subset=['Lote'])
-       
         for i, (_, r) in enumerate(df_favs_display.iterrows()):
-            # Añadimos idx=i al final
-            mostrar_card(r, "MIS_FAVS", lotes_favoritos, idx=i)
+            mostrar_card(r, "MIS_FAVS", lotes_favoritos, idx=f"fav_{i}")
     else:
-        # Mensaje por si la lista está vacía
         mensaje_vacio = "No tienes libros guardados." if st.session_state.idioma == "Castellano" else "Ez duzu libururik gorde."
         st.info(mensaje_vacio)
 
-    st.stop() # Detenemos la ejecución para que no se vean los tabs debajo
+    st.stop() 
 
 # --- BUSCADOR NORMAL (TABS) ---
-tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
+tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]]))
 
 
 # --- TAB1: Búsqueda por título/autor ---
