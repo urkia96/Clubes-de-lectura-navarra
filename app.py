@@ -706,50 +706,51 @@ def filtrar(dataframe):
 st.sidebar.title(t["sidebar_tit"])
 
 # --- BOTONES DE ACCIÓN RÁPIDA ---
-col_side1, col_side2 = st.sidebar.columns(2)
-
-with col_side1:
-    if st.button("🔄 Reset", use_container_width=True, help="Borrar filtros y búsquedas"):
-        # Listado de todas las keys de widgets y estados de búsqueda
-        keys_to_reset = [
-            "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w", 
-            "f_local_w", "f_lf_w", "f_paginas_w", "f_ia_gen_w", "f_ia_sub_w",
-            "f_kw_seleccionadas", "f_rango_w", "f_solo_disp_w",
-            "df_final_actual", "azar", "txt_sim_lote_multi", "input_ia", 
-            "busq_t_input", "busq_a_input"
-        ]
-        for k in keys_to_reset:
-            if k in st.session_state:
-                del st.session_state[k]
-        st.rerun()
-
-with col_side2:
-    if st.button(f"🚪 Salir", use_container_width=True):
-        st.session_state.auth = False
-        st.rerun()
+# He quitado las columnas para asegurar que los botones se vean grandes y claros
+if st.sidebar.button("🔄 NUEVA BÚSQUEDA / RESET", type="primary", use_container_width=True):
+    keys_to_reset = [
+        "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w",
+        "f_local_w", "f_lf_w", "f_paginas_w", "f_ia_gen_w", "f_ia_sub_w",
+        "f_kw_seleccionadas", "f_rango_w", "f_solo_disp_w",
+        "df_final_actual", "azar", "txt_sim_lote_multi", "input_ia",
+        "busq_t_input", "busq_a_input"
+    ]
+    for k in keys_to_reset:
+        if k in st.session_state:
+            del st.session_state[k]
+    st.session_state.ver_favoritos = False
+    st.rerun()
 
 if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
     st.session_state.ver_favoritos = True
     st.rerun()
 
+if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
+    st.session_state.auth = False
+    st.rerun()
+
 st.sidebar.markdown("---")
 
-# Widgets de la Sidebar con 'key' para que la función filtrar() los lea
+# --- BLOQUE 1: FILTROS GENERALES ---
 with st.sidebar.expander(t["exp_gral"], expanded=False):
     st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()), key="f_idioma_w")
     st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()), key="f_publico_w")
     st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()), key="f_gen_aut_w")
+    
     opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
     st.multiselect(t["f_editorial"], opciones_ed, key="f_editorial_w")
+    
     st.checkbox(t["f_local"], key="f_local_w")
     st.checkbox(t["f_lf"], key="f_lf_w")
     st.slider(t["f_paginas"], 50, 1500, 1500, key="f_paginas_w")
 
+# --- BLOQUE 2: CONTENIDO Y CONCEPTOS CLAVE ---
 with st.sidebar.expander(t["exp_cont"], expanded=True):
+    # 1. Géneros IA
     opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
     st.multiselect(t["f_ia_gen"], opciones_ia_gen, key="f_ia_gen_w")
    
-    # Subgéneros dinámicos
+    # 2. Subgéneros dinámicos
     f_ia_gen_val = st.session_state.get("f_ia_gen_w", [])
     opciones_sub = []
     if f_ia_gen_val:
@@ -758,22 +759,43 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
         opciones_sub = sorted([str(s) for s in raw_subs if str(s) not in ["Desconocido", "nan", "None", ""]])
     st.multiselect(t["f_ia_sub"], opciones_sub, key="f_ia_sub_w")
 
-    # --- CONCEPTOS CLAVE DINÁMICOS ---
+    st.markdown("---")
+    
+    # --- 3. CONCEPTOS CLAVE DINÁMICOS (Sincronizados) ---
     st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
    
-    # Decidimos qué datos usar para las keywords
-    # Si existe una búsqueda previa, usamos esos libros. Si no, todo el catálogo.
-    fuente_palabras = st.session_state.get("df_final_actual", df)
+    # Determinamos la fuente: si no hay búsqueda activa, usamos lo que digan los filtros actuales
+    if "df_final_actual" in st.session_state and not st.session_state.df_final_actual.empty:
+        fuente_palabras = st.session_state.df_final_actual
+    else:
+        # Si no hay búsqueda, las keywords representan al catálogo filtrado por la sidebar
+        fuente_palabras = filtrar(df)
    
-    todas_kw = fuente_palabras[c['keywords']].astype(str).str.split(',').explode().str.strip()
-    opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", ""], errors='ignore').head(25).index.tolist()
+    lista_final_kw = []
+    nombre_col_kw = c.get('keywords', 'Keywords_IA') # Fallback por seguridad
+    
+    # Blindaje contra KeyError y Dataframes vacíos
+    if fuente_palabras is not None and not fuente_palabras.empty:
+        if nombre_col_kw in fuente_palabras.columns:
+            try:
+                todas_kw = fuente_palabras[nombre_col_kw].astype(str).str.split(',').explode().str.strip()
+                opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+                lista_final_kw = sorted(opciones_kw.head(25).index.tolist())
+            except:
+                lista_final_kw = []
    
-    st.multiselect("Filtrar por concepto:", sorted(opciones_kw), key="f_kw_seleccionadas", label_visibility="collapsed")
+    st.multiselect(
+        "Filtrar por concepto:", 
+        lista_final_kw, 
+        key="f_kw_seleccionadas", 
+        label_visibility="collapsed",
+        placeholder="Conceptos relevantes..."
+    )
 
+# --- BLOQUE 3: DISPONIBILIDAD ---
 with st.sidebar.expander(t["exp_disp"], expanded=False):
     st.date_input("Rango de fechas", value=[], key="f_rango_w")
     st.checkbox(t["f_solo_disp"], key="f_solo_disp_w")
-        
 
                
 
