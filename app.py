@@ -692,30 +692,34 @@ if 'df' in locals() and df is not None:
                 opciones_sub = [str(s) for s in raw_subs if pd.notnull(s) and str(s).strip() not in ["Desconocido", "nan", "None", ""]]
                 f_ia_sub = st.multiselect(t["f_ia_sub"], sorted(list(set(opciones_sub))))
 
-        # --- 3. CONCEPTOS CLAVE (DINÁMICOS Y REACTIVOS) ---
-    st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
-    
-    # Creamos una lista de opciones que se actualizará según lo que haya en 'df_final'
-    # Si no hay búsqueda activa, usamos el df base filtrado por género
-    if 'df_final_actual' in st.session_state and not st.session_state.df_final_actual.empty:
-        df_para_kw = st.session_state.df_final_actual
-    else:
-        # Si no hay resultados de búsqueda, usamos el df filtrado por la sidebar (idioma, etc)
-        df_para_kw = filtrar(df) 
-    
-    # Extraemos las palabras reales presentes en los libros que el usuario está viendo
-    todas_kw = df_para_kw[c['keywords']].astype(str).str.split(',').explode().str.strip()
-    opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
-    
-    # Tomamos las más comunes de los libros filtrados
-    lista_final_kw = sorted(opciones_kw.head(30).index.tolist())
-    
-    st.multiselect(
-        "Filtra por concepto:",
-        lista_final_kw,
-        key="f_kw_seleccionadas",
-        label_visibility="collapsed"
-    )
+        # --- 3. CONCEPTOS CLAVE (DINÁMICOS Y PEGADOS) ---
+        st.markdown(f"""
+            <div style='margin-top: -10px; margin-bottom: 5px;'>
+                <b>{t['f_keywords']}</b>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Extraemos las palabras reales de la columna de Keywords (Keywords_ES o Keywords_EUS)
+        # Filtramos un poco por los géneros seleccionados para que las keywords sean útiles
+        df_para_kw = df.copy()
+        if f_ia_gen:
+            df_para_kw = df_para_kw[df_para_kw[c['ia_gen']].isin(f_ia_gen)]
+       
+        # Procesamos la columna de texto para sacar las palabras individuales
+        todas_kw = df_para_kw[c['keywords']].astype(str).str.split(',').explode().str.strip()
+        opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+       
+        # Tomamos las 40 más comunes para no saturar el menú
+        lista_final_kw = sorted(opciones_kw.head(40).index.tolist())
+
+        # El selector ahora sí tiene las opciones cargadas en la variable lista_final_kw
+        st.multiselect(
+            "Filtra por concepto:",
+            lista_final_kw,
+            key="f_kw_seleccionadas",
+            label_visibility="collapsed",
+            help="Términos más frecuentes en este género"
+        )
 
     # C. FILTROS DE DISPONIBILIDAD
     with st.sidebar.expander(t["exp_disp"], expanded=False):
@@ -942,15 +946,6 @@ with tab3:
            
             res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
             res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
-
-            if not res_sim.empty:
-                # 💡 ESTA ES LA CLAVE: Guardamos en el estado lo que hay en pantalla
-                st.session_state.df_final_actual = res_sim 
-                
-                st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
-                for i, (_, r) in enumerate(res_sim.iterrows(), start=1):
-                    mostrar_card(r, contexto_voto, lotes_en_mis_favs, idx=f"SIM_{i}", posicion=i)
-
           
             # 8. ID único para los botones
             contexto_voto = f"Sim_{hash(lid_input) % 10000}"
