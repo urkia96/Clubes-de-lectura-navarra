@@ -649,50 +649,58 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
 # --- 4. LÓGICA DE FILTRADO ---
 def filtrar(dataframe):
     temp = dataframe.copy()
-    
-    # Filtros Generales (usando los keys de los widgets)
-    if st.session_state.get("f_idioma_w"): 
-        temp = temp[temp[c['idioma']].isin(st.session_state.f_idioma_w)]
-    
+   
+    # 1. Filtros Generales
+    f_id = st.session_state.get("f_idioma_w")
+    if f_id: 
+        temp = temp[temp[c['idioma']].isin(f_id)] # Usamos f_id, no st.session_state.f_idioma_w
+   
     f_pub = st.session_state.get("f_publico_w")
-    if f_pub: temp = temp[temp[c['publico']].isin(st.session_state.f_pub)]
-    
+    if f_pub: 
+        temp = temp[temp[c['publico']].isin(f_pub)] # Usamos f_pub
+   
     f_gen = st.session_state.get("f_gen_aut_w")
-    if f_gen: temp = temp[temp[c['genero_aut']].isin(st.session_state.f_gen)]
-    
-    if st.session_state.get("f_local_w"): 
+    if f_gen: 
+        temp = temp[temp[c['genero_aut']].isin(f_gen)] # Usamos f_gen
+   
+    if st.session_state.get("f_local_w"):
         temp = temp[temp['Geografia_Autor'] == "Local"]
-        
+       
     if st.session_state.get("f_lf_w"):
         if 'Materias' in temp.columns:
             temp = temp[temp['Materias'].str.contains("Lectura Fácil", case=False, na=False)]
-            
+           
     f_pag = st.session_state.get("f_paginas_w", 1500)
-    if f_pag < 1500: temp = temp[temp['Páginas'] <= f_pag]
-    
-    f_ed = st.session_state.get("f_editorial_w")
-    if f_ed: temp = temp[temp['Editorial'].isin(st.session_state.f_ed)]
+    if f_pag < 1500: 
+        temp = temp[temp['Páginas'] <= f_pag]
    
-    # Filtros Contenido
+    f_ed = st.session_state.get("f_editorial_w")
+    if f_ed: 
+        temp = temp[temp['Editorial'].isin(f_ed)] # Usamos f_ed
+   
+    # 2. Filtros Contenido (IA)
     f_iagen = st.session_state.get("f_ia_gen_w")
-    if f_iagen: temp = temp[temp[c['ia_gen']].isin(st.session_state.f_iagen)]
-    
+    if f_iagen: 
+        temp = temp[temp[c['ia_gen']].isin(f_iagen)] # Usamos f_iagen
+   
     f_iasub = st.session_state.get("f_ia_sub_w")
     if f_iasub:
         temp = temp[temp[c['ia_sub']].apply(lambda x: any(s in str(x) for s in f_iasub) if pd.notnull(x) else False)]
    
-    # Filtros Disponibilidad
+    # 3. Filtros Disponibilidad
     f_ran = st.session_state.get("f_rango_w")
     if f_ran and len(f_ran) == 2:
         temp = temp[temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_ran))]
     elif st.session_state.get("f_solo_disp_w"):
         temp = temp[(temp['Fechas_Reservadas'].isna()) | (temp['Fechas_Reservadas'].astype(str).str.strip() == "")]
 
-    # Filtro por Keywords (Conceptos Clave)
+    # 4. Filtro por Keywords (Conceptos Clave)
     kw_sel = st.session_state.get("f_kw_seleccionadas")
     if kw_sel:
         temp = temp[temp[c['keywords']].apply(lambda x: any(kw in str(x) for kw in kw_sel) if pd.notnull(x) else False)]
+        
     return temp
+
 
 # --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA) ---
 st.sidebar.title(t["sidebar_tit"])
@@ -821,6 +829,7 @@ with tab1:
     c1, c2 = st.columns(2)
     b_tit = c1.text_input(t["busq_titulo"], key="busq_t_input")
     b_aut = c2.text_input(t["busq_autor"], key="busq_a_input")
+    
    
     if b_tit or b_aut:
         # 1. Aplicar filtros base de la barra lateral (idioma, público, etc.)
