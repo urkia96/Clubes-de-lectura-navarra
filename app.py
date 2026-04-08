@@ -681,9 +681,7 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
            
         return temp
 
-        else:
-            st.sidebar.warning("Esperando a la base de datos...")
-            st.stop()
+        
 
                
 # --- 6. PANEL DE CONTROL (DINÁMICO) ---
@@ -769,7 +767,9 @@ if 'df' in locals() and df is not None:
         f_solo_disponibles = st.checkbox(t["f_solo_disp"])
 
    
-   
+   else:
+            st.sidebar.warning("Esperando a la base de datos...")
+            st.stop()
    
 # --- 6. INTERFAZ ---
 
