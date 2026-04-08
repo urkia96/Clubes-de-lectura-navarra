@@ -644,9 +644,49 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                         st.cache_data.clear()
                         st.rerun()
            
+
+# --- 5. LÓGICA DE FILTRADO ---
+ # --- LÓGICA DE FILTRADO (Definida después de los widgets) ---
+    def filtrar(dataframe):
+        temp = dataframe.copy()
        
+        # Filtros Generales
+        if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
+        if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
+        if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
+        if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
+        if f_lf:
+            if 'Materias' in temp.columns:
+                # Buscamos el texto "Lectura Fácil" ignorando mayúsculas/minúsculas
+                temp = temp[temp['Materias'].str.contains("Lectura Fácil", case=False, na=False)]
+        if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
+        if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
+       
+        # Filtros Contenido
+        if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
+        if f_ia_sub:
+            temp = temp[temp[c['ia_sub']].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
+       
+        # Filtros Disponibilidad
+        if len(f_rango) == 2:
+            mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
+            temp = temp[mask]
+        elif f_solo_disponibles:
+            temp = temp[(temp['Fechas_Reservadas'].isna()) | (temp['Fechas_Reservadas'].astype(str).str.strip() == "")]
+
+        # Keywords (vía session_state)
+        kw_sel = st.session_state.get("f_kw_seleccionadas")
+        if kw_sel:
+            temp = temp[temp[c['keywords']].apply(lambda x: any(kw in str(x) for kw in kw_sel) if pd.notnull(x) else False)]
+           
+        return temp
+
+else:
+    st.sidebar.warning("Esperando a la base de datos...")
+    st.stop()
+
                
-# --- 5. PANEL DE CONTROL (DINÁMICO) ---
+# --- 6. PANEL DE CONTROL (DINÁMICO) ---
 st.sidebar.title(t["sidebar_tit"])
 
 # 1. BOTONES DE ACCIÓN RÁPIDA
@@ -728,44 +768,7 @@ if 'df' in locals() and df is not None:
         f_rango = st.date_input(label_rango, value=[], help="Selecciona fecha de inicio y fin")
         f_solo_disponibles = st.checkbox(t["f_solo_disp"])
 
-    # --- LÓGICA DE FILTRADO (Definida después de los widgets) ---
-    def filtrar(dataframe):
-        temp = dataframe.copy()
-       
-        # Filtros Generales
-        if f_idioma: temp = temp[temp[c['idioma']].isin(f_idioma)]
-        if f_publico: temp = temp[temp[c['publico']].isin(f_publico)]
-        if f_gen_aut: temp = temp[temp[c['genero_aut']].isin(f_gen_aut)]
-        if f_local: temp = temp[temp['Geografia_Autor'] == "Local"]
-        if f_lf:
-            if 'Materias' in temp.columns:
-                # Buscamos el texto "Lectura Fácil" ignorando mayúsculas/minúsculas
-                temp = temp[temp['Materias'].str.contains("Lectura Fácil", case=False, na=False)]
-        if f_paginas < 1500: temp = temp[temp['Páginas'] <= f_paginas]
-        if f_editorial: temp = temp[temp['Editorial'].isin(f_editorial)]
-       
-        # Filtros Contenido
-        if f_ia_gen: temp = temp[temp[c['ia_gen']].isin(f_ia_gen)]
-        if f_ia_sub:
-            temp = temp[temp[c['ia_sub']].apply(lambda x: any(s in str(x) for s in f_ia_sub) if pd.notnull(x) else False)]
-       
-        # Filtros Disponibilidad
-        if len(f_rango) == 2:
-            mask = temp['Fechas_Reservadas'].apply(lambda x: comprobar_disponibilidad(x, f_rango))
-            temp = temp[mask]
-        elif f_solo_disponibles:
-            temp = temp[(temp['Fechas_Reservadas'].isna()) | (temp['Fechas_Reservadas'].astype(str).str.strip() == "")]
-
-        # Keywords (vía session_state)
-        kw_sel = st.session_state.get("f_kw_seleccionadas")
-        if kw_sel:
-            temp = temp[temp[c['keywords']].apply(lambda x: any(kw in str(x) for kw in kw_sel) if pd.notnull(x) else False)]
-           
-        return temp
-
-else:
-    st.sidebar.warning("Esperando a la base de datos...")
-    st.stop()
+   
    
    
 # --- 6. INTERFAZ ---
