@@ -988,19 +988,36 @@ with tab4:
    
     with col_s2:
         if st.button(t["boton_txt"], use_container_width=True):
+            # 1. Filtramos según los criterios actuales de la Sidebar
             posibles = filtrar(df)
+            
             if not posibles.empty:
-                st.session_state.azar = posibles.sample(1).iloc[0]
+                # 2. Seleccionamos uno al azar
+                seleccionado = posibles.sample(1)
+                st.session_state.azar = seleccionado.iloc[0]
+                
+                # 💡 PASO CLAVE: Actualizamos el 'cerebro' de la Sidebar
+                # Convertimos la fila en un DataFrame para que la Sidebar pueda leer sus keywords
+                st.session_state.df_final_actual = seleccionado
+                
+                # Forzamos reinicio para que la Sidebar vea el cambio al instante
+                st.rerun()
             else:
                 st.session_state.azar = None
+                st.session_state.df_final_actual = pd.DataFrame() # Vacío si no hay nada
 
-    # --- NUEVO: PREPARAR DATOS PARA LA TARJETA ---
+    # --- PREPARAR DATOS PARA LA TARJETA ---
     usuario_act = st.session_state.get("usuario_actual", "Anónimo")
     lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-    # ---------------------------------------------
 
     if 'azar' in st.session_state and st.session_state.azar is not None:
-        # LLAMADA CORREGIDA: Pasamos el libro al azar, el contexto y la lista de favoritos
-        mostrar_card(st.session_state.azar, "Serendipia", lotes_en_mis_favs, idx=0)
+        # Mostramos la tarjeta del libro seleccionado
+        mostrar_card(
+            st.session_state.azar, 
+            "Serendipia", 
+            lotes_en_mis_favs, 
+            idx="AZAR_1", 
+            posicion=1
+        )
     elif 'azar' in st.session_state:
         st.info(t["no_results"])
