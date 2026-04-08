@@ -730,7 +730,31 @@ def filtrar(dataframe):
 # --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA) ---
 st.sidebar.title(t["sidebar_tit"])
 
-# --- 1. BOTONES DE ACCIÓN ---
+# --- 1. TOP VALORADOS (Ranking Comunitario) - AHORA ARRIBA ---
+with st.sidebar.expander("🏆 TOP CLUBES (Comunidad)", expanded=True): # Lo pongo 'expanded=True' para que luzca
+    df_rank = obtener_ranking()
+   
+    if not df_rank.empty:
+        # Cruzamos con el DF original para obtener el Título de los libros
+        top_5 = df_rank.head(5).merge(df[['Lote', 'Título']], on='Lote').drop_duplicates('Lote')
+       
+        for i, (_, fila) in enumerate(top_5.iterrows()):
+            media_n = round(fila['Media'], 1)
+            estrellas = "⭐" * int(round(fila['Media']))
+           
+            st.markdown(f"**{media_n}** {estrellas}")
+            st.markdown(f"_{fila['Título']}_")
+           
+            if st.sidebar.button(f"Ver {fila['Lote']}", key=f"btn_rank_side_{fila['Lote']}_{i}"):
+                st.session_state.df_final_actual = df[df['Lote'] == fila['Lote']]
+                st.rerun()
+            st.markdown("---")
+    else:
+        st.write("Aún no hay valoraciones suficientes.")
+
+st.sidebar.markdown("---")
+
+# --- 2. BOTONES DE ACCIÓN DE USUARIO ---
 if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
     st.session_state.ver_favoritos = True
     st.rerun()
@@ -754,6 +778,7 @@ if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
     st.rerun()
 
 st.sidebar.markdown("---")
+
 
 # --- 2. NUEVO BLOQUE: TOP VALORADOS (Ranking Comunitario) ---
 with st.sidebar.expander("🏆 TOP CLUBES (Comunidad)", expanded=False):
