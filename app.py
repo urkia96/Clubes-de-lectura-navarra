@@ -617,70 +617,70 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
 
 
         # --- COLUMNA 3: BOTONES (Estrellas + Favorito) ---
-with col_vote:
-    usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-    lote_id = str(res['Lote']) # Aseguramos que sea string
-    
-    # 1. PUNTUACIÓN DE ESTRELLAS (Comunitaria)
-    st.caption("Puntúa este lote:")
-    # Nota: st.feedback("stars") devuelve 0, 1, 2, 3 o 4. Sumamos 1 para el Sheet.
-    voto_estrellas = st.feedback("stars", key=f"rating_{lote_id}_{context}_{idx}")
-
-    if voto_estrellas is not None:
-        puntuacion_final = voto_estrellas + 1
+        with col_vote:
+            usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+            lote_id = str(res['Lote']) # Aseguramos que sea string
+            
+            # 1. PUNTUACIÓN DE ESTRELLAS (Comunitaria)
+            st.caption("Puntúa este lote:")
+            # Nota: st.feedback("stars") devuelve 0, 1, 2, 3 o 4. Sumamos 1 para el Sheet.
+            voto_estrellas = st.feedback("stars", key=f"rating_{lote_id}_{context}_{idx}")
         
-        # --- RECOPILAMOS METADATOS PARA EL SHEET (Igual que antes) ---
-        tipo_busqueda = st.session_state.get("tab_actual", "Búsqueda")
+            if voto_estrellas is not None:
+                puntuacion_final = voto_estrellas + 1
+                
+                # --- RECOPILAMOS METADATOS PARA EL SHEET (Igual que antes) ---
+                tipo_busqueda = st.session_state.get("tab_actual", "Búsqueda")
+                
+                # Recopilar filtros de session_state (claves terminadas en _w)
+                filtros_lista = []
+                for f in ['f_idioma_w', 'f_publico_w', 'f_gen_aut_w', 'f_editorial_w', 'f_ia_gen_w', 'f_ia_sub_w']:
+                    val = st.session_state.get(f)
+                    if val: filtros_lista.extend(val if isinstance(val, list) else [val])
+                
+                if st.session_state.get('f_local_w'): filtros_lista.append("Autor Local")
+                if st.session_state.get('f_lf_w'): filtros_lista.append("Lectura Fácil")
+                
+                kw_sel = st.session_state.get("f_kw_seleccionadas")
+                if kw_sel: filtros_lista.extend(kw_sel)
+                
+                filtros_str = ", ".join(filtros_lista) if filtros_lista else "Sin filtros"
         
-        # Recopilar filtros de session_state (claves terminadas en _w)
-        filtros_lista = []
-        for f in ['f_idioma_w', 'f_publico_w', 'f_gen_aut_w', 'f_editorial_w', 'f_ia_gen_w', 'f_ia_sub_w']:
-            val = st.session_state.get(f)
-            if val: filtros_lista.extend(val if isinstance(val, list) else [val])
+                # Lógica del texto para el sheet
+                prefijos_tecnicos = ["TAB1", "Sim", "Serendipia", "MIS_FAVS", "HIBRID"]
+                if context and not any(p in str(context) for p in prefijos_tecnicos):
+                    texto_para_sheet = f"query: '{context}'"
+                else:
+                    texto_para_sheet = str(context) if context else "Sin términos"
         
-        if st.session_state.get('f_local_w'): filtros_lista.append("Autor Local")
-        if st.session_state.get('f_lf_w'): filtros_lista.append("Lectura Fácil")
+                # Llamamos a tu función de guardado (ahora con estrellas)
+                # Importante: Asegúrate de que 'guardar_voto' acepte la puntuación del 1 al 5
+                if votar_lote(lote_id, puntuacion_final): 
+                    # Opcional: También podrías guardar el log técnico aquí
+                    guardar_voto(lote_id, res.get('Título'), puntuacion_final, tipo_busqueda, texto_para_sheet, filtros_str, posicion)
+                    st.toast(f"¡Has valorado con {puntuacion_final} ⭐!", icon="🌟")
         
-        kw_sel = st.session_state.get("f_kw_seleccionadas")
-        if kw_sel: filtros_lista.extend(kw_sel)
-        
-        filtros_str = ", ".join(filtros_lista) if filtros_lista else "Sin filtros"
-
-        # Lógica del texto para el sheet
-        prefijos_tecnicos = ["TAB1", "Sim", "Serendipia", "MIS_FAVS", "HIBRID"]
-        if context and not any(p in str(context) for p in prefijos_tecnicos):
-            texto_para_sheet = f"query: '{context}'"
-        else:
-            texto_para_sheet = str(context) if context else "Sin términos"
-
-        # Llamamos a tu función de guardado (ahora con estrellas)
-        # Importante: Asegúrate de que 'guardar_voto' acepte la puntuación del 1 al 5
-        if votar_lote(lote_id, puntuacion_final): 
-            # Opcional: También podrías guardar el log técnico aquí
-            guardar_voto(lote_id, res.get('Título'), puntuacion_final, tipo_busqueda, texto_para_sheet, filtros_str, posicion)
-            st.toast(f"¡Has valorado con {puntuacion_final} ⭐!", icon="🌟")
-
-    # --- 2. SECCIÓN DE FAVORITOS (Personal) ---
-    st.write("---")
-    es_favorito = lote_id in lotes_en_mis_favs
-    
-    # Usamos columnas pequeñas para centrar el corazón/estrella
-    c_fav1, c_fav2 = st.columns([1, 1])
-    with c_fav1:
-        if es_favorito:
-            if st.button("❤️", key=f"fav_full_{lote_id}_{idx}", help="Quitar de favoritos"):
-                if eliminar_favorito(lote_id):
-                    st.cache_data.clear()
-                    st.rerun()
-        else:
-            if st.button("🤍", key=f"fav_empty_{lote_id}_{idx}", help="Añadir a favoritos"):
-                if guardar_favorito(lote_id, res.get('Título')):
-                    st.cache_data.clear()
-                    st.rerun()
-    
-    with c_fav2:
-        if es_favorito:
-            st.caption("En favoritos")
+            # --- 2. SECCIÓN DE FAVORITOS (Personal) ---
+            st.write("---")
+            es_favorito = lote_id in lotes_en_mis_favs
+            
+            # Usamos columnas pequeñas para centrar el corazón/estrella
+            c_fav1, c_fav2 = st.columns([1, 1])
+            with c_fav1:
+                if es_favorito:
+                    if st.button("❤️", key=f"fav_full_{lote_id}_{idx}", help="Quitar de favoritos"):
+                        if eliminar_favorito(lote_id):
+                            st.cache_data.clear()
+                            st.rerun()
+                else:
+                    if st.button("🤍", key=f"fav_empty_{lote_id}_{idx}", help="Añadir a favoritos"):
+                        if guardar_favorito(lote_id, res.get('Título')):
+                            st.cache_data.clear()
+                            st.rerun()
+            
+            with c_fav2:
+                if es_favorito:
+                    st.caption("En favoritos")
 
 
 
