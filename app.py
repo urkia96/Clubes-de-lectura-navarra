@@ -616,54 +616,67 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                 st.write(r.get('Resumen_navarra','No hay resumen disponible.'))
 
 
-        # --- COLUMNA 3: BOTONES (Estrellas + Favorito) ---
-        # --- COLUMNA 3: BOTONES (Estrellas + Favorito) ---
+        # --- COLUMNA 3: BOTONES (Estrellas + Favoritos) ---
         with col_vote:
             usuario_act = st.session_state.get("usuario_actual", "Anónimo")
             
-            # 1. PUNTUACIÓN DE ESTRELLAS
-            st.caption("Puntúa:")
+            # 1. PREGUNTA DE RELEVANCIA Y ESTRELLAS
+            st.write("**¿Es relevante?**") # Recuperamos la pregunta
+            
+            # El widget de estrellas
             voto_estrellas = st.feedback("stars", key=f"rating_{lote_id}_{context}_{idx}")
         
             if voto_estrellas is not None:
                 puntuacion_final = voto_estrellas + 1
                 
-                # Metadatos para el log
+                # --- PREPARAR METADATOS PARA EL LOG ---
                 tipo_busqueda = st.session_state.get("tab_actual", "Búsqueda")
                 
+                # Recopilar filtros activos desde st.session_state
                 filtros_lista = []
                 for f in ['f_idioma_w', 'f_publico_w', 'f_gen_aut_w', 'f_editorial_w', 'f_ia_gen_w', 'f_ia_sub_w']:
                     val = st.session_state.get(f)
-                    if val: filtros_lista.extend(val if isinstance(val, list) else [val])
+                    if val: 
+                        filtros_lista.extend(val if isinstance(val, list) else [val])
+                
+                if st.session_state.get('f_local_w'): filtros_lista.append("Autor Local")
+                if st.session_state.get('f_lf_w'): filtros_lista.append("Lectura Fácil")
+                
+                kw_sel = st.session_state.get("f_kw_seleccionadas")
+                if kw_sel: filtros_lista.extend(kw_sel)
                 
                 filtros_str = ", ".join(filtros_lista) if filtros_lista else "Sin filtros"
         
+                # Lógica del texto (query o contexto)
                 prefijos_tecnicos = ["TAB1", "Sim", "Serendipia", "MIS_FAVS", "HIBRID"]
                 if context and not any(p in str(context) for p in prefijos_tecnicos):
                     texto_para_sheet = f"query: '{context}'"
                 else:
                     texto_para_sheet = str(context) if context else "Sin términos"
         
-                # IMPORTANTE: Cambiado res -> r
-                if votar_lote(lote_id, puntuacion_final): 
-                    # Aquí también corregido: res.get -> r.get
-                    guardar_voto(lote_id, titulo_actual, puntuacion_final, tipo_busqueda, texto_para_sheet, filtros_str, posicion)
-                    st.toast(f"¡Has valorado con {puntuacion_final} ⭐!", icon="🌟")
+                # --- GUARDADO EN GSHEETS ---
+                # Llamamos a votar_lote (para el ranking) 
+                # y a guardar_voto (para tu log detallado de relevancia)
+                votar_lote(lote_id, puntuacion_final)
+                
+                if guardar_voto(lote_id, titulo_actual, puntuacion_final, tipo_busqueda, texto_para_sheet, filtros_str, posicion):
+                    st.toast(f"¡Valoración de {puntuacion_final} ⭐ registrada!", icon="🌟")
         
-            # --- 2. SECCIÓN DE FAVORITOS ---
+            # --- 2. SECCIÓN DE FAVORITOS (Corazón) ---
             st.write("---")
             es_favorito = lote_id in lotes_en_mis_favs
             
             if es_favorito:
-                if st.button("❤️", key=f"fav_full_{lote_id}_{idx}", help="Quitar de favoritos"):
+                if st.button("❤️", key=f"fav_full_{lote_id}_{idx}", help="Quitar de favoritos", use_container_width=True):
                     if eliminar_favorito(lote_id):
                         st.cache_data.clear()
                         st.rerun()
             else:
-                if st.button("🤍", key=f"fav_empty_{lote_id}_{idx}", help="Añadir a favoritos"):
+                if st.button("🤍", key=f"fav_empty_{lote_id}_{idx}", help="Añadir a favoritos", use_container_width=True):
                     if guardar_favorito(lote_id, titulo_actual):
                         st.cache_data.clear()
                         st.rerun()
+
 
 
 
