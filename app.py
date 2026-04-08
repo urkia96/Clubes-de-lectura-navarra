@@ -13,7 +13,7 @@ import gc
 import numpy as np
 import hashlib
 import re
-from streamlit_gsheets import GSheetsConnection
+
 
 
 # --- 0. CONFIGURACIÓN DE PÁGINA ---
