@@ -697,9 +697,28 @@ def filtrar(dataframe):
 # --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA) ---
 st.sidebar.title(t["sidebar_tit"])
 
-if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
-    st.session_state.auth = False
-    st.rerun()
+# --- BOTONES DE ACCIÓN RÁPIDA ---
+col_side1, col_side2 = st.sidebar.columns(2)
+
+with col_side1:
+    if st.button("🔄 Reset", use_container_width=True, help="Borrar filtros y búsquedas"):
+        # Listado de todas las keys de widgets y estados de búsqueda
+        keys_to_reset = [
+            "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w", 
+            "f_local_w", "f_lf_w", "f_paginas_w", "f_ia_gen_w", "f_ia_sub_w",
+            "f_kw_seleccionadas", "f_rango_w", "f_solo_disp_w",
+            "df_final_actual", "azar", "txt_sim_lote_multi", "input_ia", 
+            "busq_t_input", "busq_a_input"
+        ]
+        for k in keys_to_reset:
+            if k in st.session_state:
+                del st.session_state[k]
+        st.rerun()
+
+with col_side2:
+    if st.button(f"🚪 Salir", use_container_width=True):
+        st.session_state.auth = False
+        st.rerun()
 
 if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
     st.session_state.ver_favoritos = True
