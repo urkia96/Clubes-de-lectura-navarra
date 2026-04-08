@@ -418,18 +418,33 @@ def votar_lote(lote, puntuacion):
 
 def obtener_ranking():
     """Lee todos los votos y calcula la media por cada lote"""
+    sheet_control = conectar_sheets() # 1. Necesitas llamar a la conexión aquí también
+    if not sheet_control: return pd.DataFrame()
+    
     try:
-        conn = sheet_control.spreadsheet)
-        df_votos = spreadsheet.worksheet("votos")
+        # 2. Accedemos a la hoja correctamente
+        spreadsheet = sheet_control.spreadsheet
+        ws_votos = spreadsheet.worksheet("votos")
         
-        if df_votos.empty:
+        # 3. Obtenemos los datos y los convertimos a DataFrame de Pandas
+        datos = ws_votos.get_all_records()
+        if not datos:
             return pd.DataFrame()
+            
+        df_votos = pd.DataFrame(datos)
         
-        # Calculamos media y número de votos
+        # 4. Forzamos que la puntuación sea numérica (por si viene como texto)
+        df_votos['Puntuacion'] = pd.to_numeric(df_votos['Puntuacion'], errors='coerce')
+       
+        # 5. Agrupamos y calculamos
         ranking = df_votos.groupby('Lote')['Puntuacion'].agg(['mean', 'count']).reset_index()
         ranking.columns = ['Lote', 'Media', 'Total_Votos']
+        
+        # Devolvemos ordenado por nota (Media)
         return ranking.sort_values(by='Media', ascending=False)
-    except:
+    except Exception as e:
+        # Es mejor no poner un except vacío para saber si hay errores de permisos o nombres
+        print(f"Error en ranking: {e}")
         return pd.DataFrame()
 
 
