@@ -743,7 +743,15 @@ def filtrar(dataframe):
 # --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA) ---
 st.sidebar.title(t["sidebar_tit"])
 
-# Botón de Nueva Búsqueda posicionado debajo de Cerrar Sesión
+# --- 1. BOTONES DE ACCIÓN ---
+if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
+    st.session_state.ver_favoritos = True
+    st.rerun()
+
+if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
+    st.session_state.auth = False
+    st.rerun()
+
 if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
     keys_to_reset = [
         "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w",
@@ -758,20 +766,35 @@ if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
     st.session_state.ver_favoritos = False
     st.rerun()
 
-
-# --- BOTONES DE ACCIÓN RÁPIDA (En una sola columna) ---
-if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
-    st.session_state.ver_favoritos = True
-    st.rerun()
-
-if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
-    st.session_state.auth = False
-    st.rerun()
-
-
 st.sidebar.markdown("---")
 
-# --- BLOQUE 1: FILTROS GENERALES ---
+# --- 2. NUEVO BLOQUE: TOP VALORADOS (Ranking Comunitario) ---
+with st.sidebar.expander("🏆 TOP CLUBES (Comunidad)", expanded=False):
+    # Llamamos a la función que calcula las medias desde el Sheet de votos
+    df_rank = obtener_ranking() 
+    
+    if not df_rank.empty:
+        # Cruzamos con el DF original para obtener el Título de los libros
+        top_5 = df_rank.head(5).merge(df[['Lote', 'Título']], on='Lote').drop_duplicates('Lote')
+        
+        for i, (_, fila) in enumerate(top_5.iterrows()):
+            # Creamos una visualización compacta: Nota + Título
+            # Usamos emojis de estrellas según la media
+            media_n = round(fila['Media'], 1)
+            estrellas = "⭐" * int(round(fila['Media']))
+            
+            st.markdown(f"**{media_n}** {estrellas}")
+            st.markdown(f"_{fila['Título']}_")
+            
+            # Botón para saltar directamente a este lote
+            if st.sidebar.button(f"Ver {fila['Lote']}", key=f"btn_rank_side_{fila['Lote']}_{i}"):
+                st.session_state.df_final_actual = df[df['Lote'] == fila['Lote']]
+                st.rerun()
+            st.markdown("---")
+    else:
+        st.write("Aún no hay valoraciones suficientes.")
+
+# --- 3. BLOQUE: FILTROS GENERALES ---
 with st.sidebar.expander(t["exp_gral"], expanded=False):
     st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()), key="f_idioma_w")
     st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()), key="f_publico_w")
@@ -782,19 +805,19 @@ with st.sidebar.expander(t["exp_gral"], expanded=False):
     st.checkbox(t["f_lf"], key="f_lf_w")
     st.slider(t["f_paginas"], 50, 1500, 1500, key="f_paginas_w")
 
-# --- BLOQUE 2: CONTENIDO ---
+# --- 4. BLOQUE: CONTENIDO IA ---
 with st.sidebar.expander(t["exp_cont"], expanded=True):
     # 1. Géneros IA
     opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
     st.multiselect(t["f_ia_gen"], opciones_ia_gen, key="f_ia_gen_w")
    
-    # 2. Subgéneros dinámicos (Solo aparece si hay opciones)
+    # 2. Subgéneros dinámicos
     f_ia_gen_val = st.session_state.get("f_ia_gen_w", [])
     if f_ia_gen_val:
         df_temp_sub = df[df[c['ia_gen']].isin(f_ia_gen_val)]
         raw_subs = df_temp_sub[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
         opciones_sub = sorted([str(s) for s in raw_subs if str(s) not in ["Desconocido", "nan", "None", ""]])
-        
+       
         if opciones_sub:
             st.multiselect(t["f_ia_sub"], opciones_sub, key="f_ia_sub_w")
 
@@ -808,7 +831,7 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
    
     lista_final_kw = []
     nombre_col_kw = c.get('keywords', 'Keywords_IA')
-    
+   
     if fuente_palabras is not None and not fuente_palabras.empty:
         if nombre_col_kw in fuente_palabras.columns:
             try:
@@ -819,17 +842,18 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
                 lista_final_kw = []
    
     st.multiselect(
-        "Filtrar por concepto:", 
-        lista_final_kw, 
-        key="f_kw_seleccionadas", 
+        "Filtrar por concepto:",
+        lista_final_kw,
+        key="f_kw_seleccionadas",
         label_visibility="collapsed",
         placeholder="Selecciona conceptos..."
     )
 
-# --- BLOQUE 3: DISPONIBILIDAD ---
+# --- 5. BLOQUE: DISPONIBILIDAD ---
 with st.sidebar.expander(t["exp_disp"], expanded=False):
     st.date_input("Rango de fechas", value=[], key="f_rango_w")
     st.checkbox(t["f_solo_disp"], key="f_solo_disp_w")
+
 
 
                
