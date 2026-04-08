@@ -745,37 +745,49 @@ def filtrar(dataframe):
 # --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA) ---
 st.sidebar.title(t["sidebar_tit"])
 
-# --- 1. TOP VALORADOS (Ranking Comunitario) - AHORA ARRIBA ---
-with st.sidebar.expander("🏆 TOP CLUBES (Comunidad)", expanded=True): # Lo pongo 'expanded=True' para que luzca
+# --- 1. BOTÓN DE SALIDA (Arriba del todo como pediste) ---
+if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
+    st.session_state.auth = False
+    st.rerun()
+
+st.sidebar.markdown("---")
+
+# --- 2. TOP VALORADOS (Ranking Comunitario) ---
+with st.sidebar.expander("🏆 TOP CLUBES (Comunidad)", expanded=True):
     df_rank = obtener_ranking()
    
     if not df_rank.empty:
-        # Cruzamos con el DF original para obtener el Título de los libros
+        # Botón para ir a la vista completa de Ranking (esto es lo que faltaba)
+        if st.sidebar.button("📊 Ver Ranking Completo", use_container_width=True):
+            st.session_state.ver_ranking = True
+            st.session_state.ver_favoritos = False
+            st.rerun()
+            
+        st.markdown("---")
+        
+        # Muestra el Top 5 resumido
         top_5 = df_rank.head(5).merge(df[['Lote', 'Título']], on='Lote').drop_duplicates('Lote')
        
         for i, (_, fila) in enumerate(top_5.iterrows()):
             media_n = round(fila['Media'], 1)
             estrellas = "⭐" * int(round(fila['Media']))
            
-            st.markdown(f"**{media_n}** {estrellas}")
-            st.markdown(f"_{fila['Título']}_")
+            st.markdown(f"**{media_n}** {estrellas} \n_{fila['Título']}_")
            
             if st.sidebar.button(f"Ver {fila['Lote']}", key=f"btn_rank_side_{fila['Lote']}_{i}"):
                 st.session_state.df_final_actual = df[df['Lote'] == fila['Lote']]
+                st.session_state.ver_ranking = False
+                st.session_state.ver_favoritos = False
                 st.rerun()
-            st.markdown("---")
     else:
         st.write("Aún no hay valoraciones suficientes.")
 
 st.sidebar.markdown("---")
 
-# --- 2. BOTONES DE ACCIÓN DE USUARIO ---
+# --- 3. BOTONES DE ACCIÓN (Agrupados abajo) ---
 if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
     st.session_state.ver_favoritos = True
-    st.rerun()
-
-if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
-    st.session_state.auth = False
+    st.session_state.ver_ranking = False
     st.rerun()
 
 if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
@@ -790,6 +802,7 @@ if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
         if k in st.session_state:
             del st.session_state[k]
     st.session_state.ver_favoritos = False
+    st.session_state.ver_ranking = False
     st.rerun()
 
 st.sidebar.markdown("---")
