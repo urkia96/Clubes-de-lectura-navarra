@@ -705,15 +705,6 @@ def filtrar(dataframe):
 # --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA) ---
 st.sidebar.title(t["sidebar_tit"])
 
-# --- BOTONES DE ACCIÓN RÁPIDA (En una sola columna) ---
-if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
-    st.session_state.ver_favoritos = True
-    st.rerun()
-
-if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
-    st.session_state.auth = False
-    st.rerun()
-
 # Botón de Nueva Búsqueda posicionado debajo de Cerrar Sesión
 if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
     keys_to_reset = [
@@ -728,6 +719,17 @@ if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
             del st.session_state[k]
     st.session_state.ver_favoritos = False
     st.rerun()
+
+
+# --- BOTONES DE ACCIÓN RÁPIDA (En una sola columna) ---
+if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
+    st.session_state.ver_favoritos = True
+    st.rerun()
+
+if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
+    st.session_state.auth = False
+    st.rerun()
+
 
 st.sidebar.markdown("---")
 
