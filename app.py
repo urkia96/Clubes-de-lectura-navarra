@@ -780,31 +780,6 @@ if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
 st.sidebar.markdown("---")
 
 
-# --- 2. NUEVO BLOQUE: TOP VALORADOS (Ranking Comunitario) ---
-with st.sidebar.expander("🏆 TOP CLUBES (Comunidad)", expanded=False):
-    # Llamamos a la función que calcula las medias desde el Sheet de votos
-    df_rank = obtener_ranking() 
-    
-    if not df_rank.empty:
-        # Cruzamos con el DF original para obtener el Título de los libros
-        top_5 = df_rank.head(5).merge(df[['Lote', 'Título']], on='Lote').drop_duplicates('Lote')
-        
-        for i, (_, fila) in enumerate(top_5.iterrows()):
-            # Creamos una visualización compacta: Nota + Título
-            # Usamos emojis de estrellas según la media
-            media_n = round(fila['Media'], 1)
-            estrellas = "⭐" * int(round(fila['Media']))
-            
-            st.markdown(f"**{media_n}** {estrellas}")
-            st.markdown(f"_{fila['Título']}_")
-            
-            # Botón para saltar directamente a este lote
-            if st.sidebar.button(f"Ver {fila['Lote']}", key=f"btn_rank_side_{fila['Lote']}_{i}"):
-                st.session_state.df_final_actual = df[df['Lote'] == fila['Lote']]
-                st.rerun()
-            st.markdown("---")
-    else:
-        st.write("Aún no hay valoraciones suficientes.")
 
 # --- 3. BLOQUE: FILTROS GENERALES ---
 with st.sidebar.expander(t["exp_gral"], expanded=False):
