@@ -715,7 +715,7 @@ if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
     st.rerun()
 
 # Botón de Nueva Búsqueda posicionado debajo de Cerrar Sesión
-if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True, type="primary"):
+if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
     keys_to_reset = [
         "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w",
         "f_local_w", "f_lf_w", "f_paginas_w", "f_ia_gen_w", "f_ia_sub_w",
