@@ -767,9 +767,9 @@ if 'df' in locals() and df is not None:
         f_solo_disponibles = st.checkbox(t["f_solo_disp"])
 
    
-   else:
-            st.sidebar.warning("Esperando a la base de datos...")
-            st.stop()
+else:
+    st.sidebar.warning("Esperando a la base de datos...")
+    st.stop()
    
 # --- 6. INTERFAZ ---
 
