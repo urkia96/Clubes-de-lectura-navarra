@@ -706,7 +706,7 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
             
             if voto_realizado:
                 # Si ya votó, mostramos un mensaje en lugar del selector
-                st.info("✅ Ya has votado.")
+                st.info("✅ Votado.")
             else:
                 # Si NO ha votado, mostramos el componente de estrellas
                 voto_estrellas = st.feedback("stars", key=f"rating_{lote_id_str}_{context}_{idx}")
