@@ -632,13 +632,13 @@ def obtener_filtros_activos():
     return filtros if filtros else ["Sin filtros"]
 
 def limpiar_busquedas_alternativas(tab_actual):
-    """Limpia los estados de otros tabs para evitar que se queden tarjetas pegadas"""
     if tab_actual != "tab3":
-        if "txt_sim_lote_multi" in st.session_state:
-            st.session_state.txt_sim_lote_multi = ""
+        # Usamos pop para eliminar la clave si existe sin lanzar error
+        st.session_state.pop("txt_sim_lote_multi", None)
+            
     if tab_actual != "tab4":
-        if "azar" in st.session_state:
-            st.session_state.azar = None
+        # Aquí no hay problema con None porque 'azar' no está vinculado a un widget input
+        st.session_state.azar = None
 
 # 4. Mostrar tarjeta
 @st.fragment
@@ -1226,31 +1226,35 @@ with tab3:
                 st.warning("No hay otros lotes con suficiente similitud.")
 
 # --- TAB4: Búsqueda aleatoria ---
+# --- TAB4: Búsqueda aleatoria ---
 with tab4:
     col_s1, col_s2 = st.columns([1, 4])
     with col_s1:
-        if os.path.exists(URL_SERENDIPIA): st.image(URL_SERENDIPIA, width=120)
+        if os.path.exists(URL_SERENDIPIA): 
+            st.image(URL_SERENDIPIA, width=120)
     
     with col_s2:
-        # Al pulsar el botón, limpiamos el input del TAB 3 para que no "vuelva" al cambiar de tab
         if st.button(t["boton_txt"], use_container_width=True):
+            # Llamamos a la función que ahora usa .pop()
             limpiar_busquedas_alternativas("tab4")
-            posibles = filtrar(df)
             
+            posibles = filtrar(df)
             if not posibles.empty:
                 seleccionado = posibles.sample(1)
                 st.session_state.azar = seleccionado.iloc[0]
-                st.session_state.df_final_actual = seleccionado
+                # Guardamos para que la sidebar sepa qué libro hay
+                st.session_state.df_final_actual = seleccionado.to_frame().T
                 st.rerun()
             else:
                 st.session_state.azar = None
                 st.session_state.df_final_actual = pd.DataFrame()
 
-    # Renderizado de la tarjeta aleatoria
+    # Mostrar el resultado (si existe)
     if st.session_state.get('azar') is not None:
         usuario_act = st.session_state.get("usuario_actual", "Anónimo")
         lotes_en_mis_favs = obtener_mis_libros(usuario_act)
         
+        st.markdown("---")
         mostrar_card(
             st.session_state.azar, 
             "Serendipia", 
@@ -1258,5 +1262,6 @@ with tab4:
             idx="AZAR_1", 
             posicion=1
         )
-    elif 'azar' in st.session_state:
+    elif 'azar' in st.session_state and st.session_state.azar is None:
+        # Solo mostrar el aviso si realmente se intentó buscar y no hubo suerte
         st.info(t["no_results"])
