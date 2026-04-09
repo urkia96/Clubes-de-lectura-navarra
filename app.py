@@ -215,8 +215,8 @@ texts = {
         "tab3": "🔍 Lotes similares",
         "tab4": "🎲 Búsqueda aleatoria",
         "placeholder": "Ej: Novelas sobre la historia de Navarra",
-        #"input_query": "Puedes escribir lo que quieras.",
-        "ayuda_busqueda": "💡 **Trucos de búsqueda:** Usa **\" \"** para frases exactas (ej: *\"edad media\"*) y **-** para excluir palabras (ej: *romance -juvenil*).",
+        "input_query": "Puedes escribir lo que quieras.",
+        #"ayuda_busqueda": "💡 **Trucos de búsqueda:** Usa **\" \"** para frases exactas (ej: *\"edad media\"*) y **-** para excluir palabras (ej: *romance -juvenil*).",
         "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:",
         "busq_titulo": "Buscar por Título:",
         "busq_autor": "Buscar por Autor:",
@@ -272,8 +272,8 @@ texts = {
         "tab3": "🔍 Lote antzekoak",
         "tab4": "🎲 Zorizko bilaketa",
         "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak",
-        #"input_query": "Idatzi zer liburu mota bilatzen ari zaren...",
-        "ayuda_busqueda": "💡 **Bilaketa-iturburuak:** Erabili **\" \"** esaldi zehatzetarako (adib: *\"erdi aroa\"*) eta **-** hitzak baztertzeko (adib: *erromantzea -gaztea*).",
+        "input_query": "Idatzi zer liburu mota bilatzen ari zaren...",
+        #"ayuda_busqueda": "💡 **Bilaketa-iturburuak:** Erabili **\" \"** esaldi zehatzetarako (adib: *\"erdi aroa\"*) eta **-** hitzak baztertzeko (adib: *erromantzea -gaztea*).",
         "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:",
         "busq_titulo": "Izenburuaren arabera bilatu:",
         "busq_autor": "Egilearen arabera bilatu:",
@@ -1111,7 +1111,7 @@ else:
         
         # --- BLOQUE DE AYUDA VISUAL (Letra pequeña y traducida) ---
         # Usamos st.caption para letra pequeña grisácea, o HTML para control total
-        st.markdown(f"<div style='font-size: 0.8rem; line-height: 1.2; color: black;'>{t['ayuda_busqueda']}</div>", unsafe_allow_html=True)
+        #st.markdown(f"<div style='font-size: 0.8rem; line-height: 1.2; color: black;'>{t['ayuda_busqueda']}</div>", unsafe_allow_html=True)
         
         q_original = st.text_input(
             t["input_query"], 
