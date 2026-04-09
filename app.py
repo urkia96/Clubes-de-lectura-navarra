@@ -1111,7 +1111,7 @@ else:
         
         # --- BLOQUE DE AYUDA VISUAL (Letra pequeña y traducida) ---
         # Usamos st.caption para letra pequeña grisácea, o HTML para control total
-        st.markdown(f"<div style='font-size: 0.8rem; line-height: 1.2; color: gray;'>{t['ayuda_busqueda']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size: 0.8rem; line-height: 1.2; color: black;'>{t['ayuda_busqueda']}</div>", unsafe_allow_html=True)
         
         q_original = st.text_input(
             t["input_query"], 
