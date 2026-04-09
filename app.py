@@ -215,7 +215,7 @@ texts = {
         "tab3": "🔍 Lotes similares",
         "tab4": "🎲 Búsqueda aleatoria",
         "placeholder": "Ej: Novelas sobre la historia de Navarra",
-        "input_query": "Puedes escribir lo que quieras. Para términos exactos en Título, Autor, Resúmen o Palabras clave, usa comillas dobles '"'. Para usar el booleano NOT, usa '-'. Por ejemplo, 'Novelas sobre la historia de navarra -Carlos'",
+        "input_query": "Puedes escribir lo que quieras. Para términos exactos en Título, Autor, Resúmen o Palabras clave, usa comillas dobles. Para usar el booleano NOT, usa '-'. Por ejemplo, 'Novelas sobre la historia de navarra -Carlos'",
         "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:",
         "busq_titulo": "Buscar por Título:",
         "busq_autor": "Buscar por Autor:",
