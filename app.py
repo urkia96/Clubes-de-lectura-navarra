@@ -943,21 +943,21 @@ else:
     # ... resto de tus pestañas
 
 # Si el usuario pulsó "Mis Libros"
-elif st.session_state.get("ver_favoritos"):
-    st.title(t["mis_favs_tit"])
-    lotes_favs = obtener_mis_libros(st.session_state.usuario_actual)
+    elif st.session_state.get("ver_favoritos"):
+        st.title(t["mis_favs_tit"])
+        lotes_favs = obtener_mis_libros(st.session_state.usuario_actual)
+        
+        if lotes_favs:
+            df_favs = df[df['Lote'].isin(lotes_favs)]
+            for idx, row in df_favs.iterrows():
+                mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
+        else:
+            st.info("Tu lista de favoritos está vacía.")
     
-    if lotes_favs:
-        df_favs = df[df['Lote'].isin(lotes_favs)]
-        for idx, row in df_favs.iterrows():
-            mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
+    # Si no hay ninguna vista especial, mostrar los buscadores normales (Tabs)
     else:
-        st.info("Tu lista de favoritos está vacía.")
-
-# Si no hay ninguna vista especial, mostrar los buscadores normales (Tabs)
-else:
-    # Aquí irían tus st.tabs(["Búsqueda por autor...", etc.])
-    pass
+        # Aquí irían tus st.tabs(["Búsqueda por autor...", etc.])
+        pass
 
 # --- SECCIÓN B: FAVORITOS (TUYA) ---
 if st.session_state.get("ver_favoritos"):
