@@ -875,10 +875,10 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
         if opciones_sub:
             st.multiselect(t["f_ia_sub"], opciones_sub, key="f_ia_sub_w")
 
-    # 3. Conceptos Clave (CON BUSCADOR DINÁMICO)
+    # 3. Conceptos Clave (LISTA INTELIGENTE INTEGRADA)
     st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
     
-    # Determinamos la fuente (Búsqueda actual o filtrado general)
+    # Decidimos de dónde sacar las palabras (de los resultados actuales o de todo el DF)
     if "df_final_actual" in st.session_state and not st.session_state.df_final_actual.empty:
         fuente_palabras = st.session_state.df_final_actual
     else:
@@ -890,43 +890,36 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
     if fuente_palabras is not None and not fuente_palabras.empty:
         if nombre_col_kw in fuente_palabras.columns:
             try:
-                # 1. Obtenemos todas las palabras únicas disponibles
+                # 1. Extraemos todas las palabras de los libros que estamos viendo
                 todas_kw_series = fuente_palabras[nombre_col_kw].astype(str).str.split(',').explode().str.strip()
-                # Quitamos valores basura
-                opciones_kw_counts = todas_kw_series.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
-                lista_base = opciones_kw_counts.index.tolist()
-
-                # 2. MINI-BUSCADOR: Campo de texto para filtrar la lista de abajo
-                busqueda_interna = st.text_input("🔍 Buscar concepto...", key="busq_keyword_manual", label_visibility="collapsed", placeholder="Escribe para filtrar la lista...")
-
-                # 3. FILTRADO LÓGICO:
-                # Si hay texto escrito, buscamos coincidencias. Si no, mostramos las 25 más frecuentes.
-                if busqueda_interna:
-                    lista_final_kw = [k for k in lista_base if busqueda_interna.lower() in k.lower()]
-                else:
-                    lista_final_kw = lista_base[:25] # Top 25 si está vacío
-
-                # 4. PERSISTENCIA: Muy importante. 
-                # Si el usuario ya seleccionó algo, debe seguir estando en la lista aunque no coincida con la búsqueda actual,
-                # de lo contrario Streamlit lanzará un error porque el valor seleccionado no existe en las opciones.
-                seleccionadas = st.session_state.get("f_kw_seleccionadas", [])
-                for s in seleccionadas:
-                    if s not in lista_final_kw:
-                        lista_final_kw.append(s)
                 
+                # 2. Quitamos lo que no sirve
+                opciones_kw_counts = todas_kw_series.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+                
+                # 3. CONSEJO: En lugar de 25, pasamos las 150 más frecuentes.
+                # Al ser una lista más larga, el buscador interno del Multiselect 
+                # encontrará casi cualquier cosa que el usuario empiece a escribir.
+                lista_base = opciones_kw_counts.head(150).index.tolist()
+
+                # 4. Aseguramos que lo que ya está seleccionado no desaparezca nunca
+                seleccionadas = st.session_state.get("f_kw_seleccionadas", [])
+                lista_final_kw = list(set(lista_base + seleccionadas))
+                
+                # 5. Ordenamos alfabéticamente para que sea fácil de leer al buscar
                 lista_final_kw = sorted(lista_final_kw)
 
-            except Exception as e:
+            except:
                 lista_final_kw = []
     
-    # El Multiselect de siempre, pero ahora su 'lista_final_kw' es inteligente
+    # Volvemos al componente único y limpio
     st.multiselect(
         "Filtrar por concepto:",
         lista_final_kw,
         key="f_kw_seleccionadas",
         label_visibility="collapsed",
-        placeholder="Selecciona conceptos..."
+        placeholder="Escribe para buscar conceptos..."
     )
+    
 
 # --- 5. BLOQUE: DISPONIBILIDAD ---
 with st.sidebar.expander(t["exp_disp"], expanded=False):
