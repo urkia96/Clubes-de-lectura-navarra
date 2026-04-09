@@ -906,52 +906,52 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
             st.multiselect(t["f_ia_sub"], opciones_sub, key="f_ia_sub_w")
 
     # --- 3. Conceptos Clave (LISTA DINÁMICA CON DICCIONARIO COMPLETO) ---
-        st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
-        
-        # 1. Cargamos el "Diccionario Maestro" (Todas las keywords que existen en el Excel)
-        # Usamos cache para que esto no ralentice la app cada vez que el usuario hace click
-        @st.cache_data
-        def obtener_diccionario_maestro(_df, col_name):
-            todas = _df[col_name].astype(str).str.split(',').explode().str.strip()
-            # Limpiamos basura
-            return sorted(todas.unique().tolist())
-        
-        nombre_col_kw = c.get('keywords', 'Keywords_IA')
-        diccionario_completo = obtener_diccionario_maestro(df, nombre_col_kw)
-        
-        # 2. Decidimos qué sugerir (las 150 más frecuentes de lo que el usuario está viendo)
-        if "df_final_actual" in st.session_state and not st.session_state.df_final_actual.empty:
-            fuente_palabras = st.session_state.df_final_actual
-        else:
-            fuente_palabras = filtrar(df)
-        
+st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
+
+# 1. Cargamos el "Diccionario Maestro" (Todas las keywords que existen en el Excel)
+# Usamos cache para que esto no ralentice la app cada vez que el usuario hace click
+@st.cache_data
+def obtener_diccionario_maestro(_df, col_name):
+    todas = _df[col_name].astype(str).str.split(',').explode().str.strip()
+    # Limpiamos basura
+    return sorted(todas.unique().tolist())
+
+nombre_col_kw = c.get('keywords', 'Keywords_IA')
+diccionario_completo = obtener_diccionario_maestro(df, nombre_col_kw)
+
+# 2. Decidimos qué sugerir (las 150 más frecuentes de lo que el usuario está viendo)
+if "df_final_actual" in st.session_state and not st.session_state.df_final_actual.empty:
+    fuente_palabras = st.session_state.df_final_actual
+else:
+    fuente_palabras = filtrar(df)
+
+lista_sugerida = []
+if fuente_palabras is not None and not fuente_palabras.empty:
+    try:
+        series_actual = fuente_palabras[nombre_col_kw].astype(str).str.split(',').explode().str.strip()
+        counts = series_actual.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+        lista_sugerida = counts.head(150).index.tolist()
+    except:
         lista_sugerida = []
-        if fuente_palabras is not None and not fuente_palabras.empty:
-            try:
-                series_actual = fuente_palabras[nombre_col_kw].astype(str).str.split(',').explode().str.strip()
-                counts = series_actual.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
-                lista_sugerida = counts.head(150).index.tolist()
-            except:
-                lista_sugerida = []
-        
-        # 3. LÓGICA HÍBRIDA (La clave):
-        # Unimos: Lo que ya está seleccionado + Las 150 sugeridas + El Diccionario Completo
-        # Streamlit priorizará mostrar las sugeridas, pero si el usuario escribe "Sahara", 
-        # la buscará en el diccionario completo y la permitirá.
-        seleccionadas = st.session_state.get("f_kw_seleccionadas", [])
-        
-        # Al usar set() aseguramos que no haya duplicados
-        # Al usar el diccionario completo como base de 'options', permitimos CUALQUIER búsqueda
-        opciones_multiselect = sorted(list(set(lista_sugerida + seleccionadas + diccionario_completo)))
-        
-        # 4. El Componente
-        st.multiselect(
-            "Filtrar por concepto:",
-            options=opciones_multiselect,
-            key="f_kw_seleccionadas",
-            label_visibility="collapsed",
-            placeholder="Escribe 'Sahara' o cualquier otro concepto..."
-        )
+
+# 3. LÓGICA HÍBRIDA (La clave):
+# Unimos: Lo que ya está seleccionado + Las 150 sugeridas + El Diccionario Completo
+# Streamlit priorizará mostrar las sugeridas, pero si el usuario escribe "Sahara", 
+# la buscará en el diccionario completo y la permitirá.
+seleccionadas = st.session_state.get("f_kw_seleccionadas", [])
+
+# Al usar set() aseguramos que no haya duplicados
+# Al usar el diccionario completo como base de 'options', permitimos CUALQUIER búsqueda
+opciones_multiselect = sorted(list(set(lista_sugerida + seleccionadas + diccionario_completo)))
+
+# 4. El Componente
+st.multiselect(
+    "Filtrar por concepto:",
+    options=opciones_multiselect,
+    key="f_kw_seleccionadas",
+    label_visibility="collapsed",
+    placeholder="Escribe 'Sahara' o cualquier otro concepto..."
+)
             
 
 # --- 5. BLOQUE: DISPONIBILIDAD ---
