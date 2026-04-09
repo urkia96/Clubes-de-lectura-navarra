@@ -188,12 +188,18 @@ texts = {
         "titulo": "Clubes de Lectura de Navarra",
         "subtitulo": "Nafarroako Irakurketa Klubak",
         "sidebar_tit": "🎯 Panel de Control",
+        "nav_tit": "🚀 Navegación",
+        "btn_ranking": "🏆 TOP Clubes de la Comunidad",
+        "btn_nueva_busqueda": "🔄 Nueva búsqueda",
+        "btn_cerrar_sesion": "🚪 Cerrar Sesión",
+        "btn_volver": "⬅️ Volver",
+        "rank_cap": "Filtrando el ranking según tus preferencias",
         "exp_gral": "⚙️ Filtros generales",
         "exp_cont": "📖 Filtros de contenido",
-        "exp_disp": "📅 Disponibilidad", # <--- NUEVA
+        "exp_disp": "📅 Disponibilidad",
         "mis_favs_tit": "📚 Mis Libros Guardados",
-        "f_actualizacion": "Última actualización: 08/04/2026", # <--- NUEVA
-        "f_solo_disp": "Solo disponibles ahora", # <--- NUEV
+        "f_actualizacion": "Última actualización: 08/04/2026",
+        "f_solo_disp": "Solo disponibles ahora",
         "f_idioma": "🌍 Idioma",
         "f_publico": "👥 Público",
         "f_genero_aut": "👤 Género Autor/a",
@@ -216,7 +222,8 @@ texts = {
         "resumen_btn": "Ver resumen",
         "pags_label": "págs",
         "thanks": "✅ Voto registrado",
-        "ask": "¿Te gusta esta recomendación?",
+        "ask_relevante": "¿Es relevante para tu búsqueda?",
+        "ask_recomendarias": "¿Lo recomendarías para tu club?",
         "boton_txt": "¡Sorpréndeme!",
         "no_results": "Sin resultados con esos filtros.",
         "excluir_subs": ["Teatro", "Poesía", "Infantil", "Juvenil"],
@@ -233,12 +240,18 @@ texts = {
         "titulo": "Nafarroako Irakurketa Klubak",
         "subtitulo": "Clubes de Lectura de Navarra",
         "sidebar_tit": "🎯 Kontrol Panela",
+        "nav_tit": "🚀 Nabigazioa",
+        "btn_ranking": "🏆 Komunitateko TOP Klubak",
+        "btn_nueva_busqueda": "🔄 Bilaketa berria",
+        "btn_cerrar_sesion": "🚪 Saioa itxi",
+        "btn_volver": "⬅️ Itzuli",
+        "rank_cap": "Rankinga zure hobespenen arabera iragazten",
         "exp_gral": "⚙️ Iragazki orokorrak",
         "exp_cont": "📖 Edukiaren iragazkiak",
-        "exp_disp": "📅 Erabilgarritasuna", # <--- NUEVA
+        "exp_disp": "📅 Erabilgarritasuna",
         "mis_favs_tit": "📚 Gordetako Liburuak",
-        "f_actualizacion": "Azken eguneratzea: 2026/03/25", # <--- NUEVA
-        "f_solo_disp": "Libre daudenak bakarrik", # <--- NUEVA
+        "f_actualizacion": "Azken eguneratzea: 2026/04/08",
+        "f_solo_disp": "Libre daudenak bakarrik",
         "f_idioma": "🌍 Hizkuntza",
         "f_publico": "👥 Publikoa",
         "f_genero_aut": "👤 Egilearen generoa",
@@ -261,7 +274,8 @@ texts = {
         "resumen_btn": "Ikusi laburpena",
         "pags_label": "orr",
         "thanks": "✅ Iritzia gordeta",
-        "ask": "Gogoko duzu?",
+        "ask_relevante": "Zure bilaketarako garrantzitsua da?",
+        "ask_recomendarias": "Zure klubarako gomendatuko zenuke?",
         "boton_txt": "Harritu nazazu!",
         "no_results": "Ez da emaitzarik aurkitu iragazki hauekin.",
         "excluir_subs": ["Antzerkia", "Olerkiak", "Haur literatura", "Gazte literatura"],
@@ -805,7 +819,7 @@ def filtrar(dataframe):
 st.sidebar.title(t["sidebar_tit"])
 
 # --- 1. BOTÓN DE SALIDA ---
-if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
+if st.sidebar.button(t["btn_cerrar_sesion"], use_container_width=True):
     st.session_state.auth = False
     st.rerun()
 
@@ -814,10 +828,10 @@ st.sidebar.markdown("---")
 # --- 2. GRUPO DE ACCIONES PRINCIPALES (Agrupados en el mismo nivel) ---
 # Usamos un contenedor para visualmente mantener la unidad
 with st.sidebar.container():
-    st.subheader("🚀 Navegación")
+    st.subheader(t["nav_tit"])
     
     # ELEMENTO 1: RANKING
-    if st.sidebar.button("🏆 TOP Clubes (Ranking)", use_container_width=True):
+    if st.sidebar.button(t["btn_ranking"], use_container_width=True):
         st.session_state.ver_ranking = True
         st.session_state.ver_favoritos = False
         st.rerun()
@@ -830,7 +844,7 @@ with st.sidebar.container():
         st.rerun()
 
     # ELEMENTO 3: NUEVA BÚSQUEDA
-    if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
+    if st.sidebar.button(t["btn_nueva_busqueda"], use_container_width=True):
         keys_to_reset = [
             "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w",
             "f_local_w", "f_lf_w", "f_paginas_w", "f_ia_gen_w", "f_ia_sub_w",
@@ -950,12 +964,10 @@ df_rank_data = pd.DataFrame()
 # 1. VISTA DE RANKING
 if st.session_state.get("ver_ranking"):
     col_t, col_b = st.columns([4, 1])
-    with col_t:
-        st.title("🏆 TOP Clubes de la Comunidad")
-        # Un pequeño aviso para que el usuario sepa por qué cambia la lista
-        st.caption("Filtrando el ranking según tus preferencias de la barra lateral")
+    st.title(t["btn_ranking"])
+    st.caption(t["rank_cap"])
     with col_b:
-        if st.button("⬅️ Volver", key="btn_volver_rank"):
+        if st.button(t["btn_volver"], key="btn_volver_rank"):
             st.session_state.ver_ranking = False
             st.rerun()
             
