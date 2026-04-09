@@ -865,46 +865,7 @@ with col_tit:
     st.caption(t["subtitulo"])
 
 # --- 2. TOP VALORADOS (Ranking Comunitario) ---
-st.sidebar.subheader("🏆 TOP Clubes")
 
-df_rank = obtener_ranking()
-
-if not df_rank.empty:
-    # 1. Forzamos que la columna Lote sea string en ambos lados antes del merge
-    df_rank['Lote'] = df_rank['Lote'].astype(str).str.strip()
-    df_catalog_mini = df[['Lote', 'Título']].copy()
-    df_catalog_mini['Lote'] = df_catalog_mini['Lote'].astype(str).str.strip()
-
-    # 2. Intentamos unir las notas con los nombres de los libros
-    top_5 = df_rank.head(5).merge(df_catalog_mini, on='Lote', how='inner').drop_duplicates('Lote')
-
-    if not top_5.empty:
-        # Botón para ir a la vista completa
-        if st.sidebar.button("📊 Ver Ranking Completo", use_container_width=True):
-            st.session_state.ver_ranking = True
-            st.session_state.ver_favoritos = False
-            st.rerun()
-            
-        st.sidebar.markdown("---")
-        
-        for i, (_, fila) in enumerate(top_5.iterrows()):
-            media_n = round(fila['Media'], 1)
-            estrellas = "⭐" * int(round(fila['Media']))
-            
-            # Formato más compacto para que quepa bien en el bloque
-            st.sidebar.markdown(f"**{media_n}** {estrellas}")
-            if st.sidebar.button(f"📖 {fila['Título'][:25]}...", key=f"btn_rank_{fila['Lote']}_{i}", use_container_width=True):
-                st.session_state.df_final_actual = df[df['Lote'].astype(str).str.strip() == fila['Lote']]
-                st.session_state.ver_ranking = False
-                st.session_state.ver_favoritos = False
-                st.rerun()
-    else:
-        # Esto saldrá si hay votos en Sheets pero no coinciden con ningún Lote del Excel
-        st.sidebar.warning("Votos encontrados, pero los códigos de Lote no coinciden con el catálogo.")
-else:
-    st.sidebar.info("Aún no hay valoraciones suficientes.")
-    
-    st.stop() # Bloqueamos para que no se vea el buscador debajo
 
 # --- SECCIÓN B: FAVORITOS (TUYA) ---
 if st.session_state.get("ver_favoritos"):
