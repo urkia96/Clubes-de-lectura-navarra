@@ -906,15 +906,37 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
     opciones_ia_gen = sorted([str(g) for g in df[c['ia_gen']].dropna().unique() if str(g) != "Desconocido"])
     st.multiselect(t["f_ia_gen"], opciones_ia_gen, key="f_ia_gen_w")
    
-    # 2. Subgéneros dinámicos
+    # --- 2. SUBGÉNEROS DINÁMICOS ---
     f_ia_gen_val = st.session_state.get("f_ia_gen_w", [])
+    
     if f_ia_gen_val:
+        # Filtramos el dataframe por los géneros principales seleccionados en el otro multiselect
         df_temp_sub = df[df[c['ia_gen']].isin(f_ia_gen_val)]
-        raw_subs = df_temp_sub[c['ia_sub']].astype(str).str.split(',').explode().str.strip().unique()
-        opciones_sub = sorted([str(s) for s in raw_subs if str(s) not in ["Desconocido", "nan", "None", ""]])
-       
+        
+        # Aseguramos que la columna sea texto y gestionamos nulos para evitar el AttributeError
+        serie_subs = df_temp_sub[c['ia_sub']].fillna("Desconocido").astype(str)
+        
+        # Separamos las etiquetas por coma (si hay varias), expandimos la lista y limpiamos espacios
+        raw_subs = serie_subs.str.split(',').explode().str.strip().unique()
+        
+        # Filtramos valores basura (nan, vacíos, etc.) y ordenamos alfabéticamente
+        opciones_sub = sorted([
+            s for s in raw_subs 
+            if s and str(s).lower() not in ["desconocido", "nan", "none", "null", ""]
+        ])
+        
         if opciones_sub:
-            st.multiselect(t["f_ia_sub"], opciones_sub, key="f_ia_sub_w")
+            st.multiselect(
+                t["f_ia_sub"], 
+                options=opciones_sub, 
+                key="f_ia_sub_w",
+                help="Selecciona subgéneros específicos dentro de los géneros elegidos arriba"
+            )
+        else:
+            st.info("No hay subgéneros específicos disponibles para esta selección.")
+    else:
+        # Si no hay género principal seleccionado, podemos mostrar un mensaje o simplemente no mostrar nada
+        st.caption("Selecciona primero un género para ver subgéneros.")
 
     # --- 3. Conceptos Clave (LISTA DINÁMICA CON DICCIONARIO COMPLETO) ---
     st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
