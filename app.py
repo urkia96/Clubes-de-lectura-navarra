@@ -272,7 +272,7 @@ texts = {
         "tab3": "🔍 Lote antzekoak",
         "tab4": "🎲 Zorizko bilaketa",
         "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak",
-        "input_query": "Nahi duzuna idatz dezakezu.",
+        "input_query": "Idatzi zer liburu mota bilatzen ari zaren...",
         "ayuda_booleana": "💡 **Bilaketa-iturburuak:** Erabili **\" \"** esaldi zehatzetarako (adib: *\"erdi aroa\"*) eta **-** hitzak baztertzeko (adib: *erromantzea -gaztea*).",
         "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:",
         "busq_titulo": "Izenburuaren arabera bilatu:",
