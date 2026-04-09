@@ -933,7 +933,7 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
                 help="Selecciona subgéneros específicos dentro de los géneros elegidos arriba"
             )
         else:
-            st.info("No hay subgéneros específicos disponibles para esta selección.")
+            st.info("Sin subgénero.")
     else:
         # Si no hay género principal seleccionado, podemos mostrar un mensaje o simplemente no mostrar nada
         st.caption("Selecciona primero un género para ver subgéneros.")
