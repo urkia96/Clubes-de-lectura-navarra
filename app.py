@@ -959,6 +959,10 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
 
 # --- 5. BLOQUE: DISPONIBILIDAD ---
 with st.sidebar.expander(t["exp_disp"], expanded=False):
+    # Mostramos la fecha que has definido en el diccionario texts
+    st.caption(f"📅 {t['f_actualizacion']}")
+    
+    # Widgets de disponibilidad
     st.date_input("Rango de fechas", value=[], key="f_rango_w")
     st.checkbox(t["f_solo_disp"], key="f_solo_disp_w")
 
