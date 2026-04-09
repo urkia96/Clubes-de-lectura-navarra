@@ -1105,12 +1105,13 @@ else:
                 st.warning(t["no_results"])
     
     # --- TAB2: Búsqueda libre HÍBRIDA ---
+    # --- TAB2: Búsqueda libre HÍBRIDA ---
     with tab2: # ✨ Búsqueda libre
         st.markdown(f"### {t['tab2']}")
         
-        # --- BLOQUE DE AYUDA VISUAL ---
-        # Usamos una sola línea elegante para explicar el booleano y las comillas
-        st.markdown(f"💡 **Truco:** Usa **\" \"** para frases exactas y **-** para excluir palabras (ej: *\"edad media\" -infantil*).")
+        # --- BLOQUE DE AYUDA VISUAL (Letra pequeña y traducida) ---
+        # Usamos st.caption para letra pequeña grisácea, o HTML para control total
+        st.markdown(f"<div style='font-size: 0.8rem; line-height: 1.2; color: gray;'>{t['ayuda_busqueda']}</div>", unsafe_allow_html=True)
         
         q_original = st.text_input(
             t["input_query"], 
@@ -1123,45 +1124,33 @@ else:
             df_base = filtrar(df)
             
             # 2. Aplicar lógica de Booleanos (Comillas y Menos)
-            # Importante: Esto limpia la query para que la IA no se confunda con los símbolos
             columnas_texto = ['Título', 'Autor', 'Resumen_navarra', c['keywords']]
             df_filtrado_bool, q_limpia = aplicar_busqueda_hibrida(df_base, q_original, columnas_texto)
     
             # 3. Búsqueda Semántica (IA)
             if q_limpia:
-                # Codificamos la búsqueda (sin comillas ni signos menos)
                 vec = model.encode([f"query: {q_limpia}"], normalize_embeddings=True).astype('float32')
                 D, I = index.search(vec, 50)
-                
-                # Umbral de similitud (0.80)
                 indices_validos = I[0][D[0] >= 0.80]
                 
                 lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
-                
-                # Cruzamos los resultados de la IA con los filtros booleanos previos
                 res_final = df_filtrado_bool[df_filtrado_bool['Lote'].isin(lotes_ia)].copy()
                 
-                # Reordenar por relevancia de la IA (para que el más parecido salga primero)
                 lotes_que_existen = [l for l in lotes_ia if l in res_final['Lote'].values]
                 res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
                 res_final = res_final.sort_values('Lote')
             else:
-                # Si solo se usaron booleanos (ej: solo se buscó una frase exacta), usamos el filtro bool
                 res_final = df_filtrado_bool
     
             # 4. Renderizar resultados
             res_final = res_final.drop_duplicates(subset=['Lote']).head(15)
             
-            # Preparar datos de sesión para votos/favoritos
             usuario_act = st.session_state.get("usuario_actual", "Anónimo")
             lotes_en_mis_favs = obtener_mis_libros(usuario_act)
             
             if not res_final.empty:
                 st.session_state.df_final_actual = res_final
-                
-                # Renderizar tarjetas
                 for i, (_, r) in enumerate(res_final.iterrows()):
-                    # i+1 es la posición real en el ranking para tu investigación
                     mostrar_card(r, q_original, lotes_en_mis_favs, idx=f"T2_{i}", posicion=i+1)
             else:
                 st.warning(t["no_results"])
