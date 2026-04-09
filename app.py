@@ -880,39 +880,36 @@ with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-# --- 2. TOP VALORADOS (Ranking Comunitario) ---
-# --- LÓGICA DE VISUALIZACIÓN PRINCIPAL ---
+# --- LÓGICA DE VISUALIZACIÓN PRINCIPAL (Copia desde aquí) ---
 usuario_act = st.session_state.get("usuario_actual", "Anónimo")
 
-# 1. VISTA DE RANKING
+# 1. ¿Estamos viendo el RANKING?
 if st.session_state.get("ver_ranking"):
     col_t, col_b = st.columns([4, 1])
     with col_t:
         st.title("🏆 TOP Clubes de la Comunidad")
     with col_b:
-        # BOTÓN PARA VOLVER
-        if st.button("⬅️ Volver al buscador", use_container_width=True):
+        if st.button("⬅️ Volver", key="btn_volver_rank"):
             st.session_state.ver_ranking = False
             st.rerun()
             
     df_rank_data = obtener_ranking()
     if not df_rank_data.empty:
-        # Unimos con catálogo para tener títulos
+        # Cruce de datos para obtener títulos
         df_rank_display = pd.merge(df_rank_data, df[['Lote', 'Título', 'Autor']], on='Lote', how='inner').drop_duplicates('Lote')
         lotes_favs = obtener_mis_libros(usuario_act)
-        
         for idx, row in df_rank_display.iterrows():
             mostrar_card(row, "Ranking", lotes_favs, idx=idx, posicion=idx+1)
     else:
-        st.info("No hay valoraciones todavía.")
+        st.info("Todavía no hay suficientes votos.")
 
-# 2. VISTA DE FAVORITOS
+# 2. ¿O estamos viendo los FAVORITOS?
 elif st.session_state.get("ver_favoritos"):
     col_t, col_b = st.columns([4, 1])
     with col_t:
         st.title(t["mis_favs_tit"])
     with col_b:
-        if st.button("⬅️ Volver al buscador", use_container_width=True):
+        if st.button("⬅️ Volver", key="btn_volver_favs"):
             st.session_state.ver_favoritos = False
             st.rerun()
 
@@ -922,70 +919,15 @@ elif st.session_state.get("ver_favoritos"):
         for idx, row in df_favs.iterrows():
             mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
     else:
-        st.info("Tu lista está vacía.")
+        st.info("Tu lista de favoritos está vacía.")
 
-# 2. VISTA DE FAVORITOS
-elif st.session_state.get("ver_favoritos"):
-    col_t, col_b = st.columns([4, 1])
-    with col_t:
-        st.title(t["mis_favs_tit"])
-    with col_b:
-        if st.button("⬅️ Volver al buscador", use_container_width=True):
-            st.session_state.ver_favoritos = False
-            st.rerun()
-
-    lotes_favs = obtener_mis_libros(usuario_act)
-    if lotes_favs:
-        df_favs = df[df['Lote'].isin(lotes_favs)]
-        for idx, row in df_favs.iterrows():
-            mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
-    else:
-        st.info("Tu lista está vacía.")
-
-
-
-# Si el usuario pulsó "Mis Libros"
-    elif st.session_state.get("ver_favoritos"):
-        st.title(t["mis_favs_tit"])
-        lotes_favs = obtener_mis_libros(st.session_state.usuario_actual)
-        
-        if lotes_favs:
-            df_favs = df[df['Lote'].isin(lotes_favs)]
-            for idx, row in df_favs.iterrows():
-                mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
-        else:
-            st.info("Tu lista de favoritos está vacía.")
+# 3. SI NO ES NINGUNA DE LAS ANTERIORES, MOSTRAR EL BUSCADOR NORMAL
+else:
+    st.title(t["titulo"])
+    st.subheader(t["subtitulo"])
     
-    # Si no hay ninguna vista especial, mostrar los buscadores normales (Tabs)
-    else:
-        # Aquí irían tus st.tabs(["Búsqueda por autor...", etc.])
-        pass
-
-# --- SECCIÓN B: FAVORITOS (TUYA) ---
-if st.session_state.get("ver_favoritos"):
-    texto_volver = "⬅️ Volver al buscador" if st.session_state.idioma == "Castellano" else "⬅️ Itzuli bilatzailera"
-    if st.button(texto_volver, key="volver_fav"):
-        st.session_state.ver_favoritos = False
-        st.rerun()
-       
-    st.header(t["mis_favs_tit"])
-    usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-   
-    with st.spinner("Cargando favoritos..."):
-        lotes_favoritos = obtener_mis_libros(usuario_act)
-       
-    if lotes_favoritos:
-        df_favs_display = df[df['Lote'].isin(lotes_favoritos)].drop_duplicates(subset=['Lote'])
-        for i, (_, r) in enumerate(df_favs_display.iterrows()):
-            mostrar_card(r, "MIS_FAVS", lotes_favoritos, idx=f"fav_{i}")
-    else:
-        mensaje_vacio = "No tienes libros guardados." if st.session_state.idioma == "Castellano" else "Ez duzu libururik gorde."
-        st.info(mensaje_vacio)
-
-    st.stop() 
-
-# --- BUSCADOR NORMAL (TABS) ---
-tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
+    # Aquí es donde van tus TABS originales
+    tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
 
 
 # --- TAB1: Búsqueda por título/autor ---
