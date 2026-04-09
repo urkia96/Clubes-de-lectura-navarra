@@ -924,15 +924,6 @@ if st.session_state.get("ver_ranking"):
     else:
         st.info("Todavía no hay votos registrados.")
 
-# 2. VISTA DE FAVORITOS (elif...)
-elif st.session_state.get("ver_favoritos"):
-    # ... tu código de favoritos ...
-    pass
-
-# 3. VISTA NORMAL (else...)
-else:
-    # ... tu buscador normal ...
-    pass
 
 # 2. ¿O estamos viendo los FAVORITOS?
 elif st.session_state.get("ver_favoritos"):
