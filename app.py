@@ -1227,6 +1227,7 @@ with tab3:
 
 # --- TAB4: Búsqueda aleatoria ---
 # --- TAB4: Búsqueda aleatoria ---
+# --- TAB4: Búsqueda aleatoria ---
 with tab4:
     col_s1, col_s2 = st.columns([1, 4])
     with col_s1:
@@ -1235,21 +1236,25 @@ with tab4:
     
     with col_s2:
         if st.button(t["boton_txt"], use_container_width=True):
-            # Llamamos a la función que ahora usa .pop()
             limpiar_busquedas_alternativas("tab4")
             
             posibles = filtrar(df)
             if not posibles.empty:
-                seleccionado = posibles.sample(1)
-                st.session_state.azar = seleccionado.iloc[0]
-                # Guardamos para que la sidebar sepa qué libro hay
-                st.session_state.df_final_actual = seleccionado.to_frame().T
+                # 1. Obtenemos el DataFrame de una fila
+                seleccionado_df = posibles.sample(1) 
+                
+                # 2. Guardamos la fila (Series) para la tarjeta
+                st.session_state.azar = seleccionado_df.iloc[0]
+                
+                # 3. Guardamos el DataFrame para la Sidebar (sin .to_frame())
+                st.session_state.df_final_actual = seleccionado_df
+                
                 st.rerun()
             else:
                 st.session_state.azar = None
                 st.session_state.df_final_actual = pd.DataFrame()
 
-    # Mostrar el resultado (si existe)
+    # --- Mostrar el resultado ---
     if st.session_state.get('azar') is not None:
         usuario_act = st.session_state.get("usuario_actual", "Anónimo")
         lotes_en_mis_favs = obtener_mis_libros(usuario_act)
@@ -1263,5 +1268,4 @@ with tab4:
             posicion=1
         )
     elif 'azar' in st.session_state and st.session_state.azar is None:
-        # Solo mostrar el aviso si realmente se intentó buscar y no hubo suerte
         st.info(t["no_results"])
