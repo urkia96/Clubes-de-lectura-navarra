@@ -215,7 +215,8 @@ texts = {
         "tab3": "🔍 Lotes similares",
         "tab4": "🎲 Búsqueda aleatoria",
         "placeholder": "Ej: Novelas sobre la historia de Navarra",
-        "input_query": "Puedes escribir lo que quieras. Para términos exactos en Título, Autor, Resúmen o Palabras clave, usa comillas dobles. Para usar el booleano NOT, usa '-'. Por ejemplo, 'Novelas sobre la historia de navarra -Carlos'",
+        "input_query": "Puedes escribir lo que quieras. Admite dobles comillas para búsquedas exactas y operador booleano NOT con '-'",
+        "ayuda_booleana": "💡 **Trucos de búsqueda:** Usa **\" \"** para frases exactas (ej: *\"edad media\"*) y **-** para excluir palabras (ej: *romance -juvenil*).",
         "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:",
         "busq_titulo": "Buscar por Título:",
         "busq_autor": "Buscar por Autor:",
@@ -271,7 +272,8 @@ texts = {
         "tab3": "🔍 Lote antzekoak",
         "tab4": "🎲 Zorizko bilaketa",
         "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak",
-        "input_query": "Nahi duzuna idatz dezakezu. Izenburu, Autore, Laburpen edo Gako-hitzetako termino zehatzetarako, erabili komatxo bikoitzak. NOT boolearra erabiltzeko, '-' erabiltzen du. Adibidez, 'Novelas sobre la historia de navarra -Carlos'",
+        "input_query": "Nahi duzuna idatz dezakezu.",
+        "ayuda_booleana": "💡 **Bilaketa-iturburuak:** Erabili **\" \"** esaldi zehatzetarako (adib: *\"erdi aroa\"*) eta **-** hitzak baztertzeko (adib: *erromantzea -gaztea*).",
         "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:",
         "busq_titulo": "Izenburuaren arabera bilatu:",
         "busq_autor": "Egilearen arabera bilatu:",
@@ -1103,46 +1105,64 @@ else:
                 st.warning(t["no_results"])
     
     # --- TAB2: Búsqueda libre HÍBRIDA ---
-    with tab2:
-        q_original = st.text_input(t["input_query"], key="input_ia")
-        if q_original:
-            # 1. Filtros base de la barra lateral
-            df_base = filtrar(df)
-           
-            # 2. Aplicar lógica de Booleanos (Comillas y Menos)
-            columnas_texto = ['Título', 'Autor', 'Resumen_navarra', c['keywords']]
-            df_filtrado_bool, q_limpia = aplicar_busqueda_hibrida(df_base, q_original, columnas_texto)
+    with tab2: # ✨ Búsqueda libre
+    st.markdown(f"### {t['tab2']}")
     
-            # 3. Búsqueda Semántica (IA)
-            if q_limpia:
-                vec = model.encode([f"query: {q_limpia}"], normalize_embeddings=True).astype('float32')
-                D, I = index.search(vec, 50)
-                indices_validos = I[0][D[0] >= 0.80]
-               
-                lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
-                res_final = df_filtrado_bool[df_filtrado_bool['Lote'].isin(lotes_ia)].copy()
-               
-                # Reordenar por relevancia de la IA
-                lotes_que_existen = [l for l in lotes_ia if l in res_final['Lote'].values]
-                res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
-                res_final = res_final.sort_values('Lote')
-            else:
-                res_final = df_filtrado_bool
+    # --- BLOQUE DE AYUDA VISUAL ---
+    # Usamos una sola línea elegante para explicar el booleano y las comillas
+    st.markdown(f"💡 **Truco:** Usa **\" \"** para frases exactas y **-** para excluir palabras (ej: *\"edad media\" -infantil*).")
     
-            # 4. Renderizar resultados
-            res_final = res_final.drop_duplicates(subset=['Lote']).head(15)
-           
-            # --- NUEVO: PREPARAR DATOS PARA LAS TARJETAS ---
-            usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-            lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-            # -----------------------------------------------
-           
-            if not res_final.empty:
-                st.session_state.df_final_actual = res_final
+    q_original = st.text_input(
+        t["input_query"], 
+        key="input_ia", 
+        placeholder=t["placeholder"]
+    )
+    
+    if q_original:
+        # 1. Filtros base de la barra lateral
+        df_base = filtrar(df)
+        
+        # 2. Aplicar lógica de Booleanos (Comillas y Menos)
+        # Importante: Esto limpia la query para que la IA no se confunda con los símbolos
+        columnas_texto = ['Título', 'Autor', 'Resumen_navarra', c['keywords']]
+        df_filtrado_bool, q_limpia = aplicar_busqueda_hibrida(df_base, q_original, columnas_texto)
+
+        # 3. Búsqueda Semántica (IA)
+        if q_limpia:
+            # Codificamos la búsqueda (sin comillas ni signos menos)
+            vec = model.encode([f"query: {q_limpia}"], normalize_embeddings=True).astype('float32')
+            D, I = index.search(vec, 50)
+            
+            # Umbral de similitud (0.80)
+            indices_validos = I[0][D[0] >= 0.80]
+            
+            lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
+            
+            # Cruzamos los resultados de la IA con los filtros booleanos previos
+            res_final = df_filtrado_bool[df_filtrado_bool['Lote'].isin(lotes_ia)].copy()
+            
+            # Reordenar por relevancia de la IA (para que el más parecido salga primero)
+            lotes_que_existen = [l for l in lotes_ia if l in res_final['Lote'].values]
+            res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
+            res_final = res_final.sort_values('Lote')
+        else:
+            # Si solo se usaron booleanos (ej: solo se buscó una frase exacta), usamos el filtro bool
+            res_final = df_filtrado_bool
+
+        # 4. Renderizar resultados
+        res_final = res_final.drop_duplicates(subset=['Lote']).head(15)
+        
+        # Preparar datos de sesión para votos/favoritos
+        usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+        lotes_en_mis_favs = obtener_mis_libros(usuario_act)
+        
+        if not res_final.empty:
+            st.session_state.df_final_actual = res_final
             
             # Renderizar tarjetas
             for i, (_, r) in enumerate(res_final.iterrows()):
-                    mostrar_card(r, q_original, lotes_en_mis_favs, idx=f"T2_{i}")
+                # i+1 es la posición real en el ranking para tu investigación
+                mostrar_card(r, q_original, lotes_en_mis_favs, idx=f"T2_{i}", posicion=i+1)
         else:
             st.warning(t["no_results"])
                
