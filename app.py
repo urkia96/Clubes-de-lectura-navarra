@@ -742,7 +742,7 @@ def filtrar(dataframe):
     return temp
 
 
-# --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA REORGANIZADA) ---
+# --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA AGRUPADA) ---
 st.sidebar.title(t["sidebar_tit"])
 
 # --- 1. BOTÓN DE SALIDA ---
@@ -752,60 +752,41 @@ if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
 
 st.sidebar.markdown("---")
 
-# --- 2. SECCIÓN TOP CLUBES (Ahora a nivel principal) ---
-# Usamos un encabezado simple en lugar de un expander para que esté "al mismo nivel"
-st.sidebar.subheader("🏆 TOP Clubes")
-if st.sidebar.button("📊 Ver Ranking Completo", use_container_width=True):
-    st.session_state.ver_ranking = True
-    st.session_state.ver_favoritos = False
-    st.rerun()
+# --- 2. GRUPO DE ACCIONES PRINCIPALES (Agrupados en el mismo nivel) ---
+# Usamos un contenedor para visualmente mantener la unidad
+with st.sidebar.container():
+    st.subheader("🚀 Navegación")
+    
+    # ELEMENTO 1: RANKING
+    if st.sidebar.button("🏆 TOP Clubes (Ranking)", use_container_width=True):
+        st.session_state.ver_ranking = True
+        st.session_state.ver_favoritos = False
+        st.rerun()
 
-# Mostramos el top 3 de forma elegante y compacta debajo del botón
-df_rank = obtener_ranking()
-if not df_rank.empty:
-    # Combinamos con df para tener los títulos
-    top_mini = df_rank.head(3).merge(df[['Lote', 'Título']], on='Lote').drop_duplicates('Lote')
-    for i, (_, fila) in enumerate(top_mini.iterrows()):
-        # Un botón pequeño por cada libro del top para ir directo
-        if st.sidebar.button(f"⭐ {round(fila['Media'],1)} - {fila['Título'][:20]}...", key=f"top_side_{i}"):
-            st.session_state.df_final_actual = df[df['Lote'] == fila['Lote']]
-            st.session_state.ver_ranking = False
-            st.session_state.ver_favoritos = False
-            st.rerun()
-else:
-    st.sidebar.caption("Sin valoraciones aún")
+    # ELEMENTO 2: MIS LIBROS
+    if st.sidebar.button(f"📚 {t['mis_favs_tit']}", use_container_width=True):
+        st.cache_data.clear() # Limpieza de caché para asegurar recuperación de Sheets
+        st.session_state.ver_favoritos = True
+        st.session_state.ver_ranking = False
+        st.rerun()
 
-st.sidebar.markdown("---")
-
-# --- 3. SECCIÓN MIS LIBROS ---
-st.sidebar.subheader("📚 Mi Biblioteca")
-if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
-    # Limpiamos caché para forzar que traiga lo nuevo de Google Sheets
-    st.cache_data.clear() 
-    st.session_state.ver_favoritos = True
-    st.session_state.ver_ranking = False
-    st.rerun()
-
-st.sidebar.markdown("---")
-
-# --- 4. SECCIÓN ACCIONES ---
-if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
-    keys_to_reset = [
-        "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w",
-        "f_local_w", "f_lf_w", "f_paginas_w", "f_ia_gen_w", "f_ia_sub_w",
-        "f_kw_seleccionadas", "f_rango_w", "f_solo_disp_w",
-        "df_final_actual", "azar", "txt_sim_lote_multi", "input_ia",
-        "busq_t_input", "busq_a_input"
-    ]
-    for k in keys_to_reset:
-        if k in st.session_state:
-            del st.session_state[k]
-    st.session_state.ver_favoritos = False
-    st.session_state.ver_ranking = False
-    st.rerun()
+    # ELEMENTO 3: NUEVA BÚSQUEDA
+    if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
+        keys_to_reset = [
+            "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w",
+            "f_local_w", "f_lf_w", "f_paginas_w", "f_ia_gen_w", "f_ia_sub_w",
+            "f_kw_seleccionadas", "f_rango_w", "f_solo_disp_w",
+            "df_final_actual", "azar", "txt_sim_lote_multi", "input_ia",
+            "busq_t_input", "busq_a_input"
+        ]
+        for k in keys_to_reset:
+            if k in st.session_state:
+                del st.session_state[k]
+        st.session_state.ver_favoritos = False
+        st.session_state.ver_ranking = False
+        st.rerun()
 
 st.sidebar.markdown("---")
-
 
 
 # --- 3. BLOQUE: FILTROS GENERALES ---
