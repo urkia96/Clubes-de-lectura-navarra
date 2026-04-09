@@ -864,30 +864,45 @@ with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-# --- SECCIÓN A: TOP VALORADOS (NUEVA) ---
-if st.session_state.get("ver_ranking"):
-    texto_volver = "⬅️ Volver al buscador" if st.session_state.idioma == "Castellano" else "⬅️ Itzuli bilatzailera"
-    if st.button(texto_volver, key="volver_rank"):
-        st.session_state.ver_ranking = False
-        st.rerun()
-       
-    st.header("🏆 Top Clubes (Comunidad)")
-    st.write("Los lotes mejor valorados por los clubes de lectura de Navarra.")
-   
-    with st.spinner("Calculando ranking..."):
-        df_rank = obtener_ranking()
-        lotes_favoritos = obtener_mis_libros(st.session_state.get("usuario_actual", "Anónimo"))
-       
-    if not df_rank.empty:
-        # Cruzamos con el DF original para tener toda la info y fotos
-        top_df = df_rank.head(10).merge(df, on='Lote').drop_duplicates(subset=['Lote'])
-       
-        for i, (_, r) in enumerate(top_df.iterrows()):
-            # Mostramos la medalla y la media antes de la tarjeta
-            st.markdown(f"### #{i+1} - ⭐ {r['Media']:.1f}")
-            mostrar_card(r, "RANKING", lotes_favoritos, idx=f"rank_{i}")
+# --- 2. TOP VALORADOS (Ranking Comunitario) ---
+st.sidebar.subheader("🏆 TOP Clubes")
+
+df_rank = obtener_ranking()
+
+if not df_rank.empty:
+    # 1. Forzamos que la columna Lote sea string en ambos lados antes del merge
+    df_rank['Lote'] = df_rank['Lote'].astype(str).str.strip()
+    df_catalog_mini = df[['Lote', 'Título']].copy()
+    df_catalog_mini['Lote'] = df_catalog_mini['Lote'].astype(str).str.strip()
+
+    # 2. Intentamos unir las notas con los nombres de los libros
+    top_5 = df_rank.head(5).merge(df_catalog_mini, on='Lote', how='inner').drop_duplicates('Lote')
+
+    if not top_5.empty:
+        # Botón para ir a la vista completa
+        if st.sidebar.button("📊 Ver Ranking Completo", use_container_width=True):
+            st.session_state.ver_ranking = True
+            st.session_state.ver_favoritos = False
+            st.rerun()
+            
+        st.sidebar.markdown("---")
+        
+        for i, (_, fila) in enumerate(top_5.iterrows()):
+            media_n = round(fila['Media'], 1)
+            estrellas = "⭐" * int(round(fila['Media']))
+            
+            # Formato más compacto para que quepa bien en el bloque
+            st.sidebar.markdown(f"**{media_n}** {estrellas}")
+            if st.sidebar.button(f"📖 {fila['Título'][:25]}...", key=f"btn_rank_{fila['Lote']}_{i}", use_container_width=True):
+                st.session_state.df_final_actual = df[df['Lote'].astype(str).str.strip() == fila['Lote']]
+                st.session_state.ver_ranking = False
+                st.session_state.ver_favoritos = False
+                st.rerun()
     else:
-        st.info("Aún no hay valoraciones.")
+        # Esto saldrá si hay votos en Sheets pero no coinciden con ningún Lote del Excel
+        st.sidebar.warning("Votos encontrados, pero los códigos de Lote no coinciden con el catálogo.")
+else:
+    st.sidebar.info("Aún no hay valoraciones suficientes.")
     
     st.stop() # Bloqueamos para que no se vea el buscador debajo
 
