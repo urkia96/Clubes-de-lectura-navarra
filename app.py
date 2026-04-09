@@ -881,26 +881,66 @@ with col_tit:
     st.caption(t["subtitulo"])
 
 # --- 2. TOP VALORADOS (Ranking Comunitario) ---
+# --- LÓGICA DE VISUALIZACIÓN PRINCIPAL ---
+usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+
+# 1. VISTA DE RANKING
 if st.session_state.get("ver_ranking"):
-    st.title("🏆 TOP Clubes de la Comunidad")
+    col_t, col_b = st.columns([4, 1])
+    with col_t:
+        st.title("🏆 TOP Clubes de la Comunidad")
+    with col_b:
+        # BOTÓN PARA VOLVER
+        if st.button("⬅️ Volver al buscador", use_container_width=True):
+            st.session_state.ver_ranking = False
+            st.rerun()
+            
     df_rank_data = obtener_ranking()
-    
     if not df_rank_data.empty:
-        # Unimos con el catálogo para tener los nombres reales
-        df_rank_display = pd.merge(
-            df_rank_data, 
-            df[['Lote', 'Título', 'Autor']], 
-            on='Lote', 
-            how='inner'
-        ).drop_duplicates('Lote')
+        # Unimos con catálogo para tener títulos
+        df_rank_display = pd.merge(df_rank_data, df[['Lote', 'Título', 'Autor']], on='Lote', how='inner').drop_duplicates('Lote')
+        lotes_favs = obtener_mis_libros(usuario_act)
         
         for idx, row in df_rank_display.iterrows():
-            # Reutilizamos tu función mostrar_card
-            # pasándole un contexto y la posición en el ranking
-            lotes_favs = obtener_mis_libros(st.session_state.usuario_actual)
             mostrar_card(row, "Ranking", lotes_favs, idx=idx, posicion=idx+1)
     else:
-        st.info("Todavía no hay suficientes votos para generar un ranking.")
+        st.info("No hay valoraciones todavía.")
+
+# 2. VISTA DE FAVORITOS
+elif st.session_state.get("ver_favoritos"):
+    col_t, col_b = st.columns([4, 1])
+    with col_t:
+        st.title(t["mis_favs_tit"])
+    with col_b:
+        if st.button("⬅️ Volver al buscador", use_container_width=True):
+            st.session_state.ver_favoritos = False
+            st.rerun()
+
+    lotes_favs = obtener_mis_libros(usuario_act)
+    if lotes_favs:
+        df_favs = df[df['Lote'].isin(lotes_favs)]
+        for idx, row in df_favs.iterrows():
+            mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
+    else:
+        st.info("Tu lista está vacía.")
+
+# 3. VISTA NORMAL (BUSCADOR)
+else:
+    st.title(t["titulo"])
+    st.subheader(t["subtitulo"])
+    
+    # Aquí metes tus pestañas actuales:
+    tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
+    
+    with tab1:
+        # Lógica de búsqueda por título/autor...
+        pass
+    
+    with tab2:
+        # Lógica de búsqueda libre...
+        pass
+    
+    # ... resto de tus pestañas
 
 # Si el usuario pulsó "Mis Libros"
 elif st.session_state.get("ver_favoritos"):
