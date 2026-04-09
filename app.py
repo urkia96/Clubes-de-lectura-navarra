@@ -215,7 +215,7 @@ texts = {
         "tab3": "🔍 Lotes similares",
         "tab4": "🎲 Búsqueda aleatoria",
         "placeholder": "Ej: Novelas sobre la historia de Navarra",
-        "input_query": "Puedes escribir lo que quieras. Admite dobles comillas para búsquedas exactas y operador booleano NOT con '-'",
+        "input_query": "Puedes escribir lo que quieras.",
         "ayuda_booleana": "💡 **Trucos de búsqueda:** Usa **\" \"** para frases exactas (ej: *\"edad media\"*) y **-** para excluir palabras (ej: *romance -juvenil*).",
         "lote_input": "Introduce el código del lote. Puedes introducir más de un lote para buscar lotes intermedios. Por ejemplo, 121N, 445N, etc.:",
         "busq_titulo": "Buscar por Título:",
