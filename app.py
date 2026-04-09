@@ -715,14 +715,15 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
             # 1. Verificar si ya votó (usamos un pequeño truco de caché para no leer el Excel mil veces)
             # Si no quieres complicarte con caché ahora, usa una variable de estado:
             voto_realizado = st.session_state.get(f"voted_{usuario_act}_{lote_id_str}", False)
-            
-            st.markdown("<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>2. ¿Lo recomendarías?</p>", unsafe_allow_html=True)
+
+            # 1. Título de la pregunta (Usamos t["ask_recomendarias"])
+            st.markdown(f"<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>2. {t['ask_recomendarias']}</p>", unsafe_allow_html=True)
             
             if voto_realizado:
-                # Si ya votó, mostramos un mensaje en lugar del selector
-                st.info("✅ Votado.")
+                # 2. Mensaje de confirmación (Usamos t["thanks"])
+                st.info(t["thanks"])
             else:
-                # Si NO ha votado, mostramos el componente de estrellas
+                # 3. El componente de feedback (El buscador de estrellas ya es intuitivo)
                 voto_estrellas = st.feedback("stars", key=f"rating_{lote_id_str}_{context}_{idx}")
                 
                 if voto_estrellas is not None:
