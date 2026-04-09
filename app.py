@@ -374,58 +374,56 @@ df, df_ia_meta, index, model = load_resources()
 
 def guardar_voto(lote, titulo, valor, tipo_busqueda, terminos, filtros, posicion):
     usuario = st.session_state.get("usuario_actual", "Anónimo")
-    
     sheet = conectar_sheets()
-    if not sheet:
-        return False
+    if not sheet: return False
 
     try:
-        # 1. ACCEDER A LOS DATOS EXISTENTES PARA VERIFICAR
-        # spreadsheet.worksheet("votos") asumiendo que ese es el nombre de tu pestaña
-        ws_votos = sheet.spreadsheet.worksheet("votos") 
-        datos = ws_votos.get_all_records()
-        df_votos = pd.DataFrame(datos)
+        spreadsheet = sheet.spreadsheet
+        try:
+            ws_votos = spreadsheet.worksheet("votos")
+        except:
+            # Si la pestaña no existe, la creamos con los 9 encabezados
+            ws_votos = spreadsheet.add_worksheet(title="votos", rows="1000", cols="9")
+            ws_votos.append_row(["Fecha", "Usuario", "Lote", "Titulo", "Tipo_Busqueda", "Terminos", "Filtros", "Puntuacion", "Posicion"])
+            datos = []
+        else:
+            datos = ws_votos.get_all_records()
 
-        # 2. VERIFICACIÓN REAL EN LA BASE DE DATOS
-        if not df_votos.empty:
-            # Normalizamos nombres de columnas para evitar errores de tildes/mayúsculas
+        # VALIDACIÓN DE DUPLICADOS
+        if datos:
+            df_votos = pd.DataFrame(datos)
+            # Limpiamos nombres de columnas (quitar espacios, tildes y poner minúsculas)
             df_votos.columns = [normalizar_texto(str(c)) for c in df_votos.columns]
             
-            # Buscamos si ya existe el par Usuario + Lote
-            ya_existe = df_votos[
-                (df_votos['usuario'] == usuario) & 
-                (df_votos['lote'].astype(str) == str(lote))
-            ]
-            
-            if not ya_existe.empty:
-                st.warning(f"⚠️ {usuario}, ya has registrado una opinión para este lote anteriormente.")
-                return False
+            # Solo comprobamos si existen las columnas necesarias
+            if 'usuario' in df_votos.columns and 'lote' in df_votos.columns:
+                ya_voto = df_votos[
+                    (df_votos['usuario'].astype(str) == str(usuario)) & 
+                    (df_votos['lote'].astype(str) == str(lote))
+                ]
+                if not ya_voto.empty:
+                    st.warning(f"⚠️ {usuario}, ya has valorado este club.")
+                    return False
 
-        # 3. SI NO EXISTE, PROCEDEMOS A GUARDAR
-        val_txt = "SI" if valor == 1 else "NO"
-        row = [
+        # REGISTRO DEL VOTO (Ahora sí incluimos al usuario)
+        # Importante: el orden debe coincidir con los encabezados de arriba
+        nueva_fila = [
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            usuario,
+            str(usuario),
             str(lote),
             str(titulo),
             str(tipo_busqueda),
             str(terminos),
             str(filtros),
-            val_txt,
+            int(valor), # Aquí va la puntuación (estrellas)
             int(posicion)
         ]
         
-        ws_votos.append_row(row)
-        
-        # Opcional: Mantener el session_state para feedback instantáneo sin recargar
-        voto_id = f"voted_{usuario}_{lote}"
-        st.session_state[voto_id] = True
-        
-        st.success(f"¡Voto registrado correctamente!")
+        ws_votos.append_row(nueva_fila)
         return True
 
     except Exception as e:
-        st.error(f"❌ Error al verificar o guardar: {e}")
+        st.error(f"❌ Error en el sistema de votos: {e}")
         return False
 
 
@@ -722,13 +720,11 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
             
                     # Ejecutamos el guardado
                     exito = guardar_voto(lote_id, titulo_actual, puntuacion_final, tipo_busqueda, str(context), filtros_str, posicion)
-                    
+    
                     if exito:
-                        votar_lote(lote_id, puntuacion_final)
-                        # Marcamos en la sesión que ya votó para que desaparezcan las estrellas inmediatamente
                         st.session_state[f"voted_{usuario_act}_{lote_id_str}"] = True
                         st.toast(f"¡Gracias por tu recomendación!", icon="🌟")
-                        st.rerun() # Recargamos para que el if voto_realizado se active y oculte las estrellas
+                        st.rerun()
             
             # --- SECCIÓN 3: FAVORITOS ---
             st.markdown("<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>3. Mis favoritos</p>", unsafe_allow_html=True)
