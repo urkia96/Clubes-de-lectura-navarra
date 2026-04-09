@@ -952,27 +952,48 @@ if st.session_state.get("ver_ranking"):
     col_t, col_b = st.columns([4, 1])
     with col_t:
         st.title("🏆 TOP Clubes de la Comunidad")
+        # Un pequeño aviso para que el usuario sepa por qué cambia la lista
+        st.caption("Filtrando el ranking según tus preferencias de la barra lateral")
     with col_b:
         if st.button("⬅️ Volver", key="btn_volver_rank"):
             st.session_state.ver_ranking = False
             st.rerun()
             
-    # Aquí es donde realmente se llena la variable
+    # Obtenemos los votos desde Sheets
     df_rank_data = obtener_ranking()
     
     if not df_rank_data.empty:
-        df_rank_display = pd.merge(df_rank_data, df, on='Lote', how='inner').drop_duplicates('Lote')
+        # --- EL CAMBIO MÁGICO ---
+        # Aplicamos los filtros de la sidebar antes de mostrar el ranking
+        df_filtrado_para_rank = filtrar(df)
+        
+        # Aseguramos tipos de datos para que el merge no falle
+        df_rank_data['Lote'] = df_rank_data['Lote'].astype(str).str.strip()
+        df_filtrado_para_rank['Lote'] = df_filtrado_para_rank['Lote'].astype(str).str.strip()
+
+        # Al hacer el merge con 'inner', solo quedan los libros que:
+        # 1. Tienen votos
+        # 2. Cumplen los filtros de la sidebar
+        df_rank_display = pd.merge(df_rank_data, df_filtrado_para_rank, on='Lote', how='inner')
+        
+        # Ordenamos por media (de mayor a menor)
+        df_rank_display = df_rank_display.sort_values(by='Media', ascending=False).drop_duplicates('Lote')
+        
         lotes_favs = obtener_mis_libros(usuario_act)
         
-        for idx, row in df_rank_display.iterrows():
-            # ... tu lógica de estrellas y mostrar_card ...
-            media = row['Media']
-            total_votos = int(row['Total_Votos'])
-            estrellas = estrellas_puntuacion(media)
-            
-            st.markdown(f"#### {idx+1}º Lugar | {estrellas} `{media:.1f}` ({total_votos} votos)")
-            mostrar_card(row, "Ranking", lotes_favs, idx=idx)
-            st.divider()
+        if not df_rank_display.empty:
+            # Usamos enumerate para que el puesto (1º, 2º...) sea correcto tras filtrar
+            for i, (original_idx, row) in enumerate(df_rank_display.iterrows(), start=1):
+                media = row['Media']
+                total_votos = int(row['Total_Votos'])
+                estrellas = estrellas_puntuacion(media)
+                
+                st.markdown(f"#### {i}º Lugar | {estrellas} `{media:.1f}` ({total_votos} votos)")
+                # Pasamos un idx único combinando el lote y la posición para evitar errores de botones
+                mostrar_card(row, "Ranking", lotes_favs, idx=f"R_{row['Lote']}_{i}")
+                st.divider()
+        else:
+            st.warning("No hay libros puntuados que coincidan con los filtros seleccionados.")
     else:
         st.info("Todavía no hay votos registrados.")
 
