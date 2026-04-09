@@ -864,9 +864,6 @@ with st.sidebar.expander(t["exp_disp"], expanded=False):
     st.checkbox(t["f_solo_disp"], key="f_solo_disp_w")
 
 
-
-               
-
    
 # --- 6. INTERFAZ ---
 
@@ -894,14 +891,25 @@ if st.session_state.get("ver_ranking"):
             st.rerun()
             
     df_rank_data = obtener_ranking()
+    
     if not df_rank_data.empty:
-        # Cruce de datos para obtener títulos
-        df_rank_display = pd.merge(df_rank_data, df[['Lote', 'Título', 'Autor']], on='Lote', how='inner').drop_duplicates('Lote')
+        # AQUÍ ESTÁ EL TRUCO: 
+        # Cruzamos los datos del ranking con TODO el dataframe original (df)
+        # Esto recupera: Resumen, Páginas, Imagen, Género, etc.
+        df_rank_display = pd.merge(
+            df_rank_data, 
+            df,           # Usamos 'df' completo en lugar de [['Lote', 'Título', 'Autor']]
+            on='Lote', 
+            how='inner'
+        ).drop_duplicates('Lote')
+        
         lotes_favs = obtener_mis_libros(usuario_act)
+        
         for idx, row in df_rank_display.iterrows():
+            # Ahora 'row' contiene toda la información necesaria para mostrar_card
             mostrar_card(row, "Ranking", lotes_favs, idx=idx, posicion=idx+1)
     else:
-        st.info("Todavía no hay suficientes votos.")
+        st.info("Todavía no hay suficientes votos para generar un ranking.")
 
 # 2. ¿O estamos viendo los FAVORITOS?
 elif st.session_state.get("ver_favoritos"):
