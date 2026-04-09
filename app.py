@@ -166,6 +166,17 @@ def comprobar_disponibilidad(texto_reserva, rango_usuario):
     except:
         return False
 
+def estrellas_puntuacion(puntuacion):
+    if pd.isna(puntuacion): return "Sin votos"
+    enteras = int(puntuacion)
+    media = 1 if (puntuacion - enteras) >= 0.5 else 0
+    vacias = 5 - enteras - media
+    return "⭐" * enteras + "✨" * media + "🔘" * vacias # Puedes usar "★" y "☆" si prefieres
+
+
+
+
+
 # --- SELECTOR DE IDIOMA (Antes de los textos) ---
 col_main, col_lang = st.columns([12, 1])
 with col_lang:
@@ -881,35 +892,28 @@ with col_tit:
 usuario_act = st.session_state.get("usuario_actual", "Anónimo")
 
 # 1. ¿Estamos viendo el RANKING?
-if st.session_state.get("ver_ranking"):
-    col_t, col_b = st.columns([4, 1])
-    with col_t:
-        st.title("🏆 TOP Clubes de la Comunidad")
-    with col_b:
-        if st.button("⬅️ Volver", key="btn_volver_rank"):
-            st.session_state.ver_ranking = False
-            st.rerun()
-            
-    df_rank_data = obtener_ranking()
+if not df_rank_data.empty:
+    df_rank_display = pd.merge(df_rank_data, df, on='Lote', how='inner').drop_duplicates('Lote')
+    lotes_favs = obtener_mis_libros(usuario_act)
     
-    if not df_rank_data.empty:
-        # AQUÍ ESTÁ EL TRUCO: 
-        # Cruzamos los datos del ranking con TODO el dataframe original (df)
-        # Esto recupera: Resumen, Páginas, Imagen, Género, etc.
-        df_rank_display = pd.merge(
-            df_rank_data, 
-            df,           # Usamos 'df' completo en lugar de [['Lote', 'Título', 'Autor']]
-            on='Lote', 
-            how='inner'
-        ).drop_duplicates('Lote')
+    for idx, row in df_rank_display.iterrows():
+        # --- NUEVA SECCIÓN DE PUNTUACIÓN ---
+        media = row['Media']
+        total_votos = int(row['Total_Votos'])
+        estrellas = estrellas_puntuacion(media)
         
-        lotes_favs = obtener_mis_libros(usuario_act)
+        # Creamos una fila visual antes de la tarjeta
+        col_rank1, col_rank2 = st.columns([3, 1])
+        with col_rank1:
+            st.markdown(f"### {idx+1}º Lugar") 
+        with col_rank2:
+            # Mostramos las estrellas y el número al lado
+            st.markdown(f"#### {estrellas} `{media:.1f}`")
+            st.caption(f"({total_votos} votos)")
         
-        for idx, row in df_rank_display.iterrows():
-            # Ahora 'row' contiene toda la información necesaria para mostrar_card
-            mostrar_card(row, "Ranking", lotes_favs, idx=idx, posicion=idx+1)
-    else:
-        st.info("Todavía no hay suficientes votos para generar un ranking.")
+        # Llamamos a tu tarjeta normal
+        mostrar_card(row, "Ranking", lotes_favs, idx=idx)
+        st.divider() # Una línea separadora entre puestos
 
 # 2. ¿O estamos viendo los FAVORITOS?
 elif st.session_state.get("ver_favoritos"):
