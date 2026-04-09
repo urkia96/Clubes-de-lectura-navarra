@@ -924,23 +924,25 @@ elif st.session_state.get("ver_favoritos"):
     else:
         st.info("Tu lista está vacía.")
 
-# 3. VISTA NORMAL (BUSCADOR)
-else:
-    st.title(t["titulo"])
-    st.subheader(t["subtitulo"])
-    
-    # Aquí metes tus pestañas actuales:
-    tab1, tab2, tab3, tab4 = st.tabs([t["tab1"], t["tab2"], t["tab3"], t["tab4"]])
-    
-    with tab1:
-        # Lógica de búsqueda por título/autor...
-        pass
-    
-    with tab2:
-        # Lógica de búsqueda libre...
-        pass
-    
-    # ... resto de tus pestañas
+# 2. VISTA DE FAVORITOS
+elif st.session_state.get("ver_favoritos"):
+    col_t, col_b = st.columns([4, 1])
+    with col_t:
+        st.title(t["mis_favs_tit"])
+    with col_b:
+        if st.button("⬅️ Volver al buscador", use_container_width=True):
+            st.session_state.ver_favoritos = False
+            st.rerun()
+
+    lotes_favs = obtener_mis_libros(usuario_act)
+    if lotes_favs:
+        df_favs = df[df['Lote'].isin(lotes_favs)]
+        for idx, row in df_favs.iterrows():
+            mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
+    else:
+        st.info("Tu lista está vacía.")
+
+
 
 # Si el usuario pulsó "Mis Libros"
     elif st.session_state.get("ver_favoritos"):
