@@ -753,6 +753,8 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                         st.session_state[f"voted_{usuario_act}_{lote_id_str}"] = True
                         st.toast(f"¡Gracias por tu recomendación!", icon="🌟")
                         st.rerun()
+          
+            st.markdown("---")
             
             # --- SECCIÓN 3: FAVORITOS ---
             st.markdown(f"<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>3. {t['mis_favs_tit']}</p>", unsafe_allow_html=True)
