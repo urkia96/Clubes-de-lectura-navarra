@@ -271,7 +271,7 @@ texts = {
         "tab3": "🔍 Lote antzekoak",
         "tab4": "🎲 Zorizko bilaketa",
         "placeholder": "Adibidez: Nafarroako historiaren inguruko eleberriak",
-        "input_query": "Nahi duzuna idatz dezakezu. Izenburu, Autore, Laburpen edo Gako-hitzetako termino zehatzetarako, erabili '"' komatxo bikoitzak. NOT boolearra erabiltzeko, '-' erabiltzen du. Adibidez, 'Novelas sobre la historia de navarra -Carlos'",
+        "input_query": "Nahi duzuna idatz dezakezu. Izenburu, Autore, Laburpen edo Gako-hitzetako termino zehatzetarako, erabili komatxo bikoitzak. NOT boolearra erabiltzeko, '-' erabiltzen du. Adibidez, 'Novelas sobre la historia de navarra -Carlos'",
         "lote_input": "Sartu lote kodea. Bat baina gehiago erabili dezakezu, tarteko loteak bilatzeko, adibidez: 121N, 445N, etab.:",
         "busq_titulo": "Izenburuaren arabera bilatu:",
         "busq_autor": "Egilearen arabera bilatu:",
