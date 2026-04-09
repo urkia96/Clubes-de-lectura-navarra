@@ -953,7 +953,7 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
         options=opciones_multiselect,
         key="f_kw_seleccionadas",
         label_visibility="collapsed",
-        placeholder="Escribe 'Sahara' o cualquier concepto..."
+        placeholder="Escribe cualquier concepto..."
     )
             
 
