@@ -742,54 +742,53 @@ def filtrar(dataframe):
     return temp
 
 
-# --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA) ---
+# --- 5. PANEL DE CONTROL (SIDEBAR ÚNICA REORGANIZADA) ---
 st.sidebar.title(t["sidebar_tit"])
 
-# --- 1. BOTÓN DE SALIDA (Arriba del todo como pediste) ---
+# --- 1. BOTÓN DE SALIDA ---
 if st.sidebar.button(f"🚪 Cerrar Sesión", use_container_width=True):
     st.session_state.auth = False
     st.rerun()
 
 st.sidebar.markdown("---")
 
-# --- 2. TOP VALORADOS (Ranking Comunitario) ---
-with st.sidebar.expander("🏆 TOP CLUBES (Comunidad)", expanded=True):
-    df_rank = obtener_ranking()
-   
-    if not df_rank.empty:
-        # Botón para ir a la vista completa de Ranking (esto es lo que faltaba)
-        if st.sidebar.button("📊 Ver Ranking Completo", use_container_width=True):
-            st.session_state.ver_ranking = True
+# --- 2. SECCIÓN TOP CLUBES (Ahora a nivel principal) ---
+# Usamos un encabezado simple en lugar de un expander para que esté "al mismo nivel"
+st.sidebar.subheader("🏆 TOP Clubes")
+if st.sidebar.button("📊 Ver Ranking Completo", use_container_width=True):
+    st.session_state.ver_ranking = True
+    st.session_state.ver_favoritos = False
+    st.rerun()
+
+# Mostramos el top 3 de forma elegante y compacta debajo del botón
+df_rank = obtener_ranking()
+if not df_rank.empty:
+    # Combinamos con df para tener los títulos
+    top_mini = df_rank.head(3).merge(df[['Lote', 'Título']], on='Lote').drop_duplicates('Lote')
+    for i, (_, fila) in enumerate(top_mini.iterrows()):
+        # Un botón pequeño por cada libro del top para ir directo
+        if st.sidebar.button(f"⭐ {round(fila['Media'],1)} - {fila['Título'][:20]}...", key=f"top_side_{i}"):
+            st.session_state.df_final_actual = df[df['Lote'] == fila['Lote']]
+            st.session_state.ver_ranking = False
             st.session_state.ver_favoritos = False
             st.rerun()
-            
-        st.markdown("---")
-        
-        # Muestra el Top 5 resumido
-        top_5 = df_rank.head(5).merge(df[['Lote', 'Título']], on='Lote').drop_duplicates('Lote')
-       
-        for i, (_, fila) in enumerate(top_5.iterrows()):
-            media_n = round(fila['Media'], 1)
-            estrellas = "⭐" * int(round(fila['Media']))
-           
-            st.markdown(f"**{media_n}** {estrellas} \n_{fila['Título']}_")
-           
-            if st.sidebar.button(f"Ver {fila['Lote']}", key=f"btn_rank_side_{fila['Lote']}_{i}"):
-                st.session_state.df_final_actual = df[df['Lote'] == fila['Lote']]
-                st.session_state.ver_ranking = False
-                st.session_state.ver_favoritos = False
-                st.rerun()
-    else:
-        st.write("Aún no hay valoraciones suficientes.")
+else:
+    st.sidebar.caption("Sin valoraciones aún")
 
 st.sidebar.markdown("---")
 
-# --- 3. BOTONES DE ACCIÓN (Agrupados abajo) ---
+# --- 3. SECCIÓN MIS LIBROS ---
+st.sidebar.subheader("📚 Mi Biblioteca")
 if st.sidebar.button(f"⭐ {t['mis_favs_tit']}", use_container_width=True):
+    # Limpiamos caché para forzar que traiga lo nuevo de Google Sheets
+    st.cache_data.clear() 
     st.session_state.ver_favoritos = True
     st.session_state.ver_ranking = False
     st.rerun()
 
+st.sidebar.markdown("---")
+
+# --- 4. SECCIÓN ACCIONES ---
 if st.sidebar.button("🔄 Nueva búsqueda", use_container_width=True):
     keys_to_reset = [
         "f_idioma_w", "f_publico_w", "f_gen_aut_w", "f_editorial_w",
