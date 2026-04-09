@@ -888,32 +888,51 @@ with col_tit:
     st.title(t["titulo"])
     st.caption(t["subtitulo"])
 
-# --- LÓGICA DE VISUALIZACIÓN PRINCIPAL (Copia desde aquí) ---
+# --- LÓGICA DE VISUALIZACIÓN PRINCIPAL ---
 usuario_act = st.session_state.get("usuario_actual", "Anónimo")
 
-# 1. ¿Estamos viendo el RANKING?
-if not df_rank_data.empty:
-    df_rank_display = pd.merge(df_rank_data, df, on='Lote', how='inner').drop_duplicates('Lote')
-    lotes_favs = obtener_mis_libros(usuario_act)
+# IMPORTANTE: Inicializamos la variable como un DataFrame vacío al principio
+# Así, si por lo que sea no entra en el bloque del ranking, la app no explota.
+df_rank_data = pd.DataFrame() 
+
+# 1. VISTA DE RANKING
+if st.session_state.get("ver_ranking"):
+    col_t, col_b = st.columns([4, 1])
+    with col_t:
+        st.title("🏆 TOP Clubes de la Comunidad")
+    with col_b:
+        if st.button("⬅️ Volver", key="btn_volver_rank"):
+            st.session_state.ver_ranking = False
+            st.rerun()
+            
+    # Aquí es donde realmente se llena la variable
+    df_rank_data = obtener_ranking()
     
-    for idx, row in df_rank_display.iterrows():
-        # --- NUEVA SECCIÓN DE PUNTUACIÓN ---
-        media = row['Media']
-        total_votos = int(row['Total_Votos'])
-        estrellas = estrellas_puntuacion(media)
+    if not df_rank_data.empty:
+        df_rank_display = pd.merge(df_rank_data, df, on='Lote', how='inner').drop_duplicates('Lote')
+        lotes_favs = obtener_mis_libros(usuario_act)
         
-        # Creamos una fila visual antes de la tarjeta
-        col_rank1, col_rank2 = st.columns([3, 1])
-        with col_rank1:
-            st.markdown(f"### {idx+1}º Lugar") 
-        with col_rank2:
-            # Mostramos las estrellas y el número al lado
-            st.markdown(f"#### {estrellas} `{media:.1f}`")
-            st.caption(f"({total_votos} votos)")
-        
-        # Llamamos a tu tarjeta normal
-        mostrar_card(row, "Ranking", lotes_favs, idx=idx)
-        st.divider() # Una línea separadora entre puestos
+        for idx, row in df_rank_display.iterrows():
+            # ... tu lógica de estrellas y mostrar_card ...
+            media = row['Media']
+            total_votos = int(row['Total_Votos'])
+            estrellas = estrellas_puntuacion(media)
+            
+            st.markdown(f"#### {idx+1}º Lugar | {estrellas} `{media:.1f}` ({total_votos} votos)")
+            mostrar_card(row, "Ranking", lotes_favs, idx=idx)
+            st.divider()
+    else:
+        st.info("Todavía no hay votos registrados.")
+
+# 2. VISTA DE FAVORITOS (elif...)
+elif st.session_state.get("ver_favoritos"):
+    # ... tu código de favoritos ...
+    pass
+
+# 3. VISTA NORMAL (else...)
+else:
+    # ... tu buscador normal ...
+    pass
 
 # 2. ¿O estamos viendo los FAVORITOS?
 elif st.session_state.get("ver_favoritos"):
