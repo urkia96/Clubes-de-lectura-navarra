@@ -1165,107 +1165,107 @@ else:
                 st.warning(t["no_results"])
                
     # --- TAB3: Lotes similares ---
-with tab3:
-    # Usamos on_change para limpiar el libro aleatorio si el usuario decide buscar por lote
-    lid_input = st.text_input(
-        t["lote_input"], 
-        key="txt_sim_lote_multi", 
-        on_change=lambda: limpiar_busquedas_alternativas("tab3")
-    )
-    
-    if lid_input:
-        lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
-        
-        vectores_para_promediar = []
-        lotes_encontrados = []
-
-        for lid_clean in lotes_solicitados:
-            ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
-            if not ref_ia.empty:
-                idx_ia = ref_ia.index[0]
-                v_lote = index.reconstruct(int(idx_ia))
-                vectores_para_promediar.append(v_lote)
-                lotes_encontrados.append(lid_clean)
-            else:
-                st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
-
-        if vectores_para_promediar:
-            v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
-            D, I = index.search(v_ref, 30)
-            indices_validos = I[0][D[0] >= 0.80]
-            lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
-            
-            df_base = filtrar(df)
-            lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
-            
-            res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
-            res_sim = res_sim.drop_duplicates(subset=['Lote'])
-            res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
-            res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
-            
-            # 💡 CORRECCIÓN REFRESCO: Comparamos solo los IDs de los lotes para evitar el bucle infinito
-            lotes_actuales = res_sim['Lote'].tolist()
-            lotes_guardados = st.session_state.get("last_lotes_sim", [])
-            
-            if lotes_actuales != lotes_guardados:
-                st.session_state.df_final_actual = res_sim
-                st.session_state.last_lotes_sim = lotes_actuales
-                st.rerun()
-
-            if not res_sim.empty:
-                st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
-                
-                # Obtener favoritos actualizados
-                usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-                lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-                
-                contexto_voto = f"Sim_{hash(lid_input) % 10000}"
-                for i, (_, r) in enumerate(res_sim.iterrows(), start=1):
-                    mostrar_card(r, contexto_voto, lotes_en_mis_favs, idx=f"SIM_{i}", posicion=i)
-            else:
-                st.warning("No hay otros lotes con suficiente similitud.")
-
-# --- TAB4: Búsqueda aleatoria ---
-# --- TAB4: Búsqueda aleatoria ---
-# --- TAB4: Búsqueda aleatoria ---
-with tab4:
-    col_s1, col_s2 = st.columns([1, 4])
-    with col_s1:
-        if os.path.exists(URL_SERENDIPIA): 
-            st.image(URL_SERENDIPIA, width=120)
-    
-    with col_s2:
-        if st.button(t["boton_txt"], use_container_width=True):
-            limpiar_busquedas_alternativas("tab4")
-            
-            posibles = filtrar(df)
-            if not posibles.empty:
-                # 1. Obtenemos el DataFrame de una fila
-                seleccionado_df = posibles.sample(1) 
-                
-                # 2. Guardamos la fila (Series) para la tarjeta
-                st.session_state.azar = seleccionado_df.iloc[0]
-                
-                # 3. Guardamos el DataFrame para la Sidebar (sin .to_frame())
-                st.session_state.df_final_actual = seleccionado_df
-                
-                st.rerun()
-            else:
-                st.session_state.azar = None
-                st.session_state.df_final_actual = pd.DataFrame()
-
-    # --- Mostrar el resultado ---
-    if st.session_state.get('azar') is not None:
-        usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-        lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-        
-        st.markdown("---")
-        mostrar_card(
-            st.session_state.azar, 
-            "Serendipia", 
-            lotes_en_mis_favs, 
-            idx="AZAR_1", 
-            posicion=1
+    with tab3:
+        # Usamos on_change para limpiar el libro aleatorio si el usuario decide buscar por lote
+        lid_input = st.text_input(
+            t["lote_input"], 
+            key="txt_sim_lote_multi", 
+            on_change=lambda: limpiar_busquedas_alternativas("tab3")
         )
-    elif 'azar' in st.session_state and st.session_state.azar is None:
-        st.info(t["no_results"])
+        
+        if lid_input:
+            lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
+            
+            vectores_para_promediar = []
+            lotes_encontrados = []
+    
+            for lid_clean in lotes_solicitados:
+                ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
+                if not ref_ia.empty:
+                    idx_ia = ref_ia.index[0]
+                    v_lote = index.reconstruct(int(idx_ia))
+                    vectores_para_promediar.append(v_lote)
+                    lotes_encontrados.append(lid_clean)
+                else:
+                    st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
+    
+            if vectores_para_promediar:
+                v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
+                D, I = index.search(v_ref, 30)
+                indices_validos = I[0][D[0] >= 0.80]
+                lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
+                
+                df_base = filtrar(df)
+                lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
+                
+                res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
+                res_sim = res_sim.drop_duplicates(subset=['Lote'])
+                res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
+                res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
+                
+                # 💡 CORRECCIÓN REFRESCO: Comparamos solo los IDs de los lotes para evitar el bucle infinito
+                lotes_actuales = res_sim['Lote'].tolist()
+                lotes_guardados = st.session_state.get("last_lotes_sim", [])
+                
+                if lotes_actuales != lotes_guardados:
+                    st.session_state.df_final_actual = res_sim
+                    st.session_state.last_lotes_sim = lotes_actuales
+                    st.rerun()
+    
+                if not res_sim.empty:
+                    st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
+                    
+                    # Obtener favoritos actualizados
+                    usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+                    lotes_en_mis_favs = obtener_mis_libros(usuario_act)
+                    
+                    contexto_voto = f"Sim_{hash(lid_input) % 10000}"
+                    for i, (_, r) in enumerate(res_sim.iterrows(), start=1):
+                        mostrar_card(r, contexto_voto, lotes_en_mis_favs, idx=f"SIM_{i}", posicion=i)
+                else:
+                    st.warning("No hay otros lotes con suficiente similitud.")
+    
+    # --- TAB4: Búsqueda aleatoria ---
+    # --- TAB4: Búsqueda aleatoria ---
+    # --- TAB4: Búsqueda aleatoria ---
+    with tab4:
+        col_s1, col_s2 = st.columns([1, 4])
+        with col_s1:
+            if os.path.exists(URL_SERENDIPIA): 
+                st.image(URL_SERENDIPIA, width=120)
+        
+        with col_s2:
+            if st.button(t["boton_txt"], use_container_width=True):
+                limpiar_busquedas_alternativas("tab4")
+                
+                posibles = filtrar(df)
+                if not posibles.empty:
+                    # 1. Obtenemos el DataFrame de una fila
+                    seleccionado_df = posibles.sample(1) 
+                    
+                    # 2. Guardamos la fila (Series) para la tarjeta
+                    st.session_state.azar = seleccionado_df.iloc[0]
+                    
+                    # 3. Guardamos el DataFrame para la Sidebar (sin .to_frame())
+                    st.session_state.df_final_actual = seleccionado_df
+                    
+                    st.rerun()
+                else:
+                    st.session_state.azar = None
+                    st.session_state.df_final_actual = pd.DataFrame()
+    
+        # --- Mostrar el resultado ---
+        if st.session_state.get('azar') is not None:
+            usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+            lotes_en_mis_favs = obtener_mis_libros(usuario_act)
+            
+            st.markdown("---")
+            mostrar_card(
+                st.session_state.azar, 
+                "Serendipia", 
+                lotes_en_mis_favs, 
+                idx="AZAR_1", 
+                posicion=1
+            )
+        elif 'azar' in st.session_state and st.session_state.azar is None:
+            st.info(t["no_results"])
