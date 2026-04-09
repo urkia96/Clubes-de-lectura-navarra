@@ -987,186 +987,186 @@ else:
 
 
 # --- TAB1: Búsqueda por título/autor ---
-with tab1:
-    c1, c2 = st.columns(2)
-    b_tit = c1.text_input(t["busq_titulo"], key="busq_t_input")
-    b_aut = c2.text_input(t["busq_autor"], key="busq_a_input")
-    
-   
-    if b_tit or b_aut:
-        # 1. Aplicar filtros base de la barra lateral (idioma, público, etc.)
-        res = filtrar(df)
-       
-        # 2. Filtrado por texto normalizado
-        if b_tit:
-            res = res[res['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
-        if b_aut:
-            res = res[res['autor_norm'].str.contains(normalizar_texto(b_aut), na=False)]
-       
-        # 3. LIMPIEZA CRÍTICA: Eliminar nulos y duplicados por lote
-        res = res.dropna(subset=['Título', 'Lote'])
-        res = res.drop_duplicates(subset=['Lote'])
-        res = res.reset_index(drop=True)
-       
-        # --- NUEVO: PREPARAR DATOS PARA LAS TARJETAS ---
-        # Obtenemos la lista de favoritos del usuario actual una sola vez para este tab
-        usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-        lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-        # -----------------------------------------------
-
-        # 4. Mostrar resultados (Limitado a los 10 mejores para rendimiento)
-        if not res.empty:
-            texto_buscado = f"Busq: {b_tit} {b_aut}".strip()
-            # Generar un hash simple para evitar conflictos de IDs de botones
-            contexto_id = f"TAB1_{hash(texto_buscado) % 1000}"
-           
-            for i, (_, r) in enumerate(res.head(10).iterrows()):
-                mostrar_card(r, contexto_id, lotes_en_mis_favs, idx=i)
-        else:
-            st.warning(t["no_results"])
-
-# --- TAB2: Búsqueda libre HÍBRIDA ---
-with tab2:
-    q_original = st.text_input(t["input_query"], key="input_ia")
-    if q_original:
-        # 1. Filtros base de la barra lateral
-        df_base = filtrar(df)
-       
-        # 2. Aplicar lógica de Booleanos (Comillas y Menos)
-        columnas_texto = ['Título', 'Autor', 'Resumen_navarra', c['keywords']]
-        df_filtrado_bool, q_limpia = aplicar_busqueda_hibrida(df_base, q_original, columnas_texto)
-
-        # 3. Búsqueda Semántica (IA)
-        if q_limpia:
-            vec = model.encode([f"query: {q_limpia}"], normalize_embeddings=True).astype('float32')
-            D, I = index.search(vec, 50)
-            indices_validos = I[0][D[0] >= 0.80]
-           
-            lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
-            res_final = df_filtrado_bool[df_filtrado_bool['Lote'].isin(lotes_ia)].copy()
-           
-            # Reordenar por relevancia de la IA
-            lotes_que_existen = [l for l in lotes_ia if l in res_final['Lote'].values]
-            res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
-            res_final = res_final.sort_values('Lote')
-        else:
-            res_final = df_filtrado_bool
-
-        # 4. Renderizar resultados
-        res_final = res_final.drop_duplicates(subset=['Lote']).head(15)
-       
-        # --- NUEVO: PREPARAR DATOS PARA LAS TARJETAS ---
-        usuario_act = st.session_state.get("usuario_actual", "Anónimo")
-        lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-        # -----------------------------------------------
-       
-        if not res_final.empty:
-            st.session_state.df_final_actual = res_final
+    with tab1:
+        c1, c2 = st.columns(2)
+        b_tit = c1.text_input(t["busq_titulo"], key="busq_t_input")
+        b_aut = c2.text_input(t["busq_autor"], key="busq_a_input")
         
-        # Renderizar tarjetas
-        for i, (_, r) in enumerate(res_final.iterrows()):
-                mostrar_card(r, q_original, lotes_en_mis_favs, idx=f"T2_{i}")
-    else:
-        st.warning(t["no_results"])
-           
-# --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
-with tab3:
-    lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
- 
-    if lid_input:
-        lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
        
-        vectores_para_promediar = []
-        lotes_encontrados = []
-
-        for lid_clean in lotes_solicitados:
-            ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
-            if not ref_ia.empty:
-                idx_ia = ref_ia.index[0]
-                v_lote = index.reconstruct(int(idx_ia))
-                vectores_para_promediar.append(v_lote)
-                lotes_encontrados.append(lid_clean)
-            else:
-                st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
-
-        if vectores_para_promediar:
-            # 3. CÁLCULO DEL PUNTO MEDIO
-            v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
+        if b_tit or b_aut:
+            # 1. Aplicar filtros base de la barra lateral (idioma, público, etc.)
+            res = filtrar(df)
            
-            # 4. Buscamos en el índice FAISS
-            D, I = index.search(v_ref, 30)
-            indices_validos = I[0][D[0] >= 0.80]
-            lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
-         
-            # 5. Aplicamos los filtros de la Sidebar (¡Ojo! filtra el DF original)
-            df_base = filtrar(df)
+            # 2. Filtrado por texto normalizado
+            if b_tit:
+                res = res[res['titulo_norm'].str.contains(normalizar_texto(b_tit), na=False)]
+            if b_aut:
+                res = res[res['autor_norm'].str.contains(normalizar_texto(b_aut), na=False)]
            
-            # 6. Quitamos los lotes que el usuario ya ha introducido
-            lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
+            # 3. LIMPIEZA CRÍTICA: Eliminar nulos y duplicados por lote
+            res = res.dropna(subset=['Título', 'Lote'])
+            res = res.drop_duplicates(subset=['Lote'])
+            res = res.reset_index(drop=True)
            
-            # 7. Evitar duplicados y ordenar por relevancia
-            res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
-            res_sim = res_sim.drop_duplicates(subset=['Lote'])
-           
-            res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
-            res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
-         
-            # 💡 PASO CLAVE 1: Actualizamos el estado para que la Sidebar reaccione
-            if not res_sim.empty:
-                # Si los resultados actuales son distintos a los guardados, actualizamos
-                if "df_final_actual" not in st.session_state or not st.session_state.df_final_actual.equals(res_sim):
-                    st.session_state.df_final_actual = res_sim
-                    # Forzamos un rerun para que la Sidebar se actualice inmediatamente con las nuevas Keywords
-                    st.rerun()
-
-            # 8. ID único para los botones
-            contexto_voto = f"Sim_{hash(lid_input) % 10000}"
-         
-            # --- OBTENER FAVORITOS ANTES DE RENDERIZAR ---
+            # --- NUEVO: PREPARAR DATOS PARA LAS TARJETAS ---
+            # Obtenemos la lista de favoritos del usuario actual una sola vez para este tab
             usuario_act = st.session_state.get("usuario_actual", "Anónimo")
             lotes_en_mis_favs = obtener_mis_libros(usuario_act)
-
-            if not res_sim.empty:
-                st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
-                
-                # 💡 PASO CLAVE 2: Renderizar las tarjetas
-                for i, (_, r) in enumerate(res_sim.iterrows(), start=1):
-                    mostrar_card(
-                        r,
-                        contexto_voto,
-                        lotes_en_mis_favs,
-                        idx=f"SIM_{i}", 
-                        posicion=i
-                    )
+            # -----------------------------------------------
+    
+            # 4. Mostrar resultados (Limitado a los 10 mejores para rendimiento)
+            if not res.empty:
+                texto_buscado = f"Busq: {b_tit} {b_aut}".strip()
+                # Generar un hash simple para evitar conflictos de IDs de botones
+                contexto_id = f"TAB1_{hash(texto_buscado) % 1000}"
+               
+                for i, (_, r) in enumerate(res.head(10).iterrows()):
+                    mostrar_card(r, contexto_id, lotes_en_mis_favs, idx=i)
             else:
-                st.warning("No hay otros lotes con suficiente similitud para esta combinación.")
-
-# --- TAB4: Búsqueda aleatoria ---
-with tab4:
-    col_s1, col_s2 = st.columns([1, 4])
-    with col_s1:
-        if os.path.exists(URL_SERENDIPIA):
-            st.image(URL_SERENDIPIA, width=120)
-   
-    with col_s2:
-        if st.button(t["boton_txt"], use_container_width=True):
-            # 1. Filtramos según los criterios actuales de la Sidebar
-            posibles = filtrar(df)
+                st.warning(t["no_results"])
+    
+    # --- TAB2: Búsqueda libre HÍBRIDA ---
+    with tab2:
+        q_original = st.text_input(t["input_query"], key="input_ia")
+        if q_original:
+            # 1. Filtros base de la barra lateral
+            df_base = filtrar(df)
+           
+            # 2. Aplicar lógica de Booleanos (Comillas y Menos)
+            columnas_texto = ['Título', 'Autor', 'Resumen_navarra', c['keywords']]
+            df_filtrado_bool, q_limpia = aplicar_busqueda_hibrida(df_base, q_original, columnas_texto)
+    
+            # 3. Búsqueda Semántica (IA)
+            if q_limpia:
+                vec = model.encode([f"query: {q_limpia}"], normalize_embeddings=True).astype('float32')
+                D, I = index.search(vec, 50)
+                indices_validos = I[0][D[0] >= 0.80]
+               
+                lotes_ia = df_ia_meta.iloc[indices_validos]['Lote'].astype(str).str.strip().tolist()
+                res_final = df_filtrado_bool[df_filtrado_bool['Lote'].isin(lotes_ia)].copy()
+               
+                # Reordenar por relevancia de la IA
+                lotes_que_existen = [l for l in lotes_ia if l in res_final['Lote'].values]
+                res_final['Lote'] = pd.Categorical(res_final['Lote'], categories=lotes_que_existen, ordered=True)
+                res_final = res_final.sort_values('Lote')
+            else:
+                res_final = df_filtrado_bool
+    
+            # 4. Renderizar resultados
+            res_final = res_final.drop_duplicates(subset=['Lote']).head(15)
+           
+            # --- NUEVO: PREPARAR DATOS PARA LAS TARJETAS ---
+            usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+            lotes_en_mis_favs = obtener_mis_libros(usuario_act)
+            # -----------------------------------------------
+           
+            if not res_final.empty:
+                st.session_state.df_final_actual = res_final
             
-            if not posibles.empty:
-                # 2. Seleccionamos uno al azar
-                seleccionado = posibles.sample(1)
-                st.session_state.azar = seleccionado.iloc[0]
+            # Renderizar tarjetas
+            for i, (_, r) in enumerate(res_final.iterrows()):
+                    mostrar_card(r, q_original, lotes_en_mis_favs, idx=f"T2_{i}")
+        else:
+            st.warning(t["no_results"])
+               
+    # --- TAB3: Lotes similares (Punto Medio / Multi-lote) ---
+    with tab3:
+        lid_input = st.text_input(t["lote_input"], key="txt_sim_lote_multi")
+     
+        if lid_input:
+            lotes_solicitados = [l.strip().upper() for l in lid_input.replace(',', ' ').split() if l.strip()]
+           
+            vectores_para_promediar = []
+            lotes_encontrados = []
+    
+            for lid_clean in lotes_solicitados:
+                ref_ia = df_ia_meta[df_ia_meta['Lote'] == lid_clean]
+                if not ref_ia.empty:
+                    idx_ia = ref_ia.index[0]
+                    v_lote = index.reconstruct(int(idx_ia))
+                    vectores_para_promediar.append(v_lote)
+                    lotes_encontrados.append(lid_clean)
+                else:
+                    st.warning(f"El lote {lid_clean} no se encuentra en el sistema.")
+    
+            if vectores_para_promediar:
+                # 3. CÁLCULO DEL PUNTO MEDIO
+                v_ref = np.mean(vectores_para_promediar, axis=0).astype('float32').reshape(1, -1)
+               
+                # 4. Buscamos en el índice FAISS
+                D, I = index.search(v_ref, 30)
+                indices_validos = I[0][D[0] >= 0.80]
+                lotes_sim = df_ia_meta.iloc[indices_validos]['Lote'].unique().tolist()
+             
+                # 5. Aplicamos los filtros de la Sidebar (¡Ojo! filtra el DF original)
+                df_base = filtrar(df)
+               
+                # 6. Quitamos los lotes que el usuario ya ha introducido
+                lotes_ordenados = [l for l in lotes_sim if l not in lotes_encontrados]
+               
+                # 7. Evitar duplicados y ordenar por relevancia
+                res_sim = df_base[df_base['Lote'].isin(lotes_ordenados)].copy()
+                res_sim = res_sim.drop_duplicates(subset=['Lote'])
+               
+                res_sim['Lote'] = pd.Categorical(res_sim['Lote'], categories=lotes_ordenados, ordered=True)
+                res_sim = res_sim.sort_values('Lote').dropna(subset=['Título']).head(10)
+             
+                # 💡 PASO CLAVE 1: Actualizamos el estado para que la Sidebar reaccione
+                if not res_sim.empty:
+                    # Si los resultados actuales son distintos a los guardados, actualizamos
+                    if "df_final_actual" not in st.session_state or not st.session_state.df_final_actual.equals(res_sim):
+                        st.session_state.df_final_actual = res_sim
+                        # Forzamos un rerun para que la Sidebar se actualice inmediatamente con las nuevas Keywords
+                        st.rerun()
+    
+                # 8. ID único para los botones
+                contexto_voto = f"Sim_{hash(lid_input) % 10000}"
+             
+                # --- OBTENER FAVORITOS ANTES DE RENDERIZAR ---
+                usuario_act = st.session_state.get("usuario_actual", "Anónimo")
+                lotes_en_mis_favs = obtener_mis_libros(usuario_act)
+    
+                if not res_sim.empty:
+                    st.info(f"Mostrando libros similares a: {', '.join(lotes_encontrados)}")
+                    
+                    # 💡 PASO CLAVE 2: Renderizar las tarjetas
+                    for i, (_, r) in enumerate(res_sim.iterrows(), start=1):
+                        mostrar_card(
+                            r,
+                            contexto_voto,
+                            lotes_en_mis_favs,
+                            idx=f"SIM_{i}", 
+                            posicion=i
+                        )
+                else:
+                    st.warning("No hay otros lotes con suficiente similitud para esta combinación.")
+    
+    # --- TAB4: Búsqueda aleatoria ---
+    with tab4:
+        col_s1, col_s2 = st.columns([1, 4])
+        with col_s1:
+            if os.path.exists(URL_SERENDIPIA):
+                st.image(URL_SERENDIPIA, width=120)
+       
+        with col_s2:
+            if st.button(t["boton_txt"], use_container_width=True):
+                # 1. Filtramos según los criterios actuales de la Sidebar
+                posibles = filtrar(df)
                 
-                # 💡 PASO CLAVE: Actualizamos el 'cerebro' de la Sidebar
-                # Convertimos la fila en un DataFrame para que la Sidebar pueda leer sus keywords
-                st.session_state.df_final_actual = seleccionado
-                
-                # Forzamos reinicio para que la Sidebar vea el cambio al instante
-                st.rerun()
-            else:
-                st.session_state.azar = None
-                st.session_state.df_final_actual = pd.DataFrame() # Vacío si no hay nada
+                if not posibles.empty:
+                    # 2. Seleccionamos uno al azar
+                    seleccionado = posibles.sample(1)
+                    st.session_state.azar = seleccionado.iloc[0]
+                    
+                    # 💡 PASO CLAVE: Actualizamos el 'cerebro' de la Sidebar
+                    # Convertimos la fila en un DataFrame para que la Sidebar pueda leer sus keywords
+                    st.session_state.df_final_actual = seleccionado
+                    
+                    # Forzamos reinicio para que la Sidebar vea el cambio al instante
+                    st.rerun()
+                else:
+                    st.session_state.azar = None
+                    st.session_state.df_final_actual = pd.DataFrame() # Vacío si no hay nada
 
     # --- PREPARAR DATOS PARA LA TARJETA ---
     usuario_act = st.session_state.get("usuario_actual", "Anónimo")
