@@ -700,11 +700,17 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
             usuario_act = st.session_state.get("usuario_actual", "Anónimo")
             
             # --- SECCIÓN 1: RELEVANCIA ---
-            st.markdown("<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>1. ¿Es relevante?</p>", unsafe_allow_html=True)
-            # Aquí puedes mantener un feedback simple (pulgares) o dejarlo para el log técnico
-            # Si prefieres que el log de relevancia sea automático con la estrella, podemos saltar al punto 2.
-            # Pero para seguir tu esquema de 3 líneas:
+            st.markdown(f"<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>1. {t['ask_relevante']}</p>", unsafe_allow_html=True)
+            
+            # Feedback de pulgares (thumbs)
+            # El valor será 0 (dislike) o 1 (like)
             voto_rel = st.feedback("thumbs", key=f"rel_{lote_id}_{idx}")
+            
+            # Si quieres que se guarde algo en el log cuando pulsen el pulgar:
+            if voto_rel is not None:
+                # Aquí podrías llamar a una función técnica de log si quisieras, 
+                # o simplemente dejar que Streamlit lo gestione en el estado.
+                pass
             
             st.markdown("---")
             
@@ -742,16 +748,18 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                         st.rerun()
             
             # --- SECCIÓN 3: FAVORITOS ---
-            st.markdown("<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>3. Mis favoritos</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:0.8rem; font-weight:bold; margin-bottom:0;'>3. {t['mis_favs_tit']}</p>", unsafe_allow_html=True)
             es_favorito = lote_id in lotes_en_mis_favs
             
             if es_favorito:
-                if st.button("❤️", key=f"fav_full_{lote_id}_{idx}", help="Quitar de favoritos", use_container_width=True):
+                # Botón Corazón Lleno
+                if st.button("❤️", key=f"fav_full_{lote_id}_{idx}", help=t["help_remove"], use_container_width=True):
                     if eliminar_favorito(lote_id):
                         st.cache_data.clear()
                         st.rerun()
             else:
-                if st.button("🤍", key=f"fav_empty_{lote_id}_{idx}", help="Añadir a favoritos", use_container_width=True):
+                # Botón Corazón Vacío
+                if st.button("🤍", key=f"fav_empty_{lote_id}_{idx}", help=t["help_add"], use_container_width=True):
                     if guardar_favorito(lote_id, titulo_actual):
                         st.cache_data.clear()
                         st.rerun()
