@@ -221,7 +221,11 @@ texts = {
         "busq_autor": "Buscar por Autor:",
         "resumen_btn": "Ver resumen",
         "pags_label": "págs",
+        "help_add": "Añadir a favoritos",
+        "help_remove": "Quitar de favoritos",
+        "mis_favs_tit": "📚 Mis Libros Guardados",
         "thanks": "✅ Voto registrado",
+        
         "ask_relevante": "¿Es relevante para tu búsqueda?",
         "ask_recomendarias": "¿Lo recomendarías?",
         "boton_txt": "¡Sorpréndeme!",
@@ -273,6 +277,9 @@ texts = {
         "busq_autor": "Egilearen arabera bilatu:",
         "resumen_btn": "Ikusi laburpena",
         "pags_label": "orr",
+        "help_add": "Gogokoetara gehitu",
+        "help_remove": "Gogokoetatik kendu",
+        "mis_favs_tit": "📚 Gordetako Liburuak",
         "thanks": "✅ Iritzia gordeta",
         "ask_relevante": "Zure bilaketarako garrantzitsua da?",
         "ask_recomendarias": "Gomendatuko zenuke?",
@@ -763,8 +770,6 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                     if guardar_favorito(lote_id, titulo_actual):
                         st.cache_data.clear()
                         st.rerun()
-
-
 
 
 
