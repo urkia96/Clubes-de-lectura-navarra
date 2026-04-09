@@ -875,26 +875,51 @@ with st.sidebar.expander(t["exp_cont"], expanded=True):
         if opciones_sub:
             st.multiselect(t["f_ia_sub"], opciones_sub, key="f_ia_sub_w")
 
-    # 3. Conceptos Clave
+    # 3. Conceptos Clave (CON BUSCADOR DINÁMICO)
     st.markdown(f"<b>{t['f_keywords']}</b>", unsafe_allow_html=True)
-   
+    
+    # Determinamos la fuente (Búsqueda actual o filtrado general)
     if "df_final_actual" in st.session_state and not st.session_state.df_final_actual.empty:
         fuente_palabras = st.session_state.df_final_actual
     else:
         fuente_palabras = filtrar(df)
-   
+    
     lista_final_kw = []
     nombre_col_kw = c.get('keywords', 'Keywords_IA')
-   
+    
     if fuente_palabras is not None and not fuente_palabras.empty:
         if nombre_col_kw in fuente_palabras.columns:
             try:
-                todas_kw = fuente_palabras[nombre_col_kw].astype(str).str.split(',').explode().str.strip()
-                opciones_kw = todas_kw.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
-                lista_final_kw = sorted(opciones_kw.head(25).index.tolist())
-            except:
+                # 1. Obtenemos todas las palabras únicas disponibles
+                todas_kw_series = fuente_palabras[nombre_col_kw].astype(str).str.split(',').explode().str.strip()
+                # Quitamos valores basura
+                opciones_kw_counts = todas_kw_series.value_counts().drop(["Desconocido", "nan", "None", ""], errors='ignore')
+                lista_base = opciones_kw_counts.index.tolist()
+
+                # 2. MINI-BUSCADOR: Campo de texto para filtrar la lista de abajo
+                busqueda_interna = st.text_input("🔍 Buscar concepto...", key="busq_keyword_manual", label_visibility="collapsed", placeholder="Escribe para filtrar la lista...")
+
+                # 3. FILTRADO LÓGICO:
+                # Si hay texto escrito, buscamos coincidencias. Si no, mostramos las 25 más frecuentes.
+                if busqueda_interna:
+                    lista_final_kw = [k for k in lista_base if busqueda_interna.lower() in k.lower()]
+                else:
+                    lista_final_kw = lista_base[:25] # Top 25 si está vacío
+
+                # 4. PERSISTENCIA: Muy importante. 
+                # Si el usuario ya seleccionó algo, debe seguir estando en la lista aunque no coincida con la búsqueda actual,
+                # de lo contrario Streamlit lanzará un error porque el valor seleccionado no existe en las opciones.
+                seleccionadas = st.session_state.get("f_kw_seleccionadas", [])
+                for s in seleccionadas:
+                    if s not in lista_final_kw:
+                        lista_final_kw.append(s)
+                
+                lista_final_kw = sorted(lista_final_kw)
+
+            except Exception as e:
                 lista_final_kw = []
-   
+    
+    # El Multiselect de siempre, pero ahora su 'lista_final_kw' es inteligente
     st.multiselect(
         "Filtrar por concepto:",
         lista_final_kw,
