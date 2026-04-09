@@ -422,27 +422,43 @@ def obtener_ranking():
     
     try:
         spreadsheet = sheet_control.spreadsheet
-        ws_votos = spreadsheet.worksheet("votos")
+        try:
+            ws_votos = spreadsheet.worksheet("votos")
+        except:
+            return pd.DataFrame() # Si no existe la pestaña, devolvemos vacío sin error
+            
         datos = ws_votos.get_all_records()
-        
         if not datos:
             return pd.DataFrame()
             
         df_votos = pd.DataFrame(datos)
         
-        # --- LIMPIEZA CLAVE ---
-        # Aseguramos que 'Puntuacion' sea número
-        df_votos['Puntuacion'] = pd.to_numeric(df_votos['Puntuacion'], errors='coerce')
-        # Aseguramos que 'Lote' sea String y sin espacios (esto es vital para el merge)
-        df_votos['Lote'] = df_votos['Lote'].astype(str).str.strip()
+        # --- NORMALIZAR COLUMNAS PARA EVITAR EL ERROR ---
+        # Pasamos todo a minúsculas y quitamos tildes para encontrar las columnas
+        mapeo = {col: normalizar_texto(str(col)) for col in df_votos.columns}
+        df_votos = df_votos.rename(columns=mapeo)
+        
+        # Ahora buscamos las columnas normalizadas
+        col_lote = "lote"
+        col_puntos = "puntuacion"
+        
+        if col_puntos not in df_votos.columns:
+            # Si aún así no la encuentra, imprimimos las que ve para ayudarte
+            # st.warning(f"Columnas detectadas: {df_votos.columns.tolist()}")
+            return pd.DataFrame()
+
+        # Convertimos a números y limpiamos
+        df_votos[col_puntos] = pd.to_numeric(df_votos[col_puntos], errors='coerce')
+        df_votos[col_lote] = df_votos[col_lote].astype(str).str.strip()
         
         # Agrupamos
-        ranking = df_votos.groupby('Lote')['Puntuacion'].agg(['mean', 'count']).reset_index()
+        ranking = df_votos.groupby(col_lote)[col_puntos].agg(['mean', 'count']).reset_index()
         ranking.columns = ['Lote', 'Media', 'Total_Votos']
         
         return ranking.sort_values(by='Media', ascending=False)
     except Exception as e:
-        st.error(f"Error al leer ranking: {e}")
+        # Esto evitará que la app se bloquee si hay un error, solo mostrará el aviso
+        st.sidebar.error(f"Aviso: No se pudo cargar el ranking")
         return pd.DataFrame()
 
 
@@ -865,7 +881,43 @@ with col_tit:
     st.caption(t["subtitulo"])
 
 # --- 2. TOP VALORADOS (Ranking Comunitario) ---
+if st.session_state.get("ver_ranking"):
+    st.title("🏆 TOP Clubes de la Comunidad")
+    df_rank_data = obtener_ranking()
+    
+    if not df_rank_data.empty:
+        # Unimos con el catálogo para tener los nombres reales
+        df_rank_display = pd.merge(
+            df_rank_data, 
+            df[['Lote', 'Título', 'Autor']], 
+            on='Lote', 
+            how='inner'
+        ).drop_duplicates('Lote')
+        
+        for idx, row in df_rank_display.iterrows():
+            # Reutilizamos tu función mostrar_card
+            # pasándole un contexto y la posición en el ranking
+            lotes_favs = obtener_mis_libros(st.session_state.usuario_actual)
+            mostrar_card(row, "Ranking", lotes_favs, idx=idx, posicion=idx+1)
+    else:
+        st.info("Todavía no hay suficientes votos para generar un ranking.")
 
+# Si el usuario pulsó "Mis Libros"
+elif st.session_state.get("ver_favoritos"):
+    st.title(t["mis_favs_tit"])
+    lotes_favs = obtener_mis_libros(st.session_state.usuario_actual)
+    
+    if lotes_favs:
+        df_favs = df[df['Lote'].isin(lotes_favs)]
+        for idx, row in df_favs.iterrows():
+            mostrar_card(row, "Favoritos", lotes_favs, idx=idx)
+    else:
+        st.info("Tu lista de favoritos está vacía.")
+
+# Si no hay ninguna vista especial, mostrar los buscadores normales (Tabs)
+else:
+    # Aquí irían tus st.tabs(["Búsqueda por autor...", etc.])
+    pass
 
 # --- SECCIÓN B: FAVORITOS (TUYA) ---
 if st.session_state.get("ver_favoritos"):
