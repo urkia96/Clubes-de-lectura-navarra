@@ -305,7 +305,7 @@ c = t["cols"]
 
 @st.cache_resource
 def load_resources():
-    excel_path = os.path.join(PATH_RECO, "Etiquetas_Normalizadas_Final (1).xlsx")
+    excel_path = os.path.join(PATH_RECO, "Etiquetas_Normalizadas_Final (1) (2).xlsx")
     disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo (4).xlsx")
 
     if not os.path.exists(excel_path):
@@ -376,7 +376,7 @@ def load_resources():
     df['autor_norm'] = df['Autor'].apply(normalizar_texto)
   
     # 4. CARGA IA
-    with open(os.path.join(PATH_RECO, "clubes_lectura_small_modelo1_keywords.pkl"), "rb") as f:
+    with open(os.path.join(PATH_RECO, "clubes_lectura_small_modelo1_keywords (1).pkl"), "rb") as f:
         df_ia_meta = pickle.load(f)
    
     # Aseguramos el nombre 'Lote' en el PKL también
@@ -384,7 +384,7 @@ def load_resources():
         df_ia_meta.rename(columns={df_ia_meta.columns[0]: 'Lote'}, inplace=True)
     df_ia_meta['Lote'] = df_ia_meta['Lote'].astype(str).str.strip()
   
-    index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_modelo1_keywords.index"))
+    index = faiss.read_index(os.path.join(PATH_RECO, "clubes_lectura_small_modelo1_keywords (1).index"))
     model = SentenceTransformer('intfloat/multilingual-e5-small')
   
     gc.collect()
