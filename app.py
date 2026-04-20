@@ -198,7 +198,7 @@ texts = {
         "exp_cont": "📖 Filtros de contenido",
         "exp_disp": "📅 Disponibilidad",
         "mis_favs_tit": "Libros Guardados",
-        "f_actualizacion": "Última actualización: 08/04/2026",
+        "f_actualizacion": "Última actualización: 20/04/2026",
         "f_solo_disp": "Solo disponibles ahora",
         "f_idioma": "🌍 Idioma",
         "f_publico": "👥 Público",
@@ -255,7 +255,7 @@ texts = {
         "exp_cont": "📖 Edukiaren iragazkiak",
         "exp_disp": "📅 Erabilgarritasuna",
         "mis_favs_tit": "📚 Gordetako Liburuak",
-        "f_actualizacion": "Azken eguneratzea: 2026/04/08",
+        "f_actualizacion": "Azken eguneratzea: 2026/04/20",
         "f_solo_disp": "Libre daudenak bakarrik",
         "f_idioma": "🌍 Hizkuntza",
         "f_publico": "👥 Publikoa",
@@ -306,7 +306,7 @@ c = t["cols"]
 @st.cache_resource
 def load_resources():
     excel_path = os.path.join(PATH_RECO, "Etiquetas_Normalizadas_Final (1).xlsx")
-    disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo.xlsx")
+    disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo (4).xlsx")
 
     if not os.path.exists(excel_path):
         st.error(f"Archivo crítico no encontrado: {excel_path}")
