@@ -306,7 +306,7 @@ c = t["cols"]
 @st.cache_resource
 def load_resources():
     excel_path = os.path.join(PATH_RECO, "Etiquetas_Normalizadas_Final (1) (2) (1) (1).xlsx")
-    disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo (4).xlsx")
+    disp_path = os.path.join(PATH_RECO, "disponibilidad_catalogo_completo (5).xlsx")
 
     if not os.path.exists(excel_path):
         st.error(f"Archivo crítico no encontrado: {excel_path}")
