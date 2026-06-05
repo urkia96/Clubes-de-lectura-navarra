@@ -823,6 +823,11 @@ def filtrar(dataframe):
     if f_ed: 
         temp = temp[temp['Editorial'].isin(f_ed)] # Usamos f_ed
 
+    f_ano = st.session_state.get("f_ano_w")
+    if f_ano:
+        temp = temp[temp[c['ano']].isin(f_ano)]
+
+
    
     # 2. Filtros Contenido (IA)
     f_iagen = st.session_state.get("f_ia_gen_w")
@@ -905,6 +910,13 @@ with st.sidebar.expander(t["exp_gral"], expanded=False):
     st.checkbox(t["f_local"], key="f_local_w")
     st.checkbox(t["f_lf"], key="f_lf_w")
     st.slider(t["f_paginas"], 50, 1500, 1500, key="f_paginas_w")
+    col_ano_df = c["ano"]
+    df[col_ano_df] = df[col_ano_df].astype(str).str.replace(".0", "", regex=False)
+    opciones_anos = sorted([a for a in df[col_ano_df].unique() if a != "Desconocido"], reverse=True)
+    if "Desconocido" in df[col_ano_df].values:
+        opciones_anos.append("Desconocido")
+        
+    st.multiselect(t["f_ano"], opciones_anos, key="f_ano_w")
 
 
 
