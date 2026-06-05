@@ -904,12 +904,6 @@ st.sidebar.markdown("---")
 with st.sidebar.expander(t["exp_gral"], expanded=False):
     st.multiselect(t["f_idioma"], sorted(df[c['idioma']].dropna().unique()), key="f_idioma_w")
     st.multiselect(t["f_publico"], sorted(df[c['publico']].dropna().unique()), key="f_publico_w")
-    st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()), key="f_gen_aut_w")
-    opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
-    st.multiselect(t["f_editorial"], opciones_ed, key="f_editorial_w")
-    st.checkbox(t["f_local"], key="f_local_w")
-    st.checkbox(t["f_lf"], key="f_lf_w")
-    st.slider(t["f_paginas"], 50, 1500, 1500, key="f_paginas_w")
     col_ano_df = c["ano"]
     df[col_ano_df] = df[col_ano_df].astype(str).str.replace(".0", "", regex=False)
     opciones_anos = sorted([a for a in df[col_ano_df].unique() if a != "Desconocido"], reverse=True)
@@ -918,6 +912,13 @@ with st.sidebar.expander(t["exp_gral"], expanded=False):
         
     st.multiselect(t["f_ano"], opciones_anos, key="f_ano_w")
 
+    st.multiselect(t["f_genero_aut"], sorted(df[c['genero_aut']].dropna().unique()), key="f_gen_aut_w")
+    opciones_ed = sorted([e for e in df['Editorial'].dropna().unique() if e != "Desconocido"])
+    st.multiselect(t["f_editorial"], opciones_ed, key="f_editorial_w")
+    st.checkbox(t["f_local"], key="f_local_w")
+    st.checkbox(t["f_lf"], key="f_lf_w")
+    st.slider(t["f_paginas"], 50, 1500, 1500, key="f_paginas_w")
+    
 
 
 # --- 4. BLOQUE: CONTENIDO IA ---
