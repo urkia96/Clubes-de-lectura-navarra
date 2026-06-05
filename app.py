@@ -687,7 +687,7 @@ def mostrar_card(r, context, lotes_en_mis_favs, idx=0, posicion=0):
                 pags_display = str(pags_val)
            
             # Caption con Editorial, Idioma, Páginas y Público
-            st.caption(f"{r.get('Editorial','--')} | {r.get(c['idioma'],'--')} | {pags_display} {t['pags_label']} | {r.get(c['publico'],'--')}")
+            st.caption(f"{r.get('Editorial','--')} | {r.get(c['ano'],'--')} | {pags_display} {t['idioma']} | {r.get(c['pags_label'],'--')}")| {r.get(c['publico'],'--')}")
 
             # NUEVO: GESTIÓN DE DISPONIBILIDAD
             reservas = r.get('Fechas_Reservadas', "")
