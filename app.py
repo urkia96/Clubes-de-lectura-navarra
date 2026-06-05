@@ -205,6 +205,7 @@ texts = {
         "f_genero_aut": "👤 Género Autor/a",
         "f_editorial": "📚 Editorial",
         "f_paginas": "📄 Número de páginas",
+        "f_ano": "Año de publicación",
         "f_local": "🏠 Autores locales",
         "f_lf": "👓 Lectura Fácil",
         "f_ia_gen": "📂 Género",
@@ -238,7 +239,8 @@ texts = {
             "genero_aut": "genero_fix",
             "ia_gen": "Genero_Principal_IA",
             "ia_sub": "Subgenero_ES",
-            "keywords": "Keywords_ES"
+            "keywords": "Keywords_ES",
+            "ano": "Año"
         }
     },
     "Euskera": {
@@ -264,6 +266,7 @@ texts = {
         "f_paginas": "📄 Orrialde kopurua",
         "f_local": "🏠 Bertako autoreak",
         "f_lf": "👓 Irakurketa Erraza",
+        "f_ano": "Argitalpen urtea",
         "f_ia_gen": "📂 Generoa",
         "f_ia_sub": "🏷️ Azpigeneroa",
         "f_keywords": "🔍 Kontzeptu nagusiak",
@@ -294,7 +297,8 @@ texts = {
             "genero_aut": "genero_fix_eus",
             "ia_gen": "Genero_Principal_IA_eus",
             "ia_sub": "Azpigeneroa_EUS",
-            "keywords": "Keywords_EUS"
+            "keywords": "Keywords_EUS",
+            "ano": "Año"
         }
     }
 }
@@ -362,7 +366,8 @@ def load_resources():
         'genero_fix', 'genero_fix_eus', 'Editorial', 'Geografia_Autor',
         'Genero_Principal_IA', 'Genero_Principal_IA_eus',
         'Subgenero_ES', 'Azpigeneroa_EUS',
-        'Keywords_ES', 'Keywords_EUS'
+        'Keywords_ES', 'Keywords_EUS',
+        'Año'
     ]
   
     for col in cols_check:
@@ -817,6 +822,7 @@ def filtrar(dataframe):
     f_ed = st.session_state.get("f_editorial_w")
     if f_ed: 
         temp = temp[temp['Editorial'].isin(f_ed)] # Usamos f_ed
+
    
     # 2. Filtros Contenido (IA)
     f_iagen = st.session_state.get("f_ia_gen_w")
@@ -899,6 +905,8 @@ with st.sidebar.expander(t["exp_gral"], expanded=False):
     st.checkbox(t["f_local"], key="f_local_w")
     st.checkbox(t["f_lf"], key="f_lf_w")
     st.slider(t["f_paginas"], 50, 1500, 1500, key="f_paginas_w")
+
+
 
 # --- 4. BLOQUE: CONTENIDO IA ---
 with st.sidebar.expander(t["exp_cont"], expanded=True):
