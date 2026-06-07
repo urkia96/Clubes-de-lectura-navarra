@@ -116,9 +116,14 @@ if not st.session_state.auth:
                 u = st.text_input("Usuario")
                 p = st.text_input("Contraseña", type="password")
                 if st.form_submit_button("Entrar"):
-                    if verificar_usuario_en_sheets(u, p): # <--- Llamada a Sheets
+                    if verificar_usuario_en_sheets(u, p): 
                         st.session_state.auth = True
                         st.session_state.usuario_actual = u
+                        
+                        # ==== NUEVA ADICIÓN DE TELEMETRÍA ANÓNIMA ====
+                        registrar_acceso_anonimo()
+                        # ============================================
+                        
                         st.rerun()
                     else:
                         st.error("Error en credenciales o usuario inexistente")
@@ -644,6 +649,54 @@ def limpiar_busquedas_alternativas(tab_actual):
     if tab_actual != "tab4":
         # Aquí no hay problema con None porque 'azar' no está vinculado a un widget input
         st.session_state.azar = None
+
+def registrar_acceso_anonimo():
+    """Registra un evento de inicio de sesión sin guardar datos personales."""
+    sheet = conectar_sheets()
+    if not sheet: return False
+    try:
+        spreadsheet = sheet.spreadsheet
+        try:
+            ws_accesos = spreadsheet.worksheet("log_accesos")
+        except:
+            # Si no existe la pestaña, se crea con sus cabeceras
+            ws_accesos = spreadsheet.add_worksheet(title="log_accesos", rows="1000", cols="1")
+            ws_accesos.append_row(["Fecha_Hora"])
+        
+        # Insertamos solo la marca de tiempo
+        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ws_accesos.append_row([fecha_actual])
+        return True
+    except Exception as e:
+        # Usamos st.write de forma discreta o fallamos en silencio para no romper la UX
+        return False
+
+def registrar_busqueda_anonima(tipo_busqueda, terminos_busqueda):
+    """Registra los metadatos de una búsqueda de forma disociada."""
+    # Evitamos registrar strings vacíos o interacciones sin valor
+    if not tipo_busqueda or not str(terminos_busqueda).strip():
+        return False
+        
+    sheet = conectar_sheets()
+    if not sheet: return False
+    try:
+        spreadsheet = sheet.spreadsheet
+        try:
+            ws_busquedas = spreadsheet.worksheet("log_busquedas")
+        except:
+            # Si no existe la pestaña, se crea con sus cabeceras
+            ws_busquedas = spreadsheet.add_worksheet(title="log_busquedas", rows="1000", cols="3")
+            ws_busquedas.append_row(["Fecha_Hora", "Tipo_Busqueda", "Terminos"])
+        
+        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ws_busquedas.append_row([
+            fecha_actual, 
+            str(tipo_busqueda), 
+            str(terminos_busqueda).strip()
+        ])
+        return True
+    except Exception as e:
+        return False
 
 # 4. Mostrar tarjeta
 @st.fragment
