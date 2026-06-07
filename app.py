@@ -105,6 +105,49 @@ def verificar_usuario_en_sheets(username, password):
 
 # --- INTERFAZ DE ACCESO ---
 
+def registrar_acceso_anonimo():
+    """Registra un evento de inicio de sesión sin guardar datos personales."""
+    sheet = conectar_sheets()
+    if not sheet: return False
+    try:
+        spreadsheet = sheet.spreadsheet
+        try:
+            ws_accesos = spreadsheet.worksheet("log_accesos")
+        except:
+            ws_accesos = spreadsheet.add_worksheet(title="log_accesos", rows="1000", cols="1")
+            ws_accesos.append_row(["Fecha_Hora"])
+        
+        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ws_accesos.append_row([fecha_actual])
+        return True
+    except Exception as e:
+        return False
+
+def registrar_busqueda_anonima(tipo_busqueda, terminos_busqueda):
+    """Registra los metadatos de una búsqueda de forma disociada."""
+    if not tipo_busqueda or not str(terminos_busqueda).strip():
+        return False
+        
+    sheet = conectar_sheets()
+    if not sheet: return False
+    try:
+        spreadsheet = sheet.spreadsheet
+        try:
+            ws_busquedas = spreadsheet.worksheet("log_busquedas")
+        except:
+            ws_busquedas = spreadsheet.add_worksheet(title="log_busquedas", rows="1000", cols="3")
+            ws_busquedas.append_row(["Fecha_Hora", "Tipo_Busqueda", "Terminos"])
+        
+        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ws_busquedas.append_row([
+            fecha_actual, 
+            str(tipo_busqueda), 
+            str(terminos_busqueda).strip()
+        ])
+        return True
+    except Exception as e:
+        return False
+
 if not st.session_state.auth:
     col_a, col_b, col_c = st.columns([1, 2, 1])
     with col_b:
@@ -650,59 +693,7 @@ def limpiar_busquedas_alternativas(tab_actual):
         # Aquí no hay problema con None porque 'azar' no está vinculado a un widget input
         st.session_state.azar = None
 
-def registrar_acceso_anonimo():
-    """Registra un evento de inicio de sesión mostrando errores en pantalla."""
-    sheet = conectar_sheets()
-    if not sheet: 
-        st.error("No se pudo obtener la hoja principal")
-        return False
-        
-    try:
-        spreadsheet = sheet.spreadsheet
-        try:
-            # Intentamos abrir la pestaña
-            ws_accesos = spreadsheet.worksheet("log_accesos")
-        except gspread.exceptions.WorksheetNotFound:
-            # Si no existe, la creamos
-            ws_accesos = spreadsheet.add_worksheet(title="log_accesos", rows="1000", cols="1")
-            ws_accesos.append_row(["Fecha_Hora"])
-        
-        # Insertamos el log
-        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ws_accesos.append_row([fecha_actual])
-        return True
-        
-    except Exception as e:
-        # AQUÍ ESTÁ LA CLAVE: Mostramos el error exacto en rojo en la app
-        st.error(f"🚨 Error técnico al guardar el log: {e}")
-        return False
 
-def registrar_busqueda_anonima(tipo_busqueda, terminos_busqueda):
-    """Registra los metadatos de una búsqueda de forma disociada."""
-    # Evitamos registrar strings vacíos o interacciones sin valor
-    if not tipo_busqueda or not str(terminos_busqueda).strip():
-        return False
-        
-    sheet = conectar_sheets()
-    if not sheet: return False
-    try:
-        spreadsheet = sheet.spreadsheet
-        try:
-            ws_busquedas = spreadsheet.worksheet("log_busquedas")
-        except:
-            # Si no existe la pestaña, se crea con sus cabeceras
-            ws_busquedas = spreadsheet.add_worksheet(title="log_busquedas", rows="1000", cols="3")
-            ws_busquedas.append_row(["Fecha_Hora", "Tipo_Busqueda", "Terminos"])
-        
-        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ws_busquedas.append_row([
-            fecha_actual, 
-            str(tipo_busqueda), 
-            str(terminos_busqueda).strip()
-        ])
-        return True
-    except Exception as e:
-        return False
 
 # 4. Mostrar tarjeta
 @st.fragment
