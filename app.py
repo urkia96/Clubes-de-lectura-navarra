@@ -651,24 +651,30 @@ def limpiar_busquedas_alternativas(tab_actual):
         st.session_state.azar = None
 
 def registrar_acceso_anonimo():
-    """Registra un evento de inicio de sesión sin guardar datos personales."""
+    """Registra un evento de inicio de sesión mostrando errores en pantalla."""
     sheet = conectar_sheets()
-    if not sheet: return False
+    if not sheet: 
+        st.error("No se pudo obtener la hoja principal")
+        return False
+        
     try:
         spreadsheet = sheet.spreadsheet
         try:
+            # Intentamos abrir la pestaña
             ws_accesos = spreadsheet.worksheet("log_accesos")
-        except:
-            # Si no existe la pestaña, se crea con sus cabeceras
+        except gspread.exceptions.WorksheetNotFound:
+            # Si no existe, la creamos
             ws_accesos = spreadsheet.add_worksheet(title="log_accesos", rows="1000", cols="1")
             ws_accesos.append_row(["Fecha_Hora"])
         
-        # Insertamos solo la marca de tiempo
+        # Insertamos el log
         fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ws_accesos.append_row([fecha_actual])
         return True
+        
     except Exception as e:
-        # Usamos st.write de forma discreta o fallamos en silencio para no romper la UX
+        # AQUÍ ESTÁ LA CLAVE: Mostramos el error exacto en rojo en la app
+        st.error(f"🚨 Error técnico al guardar el log: {e}")
         return False
 
 def registrar_busqueda_anonima(tipo_busqueda, terminos_busqueda):
